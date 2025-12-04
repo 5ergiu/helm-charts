@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'charts/**'
+      - '!charts/**/*.md'
   workflow_dispatch:
     inputs:
       dry_run:
