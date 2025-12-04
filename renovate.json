@@ -1,0 +1,59 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "docker:pinDigests"
+  ],
+  "enabledManagers": [
+    "custom.regex",
+    "helmv3"
+  ],
+  "separateMinorPatch": true,
+  "prConcurrentLimit": 5,
+  "recreateWhen": "never",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Match Docker images in all charts",
+      "fileMatch": [
+        "/(^|/)charts/.+/values\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "## @param (?<depName>\\S+\\.repository) .+?\\n\\s+repository:\\s*(?<packageName>[^\\s]+)\\n\\s+## @param \\S+\\.tag .+?\\n\\s+tag:\\s*['\"]?(?<currentValue>[^@'\"\\s]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?['\"]?",
+        "(?<depName>image):\\s*\\n(?:[^\\n]*\\n){0,5}?\\s*repository:\\s*(?<packageName>[^\\s]+)\\s*\\n(?:[^\\n]*\\n){0,3}?\\s*tag:\\s*['\"]?(?<currentValue>[^@'\"\\s]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?['\"]?"
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    }
+  ],
+  "packageRules": [
+    {
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchDatasources": [
+        "docker"
+      ],
+      "labels": [
+        "dependencies",
+        "renovate"
+      ],
+      "commitMessageTopic": "{{{depName}}}",
+      "commitMessagePrefix": "[{{{replace 'docker.io/' '' packageName}}}]",
+      "automerge": false,
+      "separateMinorPatch": true,
+      "groupName": "{{packageFile}} {{packageName}}"
+    },
+    {
+      "matchManagers": [
+        "helmv3"
+      ],
+      "labels": [
+        "dependencies",
+        "renovate"
+      ],
+      "automerge": false,
+      "commitMessagePrefix": "[helm]"
+    }
+  ]
+}

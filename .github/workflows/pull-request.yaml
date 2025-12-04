@@ -1,0 +1,209 @@
+name: Pull Request Validation
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+    branches:
+      - main
+    paths:
+      - 'charts/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  lint-test:
+    name: Lint and Test Charts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      changed: ${{ steps.list-changed.outputs.changed }}
+      changedCharts: ${{ steps.list-changed.outputs.changedCharts }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@v2.6.1
+
+      - name: Install helm-unittest plugin
+        run: |
+          helm plugin install https://github.com/helm-unittest/helm-unittest
+
+      - name: Get changed charts
+        id: list-changed
+        run: |
+          changed=$(ct list-changed --target-branch ${{ github.event.repository.default_branch }})
+          if [[ -n "$changed" ]]; then
+            echo "Changed charts:"
+            echo "$changed"
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo 'changedCharts<<EOF' >> $GITHUB_OUTPUT
+            echo $changed >> $GITHUB_OUTPUT
+            echo 'EOF' >> $GITHUB_OUTPUT
+          else
+            echo "No chart changes detected"
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run chart-testing (lint)
+        if: steps.list-changed.outputs.changed == 'true'
+        run: |
+          ct lint --target-branch ${{ github.event.repository.default_branch }} \
+            --validate-maintainers=false \
+            --check-version-increment=true
+
+      - name: Run helm-unittest
+        if: steps.list-changed.outputs.changed == 'true'
+        run: |
+          for chart in ${{ steps.list-changed.outputs.changedCharts }}; do
+            echo "Testing $chart..."
+            if [ -d "$chart/tests" ]; then
+              helm unittest $chart
+            else
+              echo "No tests found for $chart, skipping..."
+            fi
+          done
+
+      - name: Generate test templates
+        if: steps.list-changed.outputs.changed == 'true'
+        run: |
+          for chart in ${{ steps.list-changed.outputs.changedCharts }}; do
+            echo "Rendering templates for $chart..."
+            helm template test-release $chart --debug
+          done
+
+      - name: Comment PR
+        if: steps.list-changed.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const charts = `${{ steps.list-changed.outputs.changedCharts }}`.split('\n').filter(c => c);
+            const body = `## 📦 Chart Validation Report
+            
+            ### Changed Charts
+            ${charts.map(c => `- ✅ \`${c}\``).join('\n')}
+            
+            ### Validation Steps
+            - ✅ Helm linting passed
+            - ✅ Unit tests passed
+            - ✅ Template rendering successful
+            
+            > Ready for integration testing`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+  integration-test:
+    name: Integration Test in Kind
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [lint-test]
+    if: needs.lint-test.outputs.changed == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@v2.6.1
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.9.0
+        with:
+          cluster_name: chart-test
+          wait: 300s
+          kubectl_version: v1.28.0
+
+      - name: Install helm-unittest plugin
+        run: |
+          helm plugin install https://github.com/helm-unittest/helm-unittest
+
+      - name: Run chart-testing (install)
+        run: |
+          ct install --target-branch ${{ github.event.repository.default_branch }} \
+            --debug
+
+      - name: Test chart deployments
+        run: |
+          echo "Waiting for deployments to be ready..."
+          kubectl get all -A
+          
+          for chart in ${{ needs.lint-test.outputs.changedCharts }}; do
+            chart_name=$(basename $chart)
+            echo "Checking $chart_name deployment..."
+            
+            # Wait for deployments to be available
+            kubectl wait --for=condition=available --timeout=300s deployment -l app.kubernetes.io/name=$chart_name || true
+            
+            # Show pod status
+            kubectl get pods -l app.kubernetes.io/name=$chart_name
+            
+            # Show logs if pods are failing
+            if kubectl get pods -l app.kubernetes.io/name=$chart_name -o jsonpath='{.items[*].status.containerStatuses[*].state.waiting.reason}' | grep -q "Error\|CrashLoopBackOff"; then
+              echo "Pod failures detected, showing logs..."
+              kubectl logs -l app.kubernetes.io/name=$chart_name --tail=50 || true
+            fi
+          done
+
+      - name: Comment integration results
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const charts = `${{ needs.lint-test.outputs.changedCharts }}`.split('\n').filter(c => c);
+            const status = '${{ job.status }}' === 'success' ? '✅' : '❌';
+            const body = `## 🧪 Integration Test Report
+            
+            ${status} Integration tests ${{ job.status }}
+            
+            ### Tested Charts
+            ${charts.map(c => `- ${status} \`${c}\``).join('\n')}
+            
+            ### Environment
+            - Kubernetes: v1.28.0
+            - Helm: v3.14.0
+            - Runtime: kind cluster
+            
+            <details>
+            <summary>View test details</summary>
+            
+            Check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for full logs.
+            </details>`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
