@@ -21,3 +21,9 @@ icon: https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2
 annotations:
   category: Web Applications
   licenses: Apache-2.0
+  artifacthub.io/changes: |2
+        - kind: changed
+          description: "feat(laravel): add initial Laravel Helm chart"
+          links:
+            - name: "Commit 3b5fd71"
+              url: "https://github.com/5ergiu/helm-charts/commit/3b5fd71"
