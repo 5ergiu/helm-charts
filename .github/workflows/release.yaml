@@ -126,7 +126,7 @@ jobs:
         id: upload
         if: ${{ steps.chart-releaser.outputs.changed_charts || github.event.inputs.chart != '' }}
         env:
-          COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
+          COSIGN_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
         run: |
           set -euo pipefail
@@ -196,7 +196,7 @@ jobs:
                 echo "✓ Successfully pushed to GHCR (digest: $GHCR_DIGEST)"
                 
                 # Sign with Cosign if key is available
-                if [ -n "${{ secrets.COSIGN_KEY || '' }}" ]; then
+                if [ -n "${{ secrets.COSIGN_PRIVATE_KEY || '' }}" ]; then
                   echo "Signing chart with Cosign..."
                   cosign sign -y --upload=true --key env://COSIGN_KEY \
                     ghcr.io/${{ steps.repo-owner.outputs.lowercase }}/helm-charts/${CHART_NAME}:${CHART_VERSION}@$GHCR_DIGEST || \
@@ -220,7 +220,7 @@ jobs:
             #   echo "Pushing to secondary registry..."
             #   if retry helm push ${{ github.workspace }}/.cr-release-packages/${CHART_NAME}-${CHART_VERSION}.tgz oci://${{ vars.SECONDARY_REGISTRY }}/charts 2>&1 | tee ${CHART_NAME}-secondary-output.log; then
             #     SECONDARY_DIGEST=$(grep -oP 'Digest:\s*\K(sha256:[a-f0-9]+)' ${CHART_NAME}-secondary-output.log || echo "")
-            #     if [ -n "$SECONDARY_DIGEST" ] && [ -n "${{ secrets.COSIGN_KEY || '' }}" ]; then
+            #     if [ -n "$SECONDARY_DIGEST" ] && [ -n "${{ secrets.COSIGN_PRIVATE_KEY || '' }}" ]; then
             #       cosign sign -y --upload=true --key env://COSIGN_KEY \
             #         ${{ vars.SECONDARY_REGISTRY }}/charts/${CHART_NAME}:${CHART_VERSION}@$SECONDARY_DIGEST || \
             #         echo "⚠️  Warning: Failed to sign secondary chart (non-fatal)"
