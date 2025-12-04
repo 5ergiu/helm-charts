@@ -18,18 +18,12 @@ You can use this Helm chart **without depending on the entire infrastructure pro
 Install directly from the Git repository URL:
 
 ```bash
-# Install directly from Git repository
+# Install directly from GitHub Container Registry
 helm install my-laravel-app \
-  oci://ghcr.io/yourorg/charts/laravel \
-  --version 1.0.0 \
+  oci://ghcr.io/5ergiu/helm-charts/laravel \
+  --version 0.1.0 \
   --namespace production \
   --create-namespace \
-  --values values/production.yaml
-
-# Or from GitHub using git protocol
-helm install my-laravel-app \
-  git+https://github.com/yourorg/infrastructure@charts/laravel?ref=main \
-  --namespace production \
   --values values/production.yaml
 ```
 
@@ -42,7 +36,7 @@ Add the chart as a submodule in your Laravel application:
 cd your-laravel-app/
 
 # Add chart as submodule
-git submodule add <INFRASTRUCTURE_REPO_URL> helm-chart
+git submodule add https://github.com/5ergiu/helm-charts.git helm-chart
 
 # Use specific chart directory
 helm install my-app ./helm-chart/charts/laravel \
@@ -60,43 +54,30 @@ Package the chart and host it in an OCI registry (GitHub, GitLab, Harbor, etc.):
 ```bash
 # Package the chart
 helm package ./charts/laravel
-# Creates: laravel-1.0.0.tgz
+# Creates: laravel-0.1.0.tgz
 
 # Push to OCI registry (GitHub Container Registry example)
 helm registry login ghcr.io -u <username>
-helm push laravel-1.0.0.tgz oci://ghcr.io/yourorg/charts
+helm push laravel-0.1.0.tgz oci://ghcr.io/5ergiu/helm-charts
 
 # Install from registry
 helm install my-laravel-app \
-  oci://ghcr.io/yourorg/charts/laravel \
-  --version 1.0.0 \
+  oci://ghcr.io/5ergiu/helm-charts/laravel \
+  --version 0.1.0 \
   --namespace production \
   --values values/production.yaml
 ```
 
-### Method 4: Helm Repository (Traditional)
-
-Host charts in a traditional Helm repository:
-
-```bash
-# Add Helm repository
-helm repo add infrastructure https://charts.yourorg.com
-helm repo update
-
-# Install from repository
-helm install my-laravel-app infrastructure/laravel \
-  --version 1.0.0 \
-  --namespace production \
-  --values values/production.yaml
-```
-
-### Method 5: Local Copy (Simple)
+### Method 4: Local Copy (Simple)
 
 Copy the chart directory to your project:
 
 ```bash
+# Clone the repository
+git clone https://github.com/5ergiu/helm-charts.git
+
 # Copy chart to your Laravel app
-cp -r /path/to/infrastructure/charts/laravel your-laravel-app/helm/
+cp -r helm-charts/charts/laravel your-laravel-app/helm/
 
 # Use it
 helm install my-app ./charts/laravel \

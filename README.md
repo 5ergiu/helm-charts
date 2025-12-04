@@ -36,12 +36,10 @@ A comprehensive Helm chart for deploying Laravel applications on Kubernetes with
 
 #### From OCI Registry (GitHub Container Registry)
 
-#### From OCI Registry (GitHub Container Registry)
-
 ```bash
 # Install from GitHub Container Registry
 helm install my-app oci://ghcr.io/5ergiu/helm-charts/laravel \
-  --version 1.0.0 \
+  --version 0.1.0 \
   --namespace production \
   --create-namespace \
   --values values.yaml
@@ -55,11 +53,6 @@ cd helm-charts
 
 # Install chart
 helm install my-app ./charts/laravel \
-  --namespace production \
-  --values values.yaml
-```
-
-#### As Git Submodulem install my-app ./helm-chart/charts/laravel \
   --namespace production \
   --values values.yaml
 ```
@@ -106,15 +99,7 @@ All charts in this repository provide:
 
 ## 🧪 Testing Charts
 
-## 🧪 Testing Charts
-
 **See [TESTING.md](./TESTING.md) for detailed testing documentation.**
-
-### Quick Start scripts/test.sh laravel
-
-# Test without Kind cluster (unit tests only)
-./scripts/test.sh laravel --no-kind
-```
 
 ### Quick Start
 
@@ -154,11 +139,10 @@ This repository encourages signed commits for security and authenticity. See [CO
 
 Charts can be cryptographically signed using [Cosign](https://docs.sigstore.dev/cosign/) for supply chain security. See [COSIGN.md](./COSIGN.md) for details on verification.
 
-Charts can be cryptographically signed using [Cosign](https://docs.sigstore.dev/cosign/) for supply chain security. See [COSIGN.md](./COSIGN.md) for details on verification.
-
 ## 📚 Repository Structure
 
-``` charts/                    # Helm charts
+``` 
+├── charts/                    # Helm charts
 │   └── laravel/              # Laravel application chart
 │       ├── Chart.yaml        # Chart metadata
 │       ├── values.yaml       # Default configuration
@@ -195,7 +179,8 @@ Charts can be cryptographically signed using [Cosign](https://docs.sigstore.dev/
 |   ├── test.sh               # Chart testing suite
 │   └── update-appversion.sh  # AppVersion updater
 ├── .github/                   # GitHub Actions
-│   └── workflows/e.yaml      # Automated chart publishing
+│   └── workflows/
+│       ├── release.yaml      # Automated chart publishing
 │       ├── pull-request.yaml # PR validation & testing
 │       ├── check-signed-commits.yaml
 │       └── stale.yaml
@@ -237,15 +222,6 @@ This project follows best practices inspired by:
 - [Bitnami Charts](https://github.com/bitnami/charts)
 - [Artifact Hub](https://artifacthub.io/)
 
-## ⭐ Star History
-
-If you find this project useful, please consider giving it a star on GitHub!
-
-2. **Clone** your fork locally
-3. **Create** a feature branch
-4. **Make** your changes
-5. **Test** your changes: `./scripts/test.sh`
-6. **Commit** with clear messages
 ## ⭐ Star History
 
 If you find this project useful, please consider giving it a star on GitHub!

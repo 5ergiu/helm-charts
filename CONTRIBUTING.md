@@ -58,8 +58,8 @@ Enhancement suggestions are tracked as GitHub issues. Include:
 
 2. Clone your fork locally:
    ```bash
-   git clone https://github.com/your-username/infrastructure.git
-   cd infrastructure
+   git clone https://github.com/your-username/helm-charts.git
+   cd helm-charts
    ```
 
 3. Install the helm-unittest plugin:

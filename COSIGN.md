@@ -100,7 +100,7 @@ winget install sigstore.cosign
 curl -o cosign.pub https://raw.githubusercontent.com/5ergiu/helm-charts/main/cosign.pub
 
 # Verify chart
-cosign verify --key cosign.pub oci://ghcr.io/5ergiu/helm-charts/laravel:1.0.0
+cosign verify --key cosign.pub oci://ghcr.io/5ergiu/helm-charts/laravel:0.1.0
 ```
 
 #### For Local Chart Files
@@ -113,7 +113,7 @@ cosign verify-blob --key cosign.pub --signature laravel-1.0.0.tgz.sig laravel-1.
 ### Successful Verification Output
 
 ```
-Verification for ghcr.io/5ergiu/helm-charts/laravel:1.0.0 --
+Verification for ghcr.io/5ergiu/helm-charts/laravel:0.1.0 --
 The following checks were performed on each of these signatures:
   - The cosign claims were validated
   - Existence of the claims in the transparency log was verified offline
@@ -128,10 +128,10 @@ Always verify chart signatures before installation:
 
 ```bash
 # 1. Verify the signature
-cosign verify --key cosign.pub oci://ghcr.io/5ergiu/helm-charts/laravel:1.0.0
+cosign verify --key cosign.pub oci://ghcr.io/5ergiu/helm-charts/laravel:0.1.0
 
 # 2. Only install after successful verification
-helm install my-release oci://ghcr.io/5ergiu/helm-charts/laravel --version 1.0.0
+helm install my-release oci://ghcr.io/5ergiu/helm-charts/laravel --version 0.1.0
 ```
 
 ### Automated Verification Script
@@ -156,7 +156,7 @@ helm install "${RELEASE_NAME}" "${CHART_URL}" --version "${VERSION}"
 Usage:
 ```bash
 chmod +x verify-and-install.sh
-./verify-and-install.sh oci://ghcr.io/5ergiu/helm-charts/laravel 1.0.0 my-release
+./verify-and-install.sh oci://ghcr.io/5ergiu/helm-charts/laravel 0.1.0 my-release
 ```
 
 ## Security Best Practices
