@@ -64,11 +64,11 @@ check_dependencies() {
         for dep in "${missing_deps[@]}"; do
             case $dep in
                 yq)
-                    echo "  ${CYAN}brew install yq${RESET}"
+                    echo -e "  ${CYAN}brew install yq${RESET}"
                     echo "  Or visit: https://github.com/mikefarah/yq"
                     ;;
                 git)
-                    echo "  ${CYAN}brew install git${RESET}"
+                    echo -e "  ${CYAN}brew install git${RESET}"
                     ;;
             esac
         done

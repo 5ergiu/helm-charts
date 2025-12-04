@@ -1,0 +1,52 @@
+suite: test cronjob scheduler
+templates:
+  - cronjob.yaml
+tests:
+  - it: should create scheduler cronjob by default
+    asserts:
+      - isKind:
+          of: CronJob
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-laravel-scheduler
+      - equal:
+          path: spec.schedule
+          value: "* * * * *"
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].command
+          value: ["php", "artisan", "schedule:run"]
+
+  - it: should disable scheduler
+    set:
+      scheduler.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should set custom schedule
+    set:
+      scheduler.schedule: "*/5 * * * *"
+    asserts:
+      - equal:
+          path: spec.schedule
+          value: "*/5 * * * *"
+
+  - it: should have security context
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.securityContext.runAsUser
+          value: 1000
+
+  - it: should mount storage when enabled
+    set:
+      storage.enabled: true
+    asserts:
+      - contains:
+          path: spec.jobTemplate.spec.template.spec.volumes
+          content:
+            name: storage
+            persistentVolumeClaim:
+              claimName: RELEASE-NAME-laravel-storage

@@ -1,0 +1,68 @@
+suite: test worker deployment
+templates:
+  - worker-deployment.yaml
+tests:
+  - it: should create a worker deployment with default values
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-laravel-worker
+      - equal:
+          path: spec.replicas
+          value: 1
+      - equal:
+          path: spec.template.spec.containers[0].command[0]
+          value: "php"
+      - equal:
+          path: spec.template.spec.containers[0].command[1]
+          value: "artisan"
+      - equal:
+          path: spec.template.spec.containers[0].command[2]
+          value: "horizon"
+
+  - it: should scale workers independently
+    set:
+      worker.replicas: 5
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 5
+
+  - it: should use custom horizon command
+    set:
+      worker.command: ["php", "artisan", "queue:work"]
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].command
+          value: ["php", "artisan", "queue:work"]
+
+  - it: should disable worker deployment
+    set:
+      worker.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should mount storage volumes when enabled
+    set:
+      storage.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: storage
+            persistentVolumeClaim:
+              claimName: RELEASE-NAME-laravel-storage
+
+  - it: should have readOnlyRootFilesystem security
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: tmp
+            emptyDir: {}

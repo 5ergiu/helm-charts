@@ -1,0 +1,81 @@
+{{- if .Values.migration.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "laravel.fullname" . }}-migration-{{ .Release.Revision }}
+  labels:
+    {{- include "laravel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migration
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: {{ .Values.migration.backoffLimit }}
+  {{- if .Values.migration.ttlSecondsAfterFinished }}
+  ttlSecondsAfterFinished: {{ .Values.migration.ttlSecondsAfterFinished }}
+  {{- end }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.migration.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "laravel.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migration
+        {{- with .Values.migration.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "laravel.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.migration.podSecurityContext | nindent 8 }}
+      restartPolicy: Never
+      containers:
+        - name: migration
+          securityContext:
+            {{- toYaml .Values.migration.securityContext | nindent 12 }}
+          image: {{ include "laravel.image" . }}
+          imagePullPolicy: {{ include "laravel.imagePullPolicy" . }}
+          command:
+            {{- toYaml .Values.migration.command | nindent 12 }}
+          envFrom:
+            {{- include "laravel.envConfigMap" . | nindent 12 }}
+            {{- include "laravel.envSecret" . | nindent 12 }}
+          {{- with .Values.extraEnvFrom }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.extraEnv }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.migration.resources | nindent 12 }}
+          {{- if or .Values.tmpfsVolumes.enabled .Values.persistence.enabled .Values.extraVolumeMounts }}
+          volumeMounts:
+            {{- include "laravel.volumeMounts" . | nindent 12 }}
+          {{- end }}
+      {{- if or .Values.tmpfsVolumes.enabled .Values.persistence.enabled .Values.extraVolumes }}
+      volumes:
+        {{- include "laravel.volumes" . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.migration.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.migration.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.migration.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

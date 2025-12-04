@@ -1,0 +1,323 @@
+{
+    "$schema": "https://json-schema.org/draft-07/schema#",
+    "title": "Laravel Helm Chart Values",
+    "description": "Schema for validating Laravel Helm chart values.yaml",
+    "type": "object",
+    "properties": {
+        "global": {
+            "type": "object",
+            "properties": {
+                "environment": {
+                    "type": "string",
+                    "description": "Global environment name",
+                    "enum": ["development", "staging", "production"]
+                }
+            }
+        },
+        "image": {
+            "type": "object",
+            "required": ["repository"],
+            "properties": {
+                "repository": {
+                    "type": "string",
+                    "description": "Container image repository",
+                    "minLength": 1
+                },
+                "pullPolicy": {
+                    "type": "string",
+                    "description": "Image pull policy",
+                    "enum": ["Always", "IfNotPresent", "Never"],
+                    "default": "IfNotPresent"
+                },
+                "tag": {
+                    "type": "string",
+                    "description": "Image tag (overrides Chart.appVersion)",
+                    "default": ""
+                }
+            }
+        },
+        "imagePullSecrets": {
+            "type": "array",
+            "description": "Image pull secrets for private registries",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "nameOverride": {
+            "type": "string",
+            "description": "Override the chart name"
+        },
+        "fullnameOverride": {
+            "type": "string",
+            "description": "Override the full name"
+        },
+        "serviceAccount": {
+            "type": "object",
+            "properties": {
+                "create": {
+                    "type": "boolean",
+                    "description": "Create service account",
+                    "default": true
+                },
+                "annotations": {
+                    "type": "object",
+                    "description": "Service account annotations"
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Service account name (generated if empty)"
+                }
+            }
+        },
+        "web": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable web deployment",
+                    "default": true
+                },
+                "replicaCount": {
+                    "type": "integer",
+                    "description": "Number of web replicas",
+                    "minimum": 1,
+                    "default": 2
+                },
+                "resources": {
+                    "$ref": "#/definitions/resources"
+                },
+                "autoscaling": {
+                    "$ref": "#/definitions/autoscaling"
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
+                            "default": "ClusterIP"
+                        },
+                        "port": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535,
+                            "default": 80
+                        }
+                    }
+                }
+            }
+        },
+        "worker": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable queue workers",
+                    "default": true
+                },
+                "replicaCount": {
+                    "type": "integer",
+                    "description": "Number of worker replicas",
+                    "minimum": 1,
+                    "default": 2
+                },
+                "resources": {
+                    "$ref": "#/definitions/resources"
+                },
+                "autoscaling": {
+                    "$ref": "#/definitions/autoscaling"
+                }
+            }
+        },
+        "scheduler": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable Laravel scheduler",
+                    "default": true
+                },
+                "schedule": {
+                    "type": "string",
+                    "description": "Cron schedule expression",
+                    "pattern": "^(\\*|([0-9]|1[0-9]|2[0-9]|3[0-9]|4[0-9]|5[0-9])|\\*/[0-9]+) (\\*|([0-9]|1[0-9]|2[0-3])|\\*/[0-9]+) (\\*|([1-9]|1[0-9]|2[0-9]|3[0-1])|\\*/[0-9]+) (\\*|([1-9]|1[0-2])|\\*/[0-9]+) (\\*|([0-6])|\\*/[0-9]+)$",
+                    "default": "* * * * *"
+                }
+            }
+        },
+        "migration": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable database migrations",
+                    "default": true
+                }
+            }
+        },
+        "ingress": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable ingress",
+                    "default": false
+                },
+                "className": {
+                    "type": "string",
+                    "description": "Ingress class name"
+                },
+                "hosts": {
+                    "type": "array",
+                    "description": "Ingress hosts",
+                    "items": {
+                        "type": "object",
+                        "required": ["host"],
+                        "properties": {
+                            "host": {
+                                "type": "string",
+                                "description": "Hostname"
+                            },
+                            "paths": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "path": {
+                                            "type": "string"
+                                        },
+                                        "pathType": {
+                                            "type": "string",
+                                            "enum": ["Prefix", "Exact", "ImplementationSpecific"]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "tls": {
+                    "type": "array",
+                    "description": "TLS configuration",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "secretName": {
+                                "type": "string"
+                            },
+                            "hosts": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "persistence": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable persistent storage",
+                    "default": false
+                },
+                "storageClass": {
+                    "type": "string",
+                    "description": "Storage class name"
+                },
+                "accessMode": {
+                    "type": "string",
+                    "enum": ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany"],
+                    "default": "ReadWriteOnce"
+                },
+                "size": {
+                    "type": "string",
+                    "description": "Storage size",
+                    "pattern": "^[0-9]+(Ei|Pi|Ti|Gi|Mi|Ki)$",
+                    "default": "10Gi"
+                }
+            }
+        },
+        "env": {
+            "type": "object",
+            "description": "Environment variables"
+        },
+        "envFrom": {
+            "type": "array",
+            "description": "Environment from ConfigMaps/Secrets",
+            "items": {
+                "type": "object"
+            }
+        }
+    },
+    "definitions": {
+        "resources": {
+            "type": "object",
+            "properties": {
+                "limits": {
+                    "type": "object",
+                    "properties": {
+                        "cpu": {
+                            "type": "string",
+                            "pattern": "^[0-9]+(m|[0-9])$"
+                        },
+                        "memory": {
+                            "type": "string",
+                            "pattern": "^[0-9]+(Ei|Pi|Ti|Gi|Mi|Ki)$"
+                        }
+                    }
+                },
+                "requests": {
+                    "type": "object",
+                    "properties": {
+                        "cpu": {
+                            "type": "string",
+                            "pattern": "^[0-9]+(m|[0-9])$"
+                        },
+                        "memory": {
+                            "type": "string",
+                            "pattern": "^[0-9]+(Ei|Pi|Ti|Gi|Mi|Ki)$"
+                        }
+                    }
+                }
+            }
+        },
+        "autoscaling": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "minReplicas": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 1
+                },
+                "maxReplicas": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 10
+                },
+                "targetCPUUtilizationPercentage": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                },
+                "targetMemoryUtilizationPercentage": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                }
+            }
+        }
+    }
+}

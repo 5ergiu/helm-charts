@@ -1,0 +1,261 @@
+# Laravel Application - Local Development Configuration
+# This is an example configuration for deploying a Laravel application
+# at http://laravel.local in your local Kubernetes environment
+
+# IMPORTANT: For local development with persistent volumes, set user/group IDs
+# to match your host user to avoid permission issues with mounted volumes.
+# 
+# Run these commands to get your IDs:
+#   User ID:  id -u
+#   Group ID: id -g
+#
+# Then uncomment and update the podSecurityContext sections below for web and worker.
+# Common values: macOS (501:20), Linux (1000:1000)
+
+# Image configuration
+image:
+  repository: your-registry/laravel
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+# Web application configuration
+web:
+  enabled: true
+  replicaCount: 1  # Single replica for local development
+  
+  # Uncomment and set to your host user IDs (run: id -u && id -g)
+  # podSecurityContext:
+  #   runAsNonRoot: true
+  #   runAsUser: 501   # Replace with: id -u
+  #   fsGroup: 20      # Replace with: id -g
+  #   seccompProfile:
+  #     type: RuntimeDefault
+  
+  podAnnotations: {}
+  
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8080
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  
+  # Simplified probes for local development
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /ready
+      port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  
+  startupProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    failureThreshold: 30
+  
+  # Disable autoscaling for local development
+  autoscaling:
+    enabled: false
+  
+  # Disable PDB for local development
+  pdb:
+    enabled: false
+
+# Worker configuration
+worker:
+  enabled: true
+  replicaCount: 1  # Single worker for local development
+  
+  # Uncomment and set to your host user IDs (run: id -u && id -g)
+  # podSecurityContext:
+  #   runAsNonRoot: true
+  #   runAsUser: 501   # Replace with: id -u
+  #   fsGroup: 20      # Replace with: id -g
+  #   seccompProfile:
+  #     type: RuntimeDefault
+  
+  # Use Laravel Horizon for queue management (recommended)
+  command: ["php", "artisan", "horizon"]
+  args: []  # Horizon uses config/horizon.php for configuration
+  
+  resources:
+    limits:
+      cpu: 300m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  
+  # Disable autoscaling for local development
+  autoscaling:
+    enabled: false
+  
+  # Disable PDB for local development
+  pdb:
+    enabled: false
+
+# Scheduler configuration
+scheduler:
+  enabled: true
+  schedule: "* * * * *"
+  
+  # Uncomment and set to your host user ID if needed (run: id -u)
+  # Note: scheduler is a short-lived job, fsGroup not needed
+  # podSecurityContext:
+  #   runAsNonRoot: true
+  #   runAsUser: 501   # Replace with: id -u
+  
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+# Ingress configuration for local access
+ingress:
+  enabled: true
+  className: traefik
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+  hosts:
+    - host: laravel.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []  # No TLS for local development
+
+# Traefik Middleware configuration
+middleware:
+  enabled: true
+  
+  # Rate limiting - relaxed for local development
+  rateLimit:
+    enabled: true
+    average: 1000
+    burst: 2000
+    period: 1s
+  
+  # Security headers
+  headers:
+    enabled: true
+    browserXssFilter: true
+    contentTypeNosniff: true
+    forceSTSHeader: false  # Disabled for local development
+    customFrameOptionsValue: "SAMEORIGIN"
+  
+  # Response compression
+  compress:
+    enabled: true
+  
+  # IP whitelist - disabled for local
+  ipWhiteList:
+    enabled: false
+  
+  # No HTTPS redirect for local
+  redirectScheme:
+    enabled: false
+
+# Laravel application configuration
+laravel:
+  env:
+    APP_NAME: "Laravel Application"
+    APP_ENV: "local"
+    APP_DEBUG: "true"
+    APP_URL: "http://laravel.local"
+    
+    LOG_CHANNEL: "stderr"
+    LOG_LEVEL: "debug"
+    
+    # Database configuration - using local MariaDB
+    DB_CONNECTION: "mysql"
+    DB_HOST: "mariadb.default.svc.cluster.local"
+    DB_PORT: "3306"
+    DB_DATABASE: "laravel"
+    
+    # Cache and session configuration - using local Redis
+    BROADCAST_DRIVER: "redis"
+    CACHE_DRIVER: "redis"
+    FILESYSTEM_DISK: "local"
+    QUEUE_CONNECTION: "redis"
+    SESSION_DRIVER: "redis"
+    SESSION_LIFETIME: "120"
+    
+    REDIS_HOST: "redis-master.default.svc.cluster.local"
+    REDIS_PORT: "6379"
+    
+    # Mail configuration
+    MAIL_MAILER: "smtp"
+    MAIL_HOST: "mailpit.default.svc.cluster.local"
+    MAIL_PORT: "1025"
+    MAIL_ENCRYPTION: "null"
+    MAIL_FROM_ADDRESS: "noreply@laravel.local"
+    MAIL_FROM_NAME: "Laravel Application"
+    
+    VITE_APP_NAME: "Laravel Application"
+
+  # Secrets - for local development only
+  # In production, use proper secret management!
+  secrets:
+    APP_KEY: "base64:your-generated-app-key-here-change-me"
+    DB_USERNAME: "laravel"
+    DB_PASSWORD: "laravel-password"
+    REDIS_PASSWORD: ""
+
+# Persistence configuration
+persistence:
+  enabled: true
+  storageClass: ""  # Use default storage class
+  accessMode: ReadWriteOnce
+  size: 5Gi  # Smaller size for local development
+  mounts:
+    - name: storage
+      mountPath: /var/www/html/storage/app
+      subPath: app
+    - name: storage
+      mountPath: /var/www/html/storage/logs
+      subPath: logs
+
+# Init containers - all enabled for proper setup
+initContainers:
+  cacheConfig:
+    enabled: true
+    command: ["php", "artisan", "config:cache"]
+  cacheRoute:
+    enabled: true
+    command: ["php", "artisan", "route:cache"]
+  cacheView:
+    enabled: true
+    command: ["php", "artisan", "view:cache"]
+  storageLink:
+    enabled: true
+    command: ["php", "artisan", "storage:link"]
+
+# Additional environment variables specific to Laravel
+extraEnv:
+  - name: TENANT_MODE
+    value: "single"
+  - name: MAX_UPLOAD_SIZE
+    value: "10M"
+  - name: DEFAULT_TIMEZONE
+    value: "UTC"

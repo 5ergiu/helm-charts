@@ -161,7 +161,97 @@ We follow [Semantic Versioning](https://semver.org/) for chart versions:
 - **MINOR**: New functionality in a backwards compatible manner
 - **PATCH**: Backwards compatible bug fixes
 
+**Pre-1.0 versions** (0.x.x): Indicate charts are in development and may have breaking changes.
+
 **Important**: Always bump the chart version in `Chart.yaml` when making changes.
+
+### Multi-Chart Repository Workflow
+
+This repository hosts multiple Helm charts. Each chart has **independent versioning** and releases:
+
+#### Working on a Specific Chart
+
+When modifying an existing chart:
+
+```bash
+# 1. Create a feature branch
+git checkout -b feat/laravel-redis-support
+
+# 2. Make changes only to that chart
+vim charts/laravel/values.yaml
+vim charts/laravel/templates/configmap.yaml
+
+# 3. Bump the chart version in Chart.yaml
+# 0.1.0 -> 0.2.0 (new feature)
+vim charts/laravel/Chart.yaml
+
+# 4. Commit with chart-specific prefix
+git add charts/laravel/
+git commit -m "feat(laravel): add Redis configuration support"
+
+# 5. Tag the chart release
+git tag -a laravel-0.2.0 -m "Add Redis configuration support"
+
+# 6. Generate changelog
+./scripts/generate-changelog.sh --chart laravel
+
+# 7. Commit the changelog
+git add charts/laravel/
+git commit -m "docs(laravel): add changelog for v0.2.0"
+
+# 8. Push commits and tag
+git push origin feat/laravel-redis-support
+git push origin laravel-0.2.0
+```
+
+#### Adding a New Chart
+
+When adding a new chart:
+
+```bash
+# 1. Create chart structure
+mkdir -p charts/nginx
+# ... add chart files ...
+
+# 2. Start with version 0.1.0 in Chart.yaml
+
+# 3. Commit the new chart
+git add charts/nginx/
+git commit -m "feat(nginx): add initial Nginx Helm chart"
+
+# 4. Tag the initial release
+git tag -a nginx-0.1.0 -m "Initial release of Nginx Helm chart"
+
+# 5. Generate changelog
+./scripts/generate-changelog.sh --chart nginx
+
+# 6. Commit the changelog
+git add charts/nginx/
+git commit -m "docs(nginx): add changelog for v0.1.0"
+```
+
+#### Infrastructure Changes
+
+For changes to repository infrastructure (workflows, scripts, docs):
+
+```bash
+# Commit without chart prefix
+git add .github/ scripts/ README.md
+git commit -m "chore: update CI/CD workflow for chart signing"
+
+# NO TAG - infrastructure changes don't trigger chart releases
+git push origin main
+```
+
+#### Commit Message Convention
+
+Follow this pattern for clarity:
+
+- `feat(chart-name): description` - New features
+- `fix(chart-name): description` - Bug fixes
+- `docs(chart-name): description` - Documentation changes
+- `test(chart-name): description` - Test updates
+- `chore: description` - Infrastructure/tooling changes (no chart prefix)
 
 ## Testing
 
