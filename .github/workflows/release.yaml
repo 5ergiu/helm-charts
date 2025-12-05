@@ -1,4 +1,4 @@
-name: Release Charts
+name: 📦 Release Charts
 
 on:
   push:
@@ -14,7 +14,7 @@ on:
         type: boolean
         default: false
       chart:
-        description: 'Specific chart to release (optional, e.g. "charts/laravel")'
+        description: 'Specific chart to release (optional, e.g. "charts/my-chart")'
         required: false
         type: string
 
@@ -31,33 +31,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: 📥 Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 0
 
-      - name: Configure Git
+      - name: 🔧 Configure Git
         run: |
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: 'v3.14.0'
-
-      - name: Install yq
-        run: |
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
-        with:
-          cosign-release: 'v2.2.3'
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
+      - name: 🔐 Login to GHCR
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -72,7 +57,7 @@ jobs:
       #     username: ${{ secrets.REGISTRY_USER }}
       #     password: ${{ secrets.REGISTRY_PASSWORD }}
 
-      - name: Update chart dependencies
+      - name: 📦 Update chart dependencies
         run: |
           set -euo pipefail
           echo "Updating dependencies for all charts..."
@@ -88,15 +73,15 @@ jobs:
             fi
           done
 
-      - name: Run chart-releaser
+      - name: 🚀 Run chart-releaser
         id: chart-releaser
-        uses: helm/chart-releaser-action@v1.6.0
+        uses: helm/chart-releaser-action@cae68fefc6b5f367a0275617c9f83181ba54714f # v1.7.0
         with:
           skip_existing: true
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
-      - name: Package manually specified chart
+      - name: 📦 Package manually specified chart
         if: ${{ github.event.inputs.chart != '' }}
         run: |
           set -euo pipefail
@@ -117,12 +102,19 @@ jobs:
           mkdir -p .cr-release-packages
           helm package "$CHART_DIR" --destination .cr-release-packages
 
-      - name: Get repository owner in lowercase
+          echo "Packaged charts:"
+          ls -lh .cr-release-packages/
+
+      - name: 🔐 Install Cosign
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+        if: ${{ steps.chart-releaser.outputs.changed_charts || github.event.inputs.chart != '' }}
+
+      - name: 📝 Get repository owner in lowercase
         id: repo-owner
         run: |
           echo "lowercase=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
-      - name: Upload charts to OCI registries
+      - name: 📤 Upload charts to OCI registries
         id: upload
         if: ${{ steps.chart-releaser.outputs.changed_charts || github.event.inputs.chart != '' }}
         env:

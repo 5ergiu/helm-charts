@@ -1,6 +1,5 @@
-# Laravel Application - Local Development Configuration
-# This is an example configuration for deploying a Laravel application
-# at http://laravel.local in your local Kubernetes environment
+# Example values for Next.js Helm chart Laravel Helm
+# Copy this to values.yaml and customize for your deployment
 
 # IMPORTANT: For local development with persistent volumes, set user/group IDs
 # to match your host user to avoid permission issues with mounted volumes.
@@ -12,11 +11,17 @@
 # Then uncomment and update the podSecurityContext sections below for web and worker.
 # Common values: macOS (501:20), Linux (1000:1000)
 
-# Image configuration
+global:
+  environment: production
+
 image:
   repository: your-registry/laravel
   pullPolicy: IfNotPresent
   tag: "latest"
+
+# For private registries
+imagePullSecrets:
+  - name: ghcr-secret
 
 # Web application configuration
 web:

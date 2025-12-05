@@ -17,7 +17,7 @@ home: https://github.com/5ergiu/helm-charts
 sources:
   - https://github.com/5ergiu/helm-charts
   - https://github.com/laravel/laravel
-icon: https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg
+icon: https://cdn.brandfetch.io/ide68-31CH/w/346/h/346/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761211589926
 annotations:
   category: Web Applications
   licenses: Apache-2.0

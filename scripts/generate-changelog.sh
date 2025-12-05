@@ -10,10 +10,10 @@
 #   ./scripts/generate-changelog.sh [OPTIONS]
 #
 # Examples:
-#   ./scripts/generate-changelog.sh --chart laravel
+#   ./scripts/generate-changelog.sh --chart my-chart
 #   ./scripts/generate-changelog.sh --chart nginx --chart redis
 #   ./scripts/generate-changelog.sh --all
-#   ./scripts/generate-changelog.sh --chart laravel --pr-title "Fix bug" --pr-number 123 --pr-url "https://github.com/org/repo/pull/123"
+#   ./scripts/generate-changelog.sh --chart my-chart --pr-title "Fix bug" --pr-number 123 --pr-url "https://github.com/org/repo/pull/123"
 # ============================================================================
 
 set -euo pipefail
@@ -420,9 +420,9 @@ usage() {
     echo "  --help, -h             Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0 --chart laravel"
+    echo "  $0 --chart my-chart"
     echo "  $0 --chart nginx --chart redis"
-    echo "  $0 --chart laravel --pr-title 'Fix bug' --pr-number 123 --pr-url 'https://github.com/org/repo/pull/123'"
+    echo "  $0 --chart my-chart --pr-title 'Fix bug' --pr-number 123 --pr-url 'https://github.com/org/repo/pull/123'"
     echo "  $0 --all"
     exit 0
 }

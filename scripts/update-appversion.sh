@@ -10,7 +10,7 @@
 #   ./scripts/update-appversion.sh [OPTIONS]
 #
 # Examples:
-#   ./scripts/update-appversion.sh --chart laravel
+#   ./scripts/update-appversion.sh --chart my-chart
 #   ./scripts/update-appversion.sh --chart nginx --chart redis
 #   ./scripts/update-appversion.sh --all
 # ============================================================================
@@ -330,7 +330,7 @@ usage() {
     echo "  --help, -h             Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0 --chart laravel"
+    echo "  $0 --chart my-chart"
     echo "  $0 --chart nginx --chart redis"
     echo "  $0 --all"
     echo ""

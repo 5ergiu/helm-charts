@@ -1,0 +1,125 @@
+name: 🐛 Bug Report
+description: Report a bug or issue with a Helm chart
+title: "[Bug] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 👋 Thanks for taking the time to report this bug!
+        
+        Please fill out the information below to help us resolve the issue quickly.
+
+  - type: dropdown
+    id: chart
+    attributes:
+      label: 📦 Affected Chart
+      description: Which chart is affected by this bug?
+      options:
+        - Laravel
+        - Next.js
+        - Multiple charts
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: chart-version
+    attributes:
+      label: Chart Version
+      description: What version of the chart are you using?
+      placeholder: "e.g., 0.1.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 🐛 Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Tell us what you see!
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: ✅ Expected Behavior
+      description: What did you expect to happen?
+      placeholder: Describe the expected outcome
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: ❌ Actual Behavior
+      description: What actually happened?
+      placeholder: Describe what actually occurred
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 🔄 Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Install chart with '...'
+        2. Configure values '...'
+        3. Run command '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: values
+    attributes:
+      label: ⚙️ Chart Values
+      description: Relevant values.yaml configuration (redact sensitive information)
+      render: yaml
+      placeholder: |
+        image:
+          repository: myapp
+          tag: latest
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 🌍 Environment
+      description: Your environment details
+      value: |
+        - **Kubernetes Version:** 
+        - **Helm Version:** 
+        - **Cloud Provider/Platform:** 
+        - **Container Runtime:** 
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 📋 Logs/Error Messages
+      description: Relevant logs, error messages, or command output
+      render: shell
+      placeholder: Paste logs here
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 📝 Additional Context
+      description: Any other context, screenshots, or information about the problem
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: ✅ Pre-submission Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues to avoid duplicates
+          required: true
+        - label: I have tested with the latest chart version
+          required: false
+        - label: I have redacted any sensitive information from logs/configs
+          required: true

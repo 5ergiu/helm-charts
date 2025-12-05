@@ -1,0 +1,379 @@
+{
+    "$schema": "https://json-schema.org/draft-07/schema#",
+    "title": "Next.js Helm Chart Values",
+    "description": "Schema for validating Next.js Helm chart values.yaml",
+    "type": "object",
+    "properties": {
+        "global": {
+            "type": "object",
+            "properties": {
+                "environment": {
+                    "type": "string",
+                    "description": "Global environment name",
+                    "enum": ["development", "staging", "production"]
+                }
+            }
+        },
+        "image": {
+            "type": "object",
+            "required": ["repository"],
+            "properties": {
+                "repository": {
+                    "type": "string",
+                    "description": "Container image repository",
+                    "minLength": 1
+                },
+                "pullPolicy": {
+                    "type": "string",
+                    "description": "Image pull policy",
+                    "enum": ["Always", "IfNotPresent", "Never"],
+                    "default": "IfNotPresent"
+                },
+                "tag": {
+                    "type": "string",
+                    "description": "Image tag (overrides Chart.appVersion)",
+                    "default": ""
+                }
+            }
+        },
+        "imagePullSecrets": {
+            "type": "array",
+            "description": "Image pull secrets for private registries",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "nameOverride": {
+            "type": "string",
+            "description": "Override the chart name"
+        },
+        "fullnameOverride": {
+            "type": "string",
+            "description": "Override the full name"
+        },
+        "serviceAccount": {
+            "type": "object",
+            "properties": {
+                "create": {
+                    "type": "boolean",
+                    "description": "Create service account",
+                    "default": true
+                },
+                "annotations": {
+                    "type": "object",
+                    "description": "Service account annotations"
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Service account name (generated if empty)"
+                }
+            }
+        },
+        "app": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable app deployment",
+                    "default": true
+                },
+                "replicaCount": {
+                    "type": "integer",
+                    "description": "Number of app replicas",
+                    "minimum": 1,
+                    "default": 2
+                },
+                "resources": {
+                    "$ref": "#/definitions/resources"
+                },
+                "autoscaling": {
+                    "$ref": "#/definitions/autoscaling"
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
+                            "default": "ClusterIP"
+                        },
+                        "port": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535,
+                            "default": 80
+                        },
+                        "targetPort": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535,
+                            "default": 3000
+                        }
+                    }
+                }
+            }
+        },
+        "ingress": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable ingress",
+                    "default": false
+                },
+                "className": {
+                    "type": "string",
+                    "description": "Ingress class name"
+                },
+                "hosts": {
+                    "type": "array",
+                    "description": "Ingress hosts",
+                    "items": {
+                        "type": "object",
+                        "required": ["host"],
+                        "properties": {
+                            "host": {
+                                "type": "string",
+                                "description": "Hostname"
+                            },
+                            "paths": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "path": {
+                                            "type": "string"
+                                        },
+                                        "pathType": {
+                                            "type": "string",
+                                            "enum": ["Prefix", "Exact", "ImplementationSpecific"]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "tls": {
+                    "type": "array",
+                    "description": "TLS configuration",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "secretName": {
+                                "type": "string"
+                            },
+                            "hosts": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "middleware": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable Traefik middleware",
+                    "default": false
+                },
+                "rateLimit": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "average": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "burst": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                },
+                "headers": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "default": false
+                        }
+                    }
+                },
+                "compress": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "default": false
+                        }
+                    }
+                },
+                "redirectScheme": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "default": false
+                        }
+                    }
+                }
+            }
+        },
+        "nextjs": {
+            "type": "object",
+            "properties": {
+                "publicEnv": {
+                    "type": "object",
+                    "description": "Public environment variables (exposed to browser)",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "env": {
+                    "type": "object",
+                    "description": "Server-side environment variables",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "secrets": {
+                    "type": "object",
+                    "description": "Sensitive environment variables",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "persistence": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable persistent storage",
+                    "default": false
+                },
+                "storageClass": {
+                    "type": "string",
+                    "description": "Storage class name"
+                },
+                "accessMode": {
+                    "type": "string",
+                    "enum": ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany"],
+                    "default": "ReadWriteOnce"
+                },
+                "size": {
+                    "type": "string",
+                    "description": "Storage size",
+                    "pattern": "^[0-9]+(Ei|Pi|Ti|Gi|Mi|Ki)$",
+                    "default": "10Gi"
+                }
+            }
+        },
+        "tmpfsVolumes": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable tmpfs volumes",
+                    "default": true
+                }
+            }
+        },
+        "externalSecrets": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable external secrets operator",
+                    "default": false
+                },
+                "backendType": {
+                    "type": "string",
+                    "enum": ["secretsManager", "parameterStore", "vault"],
+                    "description": "External secrets backend type"
+                },
+                "region": {
+                    "type": "string",
+                    "description": "AWS region for secrets"
+                }
+            }
+        }
+    },
+    "definitions": {
+        "resources": {
+            "type": "object",
+            "properties": {
+                "limits": {
+                    "type": "object",
+                    "properties": {
+                        "cpu": {
+                            "type": "string",
+                            "pattern": "^[0-9]+(m|[0-9])$"
+                        },
+                        "memory": {
+                            "type": "string",
+                            "pattern": "^[0-9]+(Ei|Pi|Ti|Gi|Mi|Ki)$"
+                        }
+                    }
+                },
+                "requests": {
+                    "type": "object",
+                    "properties": {
+                        "cpu": {
+                            "type": "string",
+                            "pattern": "^[0-9]+(m|[0-9])$"
+                        },
+                        "memory": {
+                            "type": "string",
+                            "pattern": "^[0-9]+(Ei|Pi|Ti|Gi|Mi|Ki)$"
+                        }
+                    }
+                }
+            }
+        },
+        "autoscaling": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "minReplicas": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 1
+                },
+                "maxReplicas": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 10
+                },
+                "targetCPUUtilizationPercentage": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                },
+                "targetMemoryUtilizationPercentage": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                }
+            }
+        }
+    }
+}

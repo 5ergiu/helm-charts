@@ -1,0 +1,102 @@
+name: ❓ Question / Support
+description: Ask a question or get help using the charts
+title: "[Question] "
+labels: ["question", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 👋 Welcome!
+        
+        Before asking, please check:
+        - 📚 [Documentation](https://github.com/5ergiu/helm-charts)
+        - 💬 [Existing Discussions](https://github.com/5ergiu/helm-charts/discussions)
+        - 🐛 [Existing Issues](https://github.com/5ergiu/helm-charts/issues)
+        
+        **Note:** For general questions, consider using [GitHub Discussions](https://github.com/5ergiu/helm-charts/discussions) instead!
+
+  - type: dropdown
+    id: chart
+    attributes:
+      label: 📦 Related Chart
+      description: Which chart is your question about? (if applicable)
+      options:
+        - General question
+        - Laravel
+        - Next.js
+        - Multiple charts
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: 🏷️ Question Category
+      description: What is your question about?
+      options:
+        - Installation/Setup
+        - Configuration
+        - Troubleshooting
+        - Best practices
+        - Security
+        - Performance
+        - Integration
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: ❓ Question
+      description: What would you like to know?
+      placeholder: Be as specific as possible
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 📝 Context
+      description: Provide context about what you're trying to achieve
+      placeholder: |
+        - What are you trying to do?
+        - What have you tried so far?
+        - Why is this important to you?
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 🌍 Environment (if relevant)
+      description: Your environment details
+      render: markdown
+      placeholder: |
+        - **Chart Version:** 
+        - **Kubernetes Version:** 
+        - **Helm Version:** 
+        - **Cloud Provider:** 
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: ⚙️ Configuration (if relevant)
+      description: Relevant values.yaml or configuration
+      render: yaml
+      placeholder: |
+        # Paste relevant configuration here
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 📝 Additional Information
+      description: Any other details that might help answer your question
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: ✅ Pre-submission Checklist
+      options:
+        - label: I have checked the documentation
+          required: true
+        - label: I have searched existing issues and discussions
+          required: true

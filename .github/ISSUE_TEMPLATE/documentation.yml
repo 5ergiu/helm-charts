@@ -1,0 +1,58 @@
+name: 📚 Documentation Issue
+description: Report an issue or suggest improvements to documentation
+title: "[Docs] "
+labels: ["documentation", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 📝 Thanks for helping improve our documentation!
+        
+        Clear documentation is crucial. Help us make it better!
+
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: 📄 Documentation Type
+      description: What type of documentation needs attention?
+      options:
+        - Chart README
+        - Repository README
+        - CONTRIBUTING.md
+        - TESTING.md
+        - COSIGN.md
+        - values.yaml comments
+        - Chart NOTES.txt
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: 🎯 Issue Type
+      description: What kind of documentation issue is this?
+      options:
+        - Missing information
+        - Incorrect/outdated information
+        - Unclear/confusing explanation
+        - Typo/grammar error
+        - Broken link
+        - Improvement suggestion
+        - Example needed
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: ✨ Proposed Change
+      description: How should it be changed or what should be added?
+      render: markdown
+      placeholder: Suggest the improved documentation
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 📝 Additional Context
+      description: Any other information or examples

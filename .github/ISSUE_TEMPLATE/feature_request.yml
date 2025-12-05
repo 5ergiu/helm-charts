@@ -1,0 +1,109 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement for a chart
+title: "[Feature] "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 💡 Thanks for suggesting a feature!
+        
+        Help us understand your feature request by providing detailed information below.
+
+  - type: dropdown
+    id: chart
+    attributes:
+      label: 📦 Target Chart
+      description: Which chart would this feature apply to?
+      options:
+        - Laravel
+        - Next.js
+        - Multiple charts
+        - New chart
+        - Repository infrastructure
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 🎯 Problem Statement
+      description: Is your feature request related to a problem? Please describe.
+      placeholder: I'm always frustrated when...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 💡 Proposed Solution
+      description: Describe the solution you'd like to see
+      placeholder: A clear and concise description of what you want to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 🔄 Alternatives Considered
+      description: Describe any alternative solutions or features you've considered
+      placeholder: Alternative approaches you've thought about
+
+  - type: textarea
+    id: example
+    attributes:
+      label: 📝 Example Configuration
+      description: Provide an example of how this feature would be used
+      render: yaml
+      placeholder: |
+        # Example values.yaml
+        newFeature:
+          enabled: true
+          config: value
+
+  - type: textarea
+    id: benefits
+    attributes:
+      label: ✨ Benefits
+      description: What are the benefits of this feature?
+      placeholder: |
+        - Benefit 1
+        - Benefit 2
+        - Benefit 3
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: 🎬 Use Case
+      description: Describe your use case and why this feature is important
+      placeholder: Explain your specific scenario
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Nice to have
+        - Important
+        - Critical
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 📝 Additional Context
+      description: Any other context, mockups, or references about the feature
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: ✅ Pre-submission Checklist
+      options:
+        - label: I have searched existing issues and PRs to avoid duplicates
+          required: true
+        - label: This feature aligns with the project's goals
+          required: false
+        - label: I am willing to help implement this feature
+          required: false

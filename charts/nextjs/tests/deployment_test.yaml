@@ -1,0 +1,117 @@
+suite: test deployment
+templates:
+  - deployment.yaml
+tests:
+  - it: should create a deployment with default values
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-nextjs-app
+      - equal:
+          path: spec.replicas
+          value: 2
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "your-registry/nextjs-app:latest"
+
+  - it: should set custom replica count
+    set:
+      app.replicaCount: 5
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 5
+
+  - it: should set custom image
+    set:
+      image.repository: ghcr.io/myorg/nextjs
+      image.tag: v1.2.3
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "ghcr.io/myorg/nextjs:v1.2.3"
+
+  - it: should use imagePullPolicy if specified
+    set:
+      image.pullPolicy: Always
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: Always
+
+  - it: should mount tmpfs volumes when enabled
+    set:
+      tmpfsVolumes.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: cache
+            emptyDir:
+              medium: Memory
+
+  - it: should set resource limits
+    set:
+      app.resources.limits.cpu: 2000m
+      app.resources.limits.memory: 1Gi
+      app.resources.requests.cpu: 500m
+      app.resources.requests.memory: 512Mi
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.cpu
+          value: 2000m
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: 1Gi
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: 500m
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.memory
+          value: 512Mi
+
+  - it: should configure health checks
+    asserts:
+      - isNotEmpty:
+          path: spec.template.spec.containers[0].livenessProbe
+      - isNotEmpty:
+          path: spec.template.spec.containers[0].readinessProbe
+      - isNotEmpty:
+          path: spec.template.spec.containers[0].startupProbe
+
+  - it: should use correct port
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 3000
+
+  - it: should run as non-root
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 1000
+
+  - it: should use read-only root filesystem
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+
+  - it: should include checksums in annotations
+    asserts:
+      - isNotEmpty:
+          path: spec.template.metadata.annotations["checksum/config"]
+      - isNotEmpty:
+          path: spec.template.metadata.annotations["checksum/secret"]
+
+  - it: should disable when app.enabled is false
+    set:
+      app.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

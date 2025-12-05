@@ -1,0 +1,79 @@
+{{- if .Values.middleware.enabled }}
+{{- if .Values.middleware.rateLimit.enabled }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "nextjs.fullname" . }}-ratelimit
+  labels:
+    {{- include "nextjs.labels" . | nindent 4 }}
+spec:
+  rateLimit:
+    average: {{ .Values.middleware.rateLimit.average }}
+    burst: {{ .Values.middleware.rateLimit.burst }}
+    {{- if .Values.middleware.rateLimit.period }}
+    period: {{ .Values.middleware.rateLimit.period }}
+    {{- end }}
+{{- end }}
+{{- if .Values.middleware.headers.enabled }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "nextjs.fullname" . }}-headers
+  labels:
+    {{- include "nextjs.labels" . | nindent 4 }}
+spec:
+  headers:
+    browserXssFilter: {{ .Values.middleware.headers.browserXssFilter }}
+    contentTypeNosniff: {{ .Values.middleware.headers.contentTypeNosniff }}
+    forceSTSHeader: {{ .Values.middleware.headers.forceSTSHeader }}
+    stsIncludeSubdomains: {{ .Values.middleware.headers.stsIncludeSubdomains }}
+    stsPreload: {{ .Values.middleware.headers.stsPreload }}
+    stsSeconds: {{ .Values.middleware.headers.stsSeconds }}
+    {{- if .Values.middleware.headers.customFrameOptionsValue }}
+    customFrameOptionsValue: {{ .Values.middleware.headers.customFrameOptionsValue }}
+    {{- end }}
+    {{- if .Values.middleware.headers.customResponseHeaders }}
+    customResponseHeaders:
+      {{- toYaml .Values.middleware.headers.customResponseHeaders | nindent 6 }}
+    {{- end }}
+{{- end }}
+{{- if .Values.middleware.compress.enabled }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "nextjs.fullname" . }}-compress
+  labels:
+    {{- include "nextjs.labels" . | nindent 4 }}
+spec:
+  compress: {}
+{{- end }}
+{{- if .Values.middleware.ipWhiteList.enabled }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "nextjs.fullname" . }}-ipwhitelist
+  labels:
+    {{- include "nextjs.labels" . | nindent 4 }}
+spec:
+  ipWhiteList:
+    sourceRange:
+      {{- toYaml .Values.middleware.ipWhiteList.sourceRange | nindent 6 }}
+{{- end }}
+{{- if .Values.middleware.redirectScheme.enabled }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "nextjs.fullname" . }}-redirect-scheme
+  labels:
+    {{- include "nextjs.labels" . | nindent 4 }}
+spec:
+  redirectScheme:
+    scheme: {{ .Values.middleware.redirectScheme.scheme }}
+    permanent: {{ .Values.middleware.redirectScheme.permanent }}
+{{- end }}
+{{- end }}

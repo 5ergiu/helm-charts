@@ -1,0 +1,217 @@
+{{- $appEnabled := .Values.app.enabled -}}
+{{- $fullName := include "nextjs.fullname" . -}}
+{{- $ingressEnabled := .Values.ingress.enabled -}}
+{{- $hosts := .Values.ingress.hosts -}}
+
+═══════════════════════════════════════════════════════════════════════════════
+   🚀 Next.js Application Successfully Deployed!
+═══════════════════════════════════════════════════════════════════════════════
+
+Thank you for deploying {{ .Chart.Name }} version {{ .Chart.Version }}!
+
+📦 Release Information:
+   Name:      {{ .Release.Name }}
+   Namespace: {{ .Release.Namespace }}
+   Revision:  {{ .Release.Revision }}
+
+───────────────────────────────────────────────────────────────────────────────
+📊 Deployed Components:
+───────────────────────────────────────────────────────────────────────────────
+
+{{- if $appEnabled }}
+✓ Next.js Application
+  - Deployment:  {{ $fullName }}-app
+  - Service:     {{ $fullName }}-app ({{ .Values.app.service.type }}:{{ .Values.app.service.port }})
+  {{- if .Values.app.autoscaling.enabled }}
+  - HPA:         {{ .Values.app.autoscaling.minReplicas }}-{{ .Values.app.autoscaling.maxReplicas }} replicas
+  {{- else }}
+  - Replicas:    {{ .Values.app.replicaCount }}
+  {{- end }}
+  {{- if .Values.app.pdb.enabled }}
+  - PDB:         Enabled (minAvailable: {{ .Values.app.pdb.minAvailable }})
+  {{- end }}
+{{- end }}
+
+{{- if .Values.persistence.enabled }}
+✓ Persistent Storage
+  - PVC:         {{ $fullName }}-storage
+  - Size:        {{ .Values.persistence.size }}
+  - Access Mode: {{ .Values.persistence.accessMode }}
+{{- end }}
+
+───────────────────────────────────────────────────────────────────────────────
+🌐 Application Access:
+───────────────────────────────────────────────────────────────────────────────
+
+{{- if $ingressEnabled }}
+Your Next.js application is accessible at:
+
+{{- range $hosts }}
+  {{- if .host }}
+  🔗 https://{{ .host }}
+  {{- end }}
+{{- end }}
+
+{{- if .Values.middleware.enabled }}
+🛡️  Traefik Middlewares Enabled:
+  {{- if .Values.middleware.rateLimit.enabled }}
+  - Rate Limiting: {{ .Values.middleware.rateLimit.average }}/s (burst: {{ .Values.middleware.rateLimit.burst }})
+  {{- end }}
+  {{- if .Values.middleware.headers.enabled }}
+  - Security Headers
+  {{- end }}
+  {{- if .Values.middleware.compress.enabled }}
+  - Response Compression
+  {{- end }}
+  {{- if .Values.middleware.redirectScheme.enabled }}
+  - HTTP → HTTPS Redirect
+  {{- end }}
+  {{- if .Values.middleware.ipWhiteList.enabled }}
+  - IP Whitelisting
+  {{- end }}
+{{- end }}
+
+{{- else }}
+To access your application, you can port-forward to the service:
+
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ $fullName }}-app 3000:{{ .Values.app.service.port }}
+
+Then visit: http://localhost:3000
+{{- end }}
+
+───────────────────────────────────────────────────────────────────────────────
+📋 Useful Commands:
+───────────────────────────────────────────────────────────────────────────────
+
+# View pod status
+kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+# View application logs
+kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/component=app -f
+
+# Access the application shell
+kubectl exec -n {{ .Release.Namespace }} -it deployment/{{ $fullName }}-app -- sh
+
+# View environment variables
+kubectl exec -n {{ .Release.Namespace }} -it deployment/{{ $fullName }}-app -- env | grep NEXT
+
+# Check build output
+kubectl exec -n {{ .Release.Namespace }} -it deployment/{{ $fullName }}-app -- ls -la /app/.next
+
+# Restart deployment (e.g., after config changes)
+kubectl rollout restart deployment/{{ $fullName }}-app -n {{ .Release.Namespace }}
+
+# View deployment rollout status
+kubectl rollout status deployment/{{ $fullName }}-app -n {{ .Release.Namespace }}
+
+# Scale manually (if HPA is disabled)
+kubectl scale deployment/{{ $fullName }}-app --replicas=5 -n {{ .Release.Namespace }}
+
+{{- if .Values.app.autoscaling.enabled }}
+# View HPA status
+kubectl get hpa -n {{ .Release.Namespace }} {{ $fullName }}-app
+
+# Describe HPA for detailed metrics
+kubectl describe hpa -n {{ .Release.Namespace }} {{ $fullName }}-app
+{{- end }}
+
+───────────────────────────────────────────────────────────────────────────────
+⚙️  Configuration:
+───────────────────────────────────────────────────────────────────────────────
+
+ConfigMap: {{ $fullName }}-env
+Secret:     {{ $fullName }}-secret
+
+To update configuration:
+1. Modify your values.yaml file
+2. Run: helm upgrade {{ .Release.Name }} {{ .Chart.Name }} -f values.yaml -n {{ .Release.Namespace }}
+
+───────────────────────────────────────────────────────────────────────────────
+🔒 Security Best Practices:
+───────────────────────────────────────────────────────────────────────────────
+
+⚠️  IMPORTANT: Before going to production, ensure you:
+
+1. Set NODE_ENV to "production" (nextjs.env.NODE_ENV)
+
+2. Configure secure secrets in nextjs.secrets:
+   - NEXTAUTH_SECRET (generate with: openssl rand -base64 32)
+   - API_SECRET_KEY
+   - Database credentials (if applicable)
+   - OAuth client secrets
+
+3. Set NEXTAUTH_URL to your production domain
+
+4. Configure proper resource limits based on your workload
+
+5. Enable and configure persistent storage if needed for uploads
+
+6. Set up proper TLS certificates via cert-manager
+
+7. Review and adjust HPA settings based on your traffic patterns
+
+8. Configure proper backup strategies for PVCs (if enabled)
+
+9. Review security contexts (pods run as non-root with read-only root filesystem)
+   Writable directories (.next/cache, /tmp) are mounted as tmpfs volumes
+
+10. Set up monitoring and alerting (Prometheus/Grafana)
+
+11. Consider using External Secrets Operator for managing sensitive data
+
+12. Test health check endpoints (/api/health) before production
+
+───────────────────────────────────────────────────────────────────────────────
+🎨 Next.js Features:
+───────────────────────────────────────────────────────────────────────────────
+
+This chart supports:
+✓ Server-Side Rendering (SSR)
+✓ Static Site Generation (SSG)
+✓ API Routes
+✓ Image Optimization
+✓ Automatic Code Splitting
+✓ Fast Refresh during development
+✓ Built-in TypeScript support
+✓ Environment variable management (public & server-side)
+
+───────────────────────────────────────────────────────────────────────────────
+📚 Additional Resources:
+───────────────────────────────────────────────────────────────────────────────
+
+- Next.js Documentation: https://nextjs.org/docs
+- Next.js Deployment: https://nextjs.org/docs/deployment
+- Kubernetes Best Practices: https://kubernetes.io/docs/concepts/configuration/overview/
+- Helm Documentation: https://helm.sh/docs/
+
+───────────────────────────────────────────────────────────────────────────────
+💡 Tips:
+───────────────────────────────────────────────────────────────────────────────
+
+1. Health Check Setup:
+   Create /app/pages/api/health.js or /app/app/api/health/route.js:
+   
+   export default function handler(req, res) {
+     res.status(200).json({ status: 'ok' })
+   }
+
+2. For local development with persistent storage:
+   Set runAsUser and fsGroup to your host user ID:
+   - Run: id -u && id -g
+   - Update app.podSecurityContext in values.yaml
+
+3. Environment Variables:
+   - Use nextjs.publicEnv for browser-exposed vars (NEXT_PUBLIC_*)
+   - Use nextjs.env for server-side only vars
+   - Use nextjs.secrets for sensitive data
+
+4. Image Optimization:
+   Configure AWS S3 or similar for production image optimization
+
+───────────────────────────────────────────────────────────────────────────────
+
+🎉 Happy coding! Your Next.js application is ready to serve traffic.
+
+For support and issues, please visit https://github.com/5ergiu/helm-charts.
+
+═══════════════════════════════════════════════════════════════════════════════

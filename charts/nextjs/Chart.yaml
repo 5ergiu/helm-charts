@@ -1,0 +1,30 @@
+apiVersion: v2
+name: nextjs
+description: A production-grade Helm chart for Next.js applications
+type: application
+version: 0.1.0
+appVersion: "16.x"
+keywords:
+  - nextjs
+  - react
+  - javascript
+  - typescript
+  - web
+  - application
+maintainers:
+  - name: 5ergiu
+    url: https://github.com/5ergiu
+home: https://github.com/5ergiu/helm-charts
+sources:
+  - https://github.com/5ergiu/helm-charts
+  - https://github.com/vercel/next.js
+icon: https://cdn.brandfetch.io/id2alue-rx/theme/dark/symbol.svg?c=1bxid64Mup7aczewSAYMX&t=1762498501254
+annotations:
+  category: Web Applications
+  licenses: Apache-2.0
+  artifacthub.io/changes: |2
+        - kind: added
+          description: "feat(nextjs): add initial Next.js Helm chart with SSR/SSG support"
+          links:
+            - name: "GitHub Repository"
+              url: "https://github.com/5ergiu/helm-charts"

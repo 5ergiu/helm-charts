@@ -10,8 +10,8 @@
 #
 # Examples:
 #   ./scripts/test.sh                    # Test all charts
-#   ./scripts/test.sh laravel            # Test specific chart
-#   ./scripts/test.sh laravel --no-kind  # Test without Kind cluster
+#   ./scripts/test.sh my-chart            # Test specific chart
+#   ./scripts/test.sh my-chart --no-kind  # Test without Kind cluster
 # ============================================================================
 
 set -euo pipefail
