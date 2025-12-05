@@ -1,6 +1,6 @@
-# Contributing to Helm Charts
+# Contributing Guidelines
 
-Thank you for your interest in contributing to our Helm charts! This document provides guidelines and instructions for contributing.
+Contributions are welcome via GitHub pull requests. This document outlines the process to help get your contribution accepted.
 
 ## Table of Contents
 
@@ -13,7 +13,7 @@ Thank you for your interest in contributing to our Helm charts! This document pr
 
 ## Code of Conduct
 
-This project follows standard open source best practices. Please be respectful and constructive in all interactions.
+This project and everyone participating in it is governed by our [Code of Conduct](./CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
 
 ## How Can I Contribute?
 
@@ -49,7 +49,7 @@ Enhancement suggestions are tracked as GitHub issues. Include:
 
 - **Kubernetes 1.23+**
 - **Helm 3.8+**
-- **helm-unittest plugin** for testing
+- [**helm-unittest plugin**](https://github.com/helm-unittest/helm-unittest) for testing
 - **Git** with commit signing configured
 
 ### Setting Up Your Development Environment
@@ -86,6 +86,12 @@ Enhancement suggestions are tracked as GitHub issues. Include:
 
 All charts must follow these standards:
 
+### Technical Requirements
+
+- **[Charts best practices](https://helm.sh/docs/topics/chart_best_practices/)**
+- **Must pass CI jobs** for linting and installing changed charts with the chart-testing tool
+- **Any change to a chart requires a version bump following semver principles**. See [Immutability](#immutability) and [Versioning](#versioning) below
+
 #### Security First
 
 - **Read-only root filesystems** where possible
@@ -103,7 +109,7 @@ All charts must follow these standards:
 
 #### Highly Configurable
 
-- **Extensive values.yaml** with detailed inline documentation
+- **Extensive `values.yaml`** with detailed inline documentation
 - **Support for existing secrets** and ConfigMaps
 - **Flexible ingress configurations**
 - **Service account customization**
@@ -119,7 +125,6 @@ charts/your-chart/
 ├── README.md
 ├── values.yaml
 ├── values.example.yaml
-├── publish-chart.sh
 ├── templates/
 │   ├── NOTES.txt
 │   ├── _helpers.tpl
@@ -132,9 +137,7 @@ charts/your-chart/
 │   ├── hpa.yaml
 │   └── pdb.yaml
 └── tests/
-    ├── deployment_test.yaml
-    ├── service_test.yaml
-    └── ingress_test.yaml
+    └── *_test.yaml
 ```
 
 ### Documentation Requirements
@@ -153,6 +156,10 @@ Each chart must include:
 3. **values.yaml**: Well-documented default values with inline comments
 4. **values.example.yaml**: Example configuration for common use cases
 
+### Immutability
+
+Chart releases must be immutable. Any change to a chart warrants a chart version bump even if it is only changed to the documentation.
+
 ### Versioning
 
 We follow [Semantic Versioning](https://semver.org/) for chart versions:
@@ -167,109 +174,217 @@ We follow [Semantic Versioning](https://semver.org/) for chart versions:
 
 ### Multi-Chart Repository Workflow
 
-This repository hosts multiple Helm charts. Each chart has **independent versioning** and releases:
+This repository hosts multiple Helm charts. Each chart has **independent versioning** and releases.
 
-#### Working on a Specific Chart
+**IMPORTANT**: Never push directly to `main`. All changes must go through pull requests.
 
-When modifying an existing chart:
+#### Scenario 1: Adding a New Feature to Existing Chart
+
+Example: Adding Redis support to MyChart chart (MINOR version bump: 0.1.0 → 0.2.0)
 
 ```bash
-# 1. Create a feature branch
-git checkout -b feat/laravel-redis-support
+# 1. Create a feature branch from main
+git checkout main
+git pull origin main
+git checkout -b feat/my-chart-redis-support
 
-# 2. Make changes only to that chart
-vim charts/laravel/values.yaml
-vim charts/laravel/templates/configmap.yaml
+# 2. Make your changes
+vim charts/my-chart/values.yaml
+vim charts/my-chart/templates/configmap.yaml
+vim charts/my-chart/README.md
 
-# 3. Bump the chart version in Chart.yaml
-# 0.1.0 -> 0.2.0 (new feature)
-vim charts/laravel/Chart.yaml
+# 3. Bump the chart version in Chart.yaml (0.1.0 → 0.2.0)
+vim charts/my-chart/Chart.yaml
 
-# 4. Commit with chart-specific prefix
-git add charts/laravel/
-git commit -m "feat(laravel): add Redis configuration support"
+# 4. Run tests locally
+./scripts/test.sh my-chart
 
-# 5. Tag the chart release
-git tag -a laravel-0.2.0 -m "Add Redis configuration support"
+# 5. Commit with conventional prefix
+git add charts/my-chart/
+git commit -m "feat(my-chart): add Redis configuration support"
 
-# 6. Generate changelog
-./scripts/generate-changelog.sh --chart laravel
+# 6. Push branch and create pull request
+git push origin feat/my-chart-redis-support
+# Then create PR on GitHub targeting main branch
 
-# 7. Commit the changelog
-git add charts/laravel/
-git commit -m "docs(laravel): add changelog for v0.2.0"
-
-# 8. Push commits and tag
-git push origin feat/laravel-redis-support
-git push origin laravel-0.2.0
+# 7. After PR is approved and merged, maintainer will:
+#    - Pull main branch
+#    - Tag the release: git tag -a my-chart-0.2.0 -m "Add Redis support"
+#    - Generate changelog: ./scripts/generate-changelog.sh --chart my-chart
+#    - Commit changelog: git commit -am "docs(my-chart): add changelog for v0.2.0"
+#    - Push: git push origin main --follow-tags
 ```
 
-#### Adding a New Chart
+#### Scenario 2: Fixing a Bug (PATCH version bump)
 
-When adding a new chart:
+Example: Fix deployment template issue (0.2.0 → 0.2.1)
 
 ```bash
-# 1. Create chart structure
-mkdir -p charts/nginx
-# ... add chart files ...
+# 1. Create a fix branch
+git checkout main
+git pull origin main
+git checkout -b fix/my-chart-deployment-probe
 
-# 2. Start with version 0.1.0 in Chart.yaml
+# 2. Fix the issue
+vim charts/my-chart/templates/web-deployment.yaml
 
-# 3. Commit the new chart
+# 3. Bump version (0.2.0 → 0.2.1)
+vim charts/my-chart/Chart.yaml
+
+# 4. Test locally
+./scripts/test.sh my-chart
+
+# 5. Commit with fix prefix
+git add charts/my-chart/
+git commit -m "fix(my-chart): correct readiness probe path"
+
+# 6. Push and create pull request
+git push origin fix/my-chart-deployment-probe
+# Create PR on GitHub
+
+# 7. After merge, maintainer tags and releases
+```
+
+#### Scenario 3: Documentation Updates (PATCH version bump)
+
+Example: Update README examples (0.2.1 → 0.2.2)
+
+```bash
+# 1. Create docs branch
+git checkout main
+git pull origin main
+git checkout -b docs/my-chart-examples
+
+# 2. Update documentation
+vim charts/my-chart/README.md
+vim charts/my-chart/values.yaml  # Update inline comments
+
+# 3. Bump version (0.2.1 → 0.2.2)
+vim charts/my-chart/Chart.yaml
+
+# 4. Commit with docs prefix
+git add charts/my-chart/
+git commit -m "docs(my-chart): add PostgreSQL configuration examples"
+
+# 5. Push and create pull request
+git push origin docs/my-chart-examples
+# Create PR on GitHub
+
+# 6. After merge, maintainer tags and releases
+```
+
+#### Scenario 4: Adding a New Chart
+
+Example: Creating an Nginx chart starting at 0.1.0
+
+```bash
+# 1. Create feature branch
+git checkout main
+git pull origin main
+git checkout -b feat/nginx-chart
+
+# 2. Create chart structure
+mkdir -p charts/nginx/{templates,tests}
+# ... create all necessary files ...
+
+# 3. Set initial version to 0.1.0 in Chart.yaml
+
+# 4. Add comprehensive documentation
+vim charts/nginx/README.md
+vim charts/nginx/values.yaml
+
+# 5. Write tests
+vim charts/nginx/tests/deployment_test.yaml
+
+# 6. Test the new chart
+./scripts/test.sh nginx
+
+# 7. Commit with feat prefix
 git add charts/nginx/
 git commit -m "feat(nginx): add initial Nginx Helm chart"
 
-# 4. Tag the initial release
-git tag -a nginx-0.1.0 -m "Initial release of Nginx Helm chart"
+# 8. Push and create pull request
+git push origin feat/nginx-chart
+# Create PR on GitHub
 
-# 5. Generate changelog
-./scripts/generate-changelog.sh --chart nginx
-
-# 6. Commit the changelog
-git add charts/nginx/
-git commit -m "docs(nginx): add changelog for v0.1.0"
+# 9. After merge, maintainer will:
+#    - Tag: git tag -a nginx-0.1.0 -m "Initial Nginx chart release"
+#    - Generate changelog: ./scripts/generate-changelog.sh --chart nginx
+#    - Commit and push
 ```
 
-#### Infrastructure Changes
+#### Scenario 5: Infrastructure Changes (No Release)
 
-For changes to repository infrastructure (workflows, scripts, docs):
+Example: Updating CI/CD workflows or repository scripts
 
 ```bash
-# Commit without chart prefix
-git add .github/ scripts/ README.md
-git commit -m "chore: update CI/CD workflow for chart signing"
+# 1. Create infrastructure branch
+git checkout main
+git pull origin main
+git checkout -b chore/update-workflow
 
-# NO TAG - infrastructure changes don't trigger chart releases
-git push origin main
+# 2. Make changes to infrastructure files
+vim .github/workflows/release.yaml
+vim scripts/generate-changelog.sh
+vim README.md
+
+# 3. NO version bump needed (not touching charts)
+
+# 4. Commit with chore prefix (no chart name)
+git add .github/ scripts/ README.md
+git commit -m "chore: improve chart signing in release workflow"
+
+# 5. Push and create pull request
+git push origin chore/update-workflow
+# Create PR on GitHub
+
+# 6. After merge, NO tagging or release (only chart changes trigger releases)
 ```
+
+#### Version Bump Quick Reference
+
+| Change Type | Version Bump | Commit Prefix | Example | Tag Required | Release Triggered |
+|-------------|--------------|---------------|---------|--------------|-------------------|
+| New feature | MINOR (0.1.0→0.2.0) | `feat(chart/scope):` | Add Redis support | ✅ Yes | ✅ Yes |
+| Bug fix | PATCH (0.2.0→0.2.1) | `fix(chart/scope):` | Fix probe path | ✅ Yes | ✅ Yes |
+| Documentation | PATCH (0.2.1→0.2.2) | `docs(chart/scope):` | Update README | ✅ Yes | ✅ Yes |
+| Tests only | PATCH (0.2.2→0.2.3) | `test(chart/scope):` | Add edge cases | ✅ Yes | ✅ Yes |
+| Breaking change | MAJOR (0.x.x→1.0.0) | `feat(chart/scope)!:` | Remove deprecated values | ✅ Yes | ✅ Yes |
+| Infrastructure | None | `chore:` | Update workflows | ❌ No | ❌ No |
+| New chart | Start at 0.1.0 | `feat(chart/scope):` | Initial release | ✅ Yes | ✅ Yes |
 
 #### Commit Message Convention
 
-Follow this pattern for clarity:
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-- `feat(chart-name): description` - New features
-- `fix(chart-name): description` - Bug fixes
-- `docs(chart-name): description` - Documentation changes
-- `test(chart-name): description` - Test updates
-- `chore: description` - Infrastructure/tooling changes (no chart prefix)
+**For chart changes:**
+- `feat(chart/scope): description` - New features (MINOR bump)
+- `fix(chart/scope): description` - Bug fixes (PATCH bump)
+- `docs(chart/scope): description` - Documentation only (PATCH bump)
+- `test(chart/scope): description` - Test updates (PATCH bump)
+- `feat(chart/scope)!: description` - Breaking changes (MAJOR bump)
+
+**For infrastructure changes:**
+- `chore: description` - Tooling, CI/CD, scripts (no release)
+- `docs: description` - Root documentation (no release)
+
+**Note**: Documentation changes within a chart directory (`charts/*/README.md`) warrant a PATCH release because the README is part of the chart package displayed on ArtifactHub.
 
 ## Testing
 
-### Running Tests Locally
+All charts must include comprehensive unit tests using helm-unittest. **For detailed testing documentation, see [TESTING.md](./TESTING.md).**
 
-All charts must include comprehensive unit tests using helm-unittest:
+### Quick Testing Guide
 
 ```bash
-# Test specific chart
-helm unittest charts/laravel
-
 # Test all charts
-for chart in charts/*; do
-  if [ -d "$chart/tests" ]; then
-    echo "Testing $chart..."
-    helm unittest $chart
-  fi
-done
+./scripts/test.sh
+
+# Test specific chart
+./scripts/test.sh laravel
+
+# Test without Kind cluster (unit tests only)
+./scripts/test.sh laravel --no-kind
 ```
 
 ### Test Requirements
@@ -282,43 +397,9 @@ Your tests should cover:
 - Common configuration scenarios
 - Edge cases and error conditions
 
-### Manual Testing
-
-Before submitting, manually test your chart:
-
-```bash
-# Lint the chart
-helm lint ./charts/your-chart
-
-# Render templates locally
-helm template test-release ./charts/your-chart -n test
-
-# Install in a test cluster
-helm install test-release ./charts/your-chart -n test --create-namespace
-
-# Verify the deployment
-kubectl get all -n test
-
-# Test with custom values
-helm install test-release ./charts/your-chart -n test -f custom-values.yaml
-
-# Cleanup
-helm uninstall test-release -n test
-kubectl delete namespace test
-```
-
-### Integration Testing
-
-Pull requests automatically run integration tests in a Kind cluster. Ensure your changes:
-
-- Deploy successfully in a fresh cluster
-- Pass all health checks
-- Work with default values
-- Work with common customizations
-
 ## Pull Request Process
 
-### 1. Create a Feature Branch
+### 1. Create a Feature Branch from `main`
 
 ```bash
 git checkout -b feature/your-chart-improvement
@@ -331,25 +412,20 @@ git checkout -b feature/your-chart-improvement
 - Update documentation
 - Bump chart version in `Chart.yaml`
 
-### 3. Run Tests
+### 3. Run all tests and ensure they pass
 
 ```bash
-# Lint
-helm lint ./charts/your-chart
-
-# Unit tests
-helm unittest ./charts/your-chart
-
-# Template rendering
-helm template test ./charts/your-chart
+./scripts/test.sh
 ```
 
-### 4. Commit Your Changes
+### 4. Update documentation as needed
 
-Use clear, descriptive commit messages:
+### 5. Commit Your Changes
+
+Use clear, descriptive commit messages following [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```bash
-git commit -m "[chart-name] Add support for custom annotations"
+git commit -m "feat(chart/scope): add support for custom annotations"
 ```
 
 ### 5. Push and Create Pull Request
@@ -360,8 +436,8 @@ git push origin feature/your-chart-improvement
 
 Create a PR on GitHub with:
 
-- **Clear title** following pattern: `[chart-name] Descriptive title`
-- **Description** explaining what and why
+- **Clear title** following pattern: `[chart/scope] Descriptive title`
+- **Complete** the PR template
 - **Reference** to related issues
 - **Screenshots/examples** if relevant
 
@@ -371,12 +447,11 @@ Before submitting, ensure:
 
 - [ ] Chart version is bumped in `Chart.yaml` (following semver)
 - [ ] All values are documented in `values.yaml` and `README.md`
-- [ ] Unit tests pass (`helm unittest`)
+- [ ] All tests pass (`./scripts/test.sh`)
 - [ ] Chart passes linting (`helm lint`)
 - [ ] Templates render successfully (`helm template`)
 - [ ] Documentation is updated
 - [ ] Changes are backwards compatible (or breaking changes are clearly documented)
-- [ ] Tested manually in a local cluster
 
 ### Review Process
 

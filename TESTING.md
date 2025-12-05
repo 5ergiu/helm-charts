@@ -1,8 +1,8 @@
-# Helm Charts Testing Guide
+# 🧪 Testing Guide
 
 This repository includes comprehensive tests for all Helm charts to validate common parameters and configuration.
 
-## Prerequisites
+## ✅ Prerequisites
 
 You need to have the following tools installed:
 
@@ -17,7 +17,7 @@ You need to have the following tools installed:
 helm plugin install https://github.com/helm-unittest/helm-unittest
 ```
 
-## Running Tests
+## 🚀 Running Tests
 
 ### Run All Chart Tests
 
@@ -41,13 +41,13 @@ You can also run tests for individual charts:
 
 ```bash
 # Test specific chart
-./scripts/test.sh laravel
+./scripts/test.sh my-chart
 
 # Test without creating Kind cluster (unit tests only)
-./scripts/test.sh laravel --no-kind
+./scripts/test.sh my-chart --no-kind
 
 # Keep cluster running after tests
-./scripts/test.sh laravel --no-cleanup
+./scripts/test.sh my-chart --no-cleanup
 ```
 
 ### Manual Testing
@@ -56,31 +56,31 @@ You can also run tests for individual charts:
 
 ```bash
 # Update dependencies first
-helm dependency update charts/laravel
+helm dependency update charts/my-chart
 ```
 
 #### Run Unit Tests
 
 ```bash
 # Run unit tests
-helm unittest charts/laravel
+helm unittest charts/my-chart
 ```
 
 #### Lint Chart
 
 ```bash
 # Lint the chart
-helm lint charts/laravel
+helm lint charts/my-chart
 ```
 
 #### Template Rendering
 
 ```bash
 # Test template rendering
-helm template my-release charts/laravel --debug
+helm template my-release charts/my-chart --debug
 ```
 
-## Writing Tests
+## ✍️ Writing Tests
 
 Tests are located in the `tests/` directory within each chart. We use the [helm-unittest](https://github.com/helm-unittest/helm-unittest) plugin.
 
@@ -97,7 +97,7 @@ tests:
           of: Deployment
       - equal:
           path: metadata.name
-          value: RELEASE-NAME-laravel
+          value: RELEASE-NAME-my-chart
 ```
 
 ### Common Test Patterns
@@ -136,7 +136,7 @@ tests:
         value: true
 ```
 
-## CI/CD Integration
+## 🔄 CI/CD Integration
 
 Tests are automatically run on:
 - Pull requests
@@ -145,7 +145,7 @@ Tests are automatically run on:
 
 See `.github/workflows/` for workflow configurations.
 
-## Troubleshooting
+## 🔧 Troubleshooting
 
 ### helm-unittest not found
 
@@ -166,10 +166,10 @@ kind delete cluster --name helm-chart-test
 
 Run tests in verbose mode:
 ```bash
-helm unittest --debug charts/laravel
+helm unittest --debug charts/my-chart
 ```
 
-## Best Practices
+## 💡 Best Practices
 
 1. **Test all templates** - Every template should have corresponding tests
 2. **Test default values** - Ensure defaults work correctly
@@ -177,7 +177,7 @@ helm unittest --debug charts/laravel
 4. **Test security** - Verify security contexts, read-only filesystems, etc.
 5. **Keep tests maintainable** - Use clear descriptions and organize tests logically
 
-## Resources
+## 📚 Resources
 
 - [helm-unittest Documentation](https://github.com/helm-unittest/helm-unittest)
 - [Helm Testing Best Practices](https://helm.sh/docs/topics/chart_tests/)

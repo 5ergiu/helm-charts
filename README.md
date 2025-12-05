@@ -3,26 +3,14 @@
 Production-grade Helm charts for Kubernetes deployments following cloud-native best practices.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/5ergiu)](https://artifacthub.io/packages/search?repo=5ergiu)
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/charts-5ergiu)](https://artifacthub.io/packages/search?repo=charts-5ergiu)
 
 ## 📦 Available Charts
 
-### Laravel Helm Chart
-
-A comprehensive Helm chart for deploying Laravel applications on Kubernetes with all production features.
-
-**Features:**
-- 🚀 Web server deployment with horizontal autoscaling
-- 👷 Queue workers with Laravel Horizon support
-- ⏰ Scheduled task runner (cron)
-- 🔄 Automatic database migrations
-- 🔒 Security hardened (non-root, read-only filesystem)
-- 📊 Built-in observability (Prometheus metrics, health checks)
-- 🌐 Traefik ingress with TLS support
-- 💾 Persistent storage for uploads/logs
-- 🎯 Pod disruption budgets for high availability
-
-**Documentation:** [charts/laravel/README.md](./charts/laravel/README.md)
+| Chart | Description | Version | Docs |
+|-------|-------------|---------|------|
+| <a href="https://laravel.com/docs/12.x" style="display:inline-flex;flex-direction:column;align-items:center;text-decoration:none;"><img src="https://cdn.brandfetch.io/ide68-31CH/w/346/h/346/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761211589926" alt="Laravel" width="48" height="48" style="border-radius:4px;margin-bottom:4px;"/><strong style="margin:0;">Laravel</strong></a> | Laravel application deployment with web/worker deployments, queue management, cron jobs, and auto-scaling | [`0.1.0`](https://github.com/5ergiu/helm-charts/releases/tag/laravel-0.1.0) | [README](./charts/laravel/README.md) |
+| <a href="https://nextjs.org/" style="display:inline-flex;flex-direction:column;align-items:center;text-decoration:none;"><img src="https://cdn.brandfetch.io/id2alue-rx/theme/dark/symbol.svg?c=1bxid64Mup7aczewSAYMX&t=1762498501254" alt="Next.js" width="48" height="48" style="border-radius:4px;margin-bottom:4px;"/><strong style="margin:0;">Next.js</strong></a> | High-performance Next.js application deployment with SSR/SSG support, image optimization, and CDN integration | [`0.1.0`](https://github.com/5ergiu/helm-charts/releases/tag/nextjs-0.1.0) | [README](./charts/nextjs/README.md) |
 
 ## 🚀 Quick Start
 
@@ -34,16 +22,30 @@ A comprehensive Helm chart for deploying Laravel applications on Kubernetes with
 
 ### Installing Charts
 
-#### From OCI Registry (GitHub Container Registry)
+#### From OCI Registry (Recommended)
 
 ```bash
 # Install from GitHub Container Registry
-helm install my-app oci://ghcr.io/5ergiu/helm-charts/laravel \
+helm install my-app oci://ghcr.io/5ergiu/helm-charts/my-chart \
   --version 0.1.0 \
   --namespace production \
   --create-namespace \
   --values values.yaml
 ```
+
+#### From GitHub Release
+
+```bash
+# Download chart from releases
+wget https://github.com/5ergiu/helm-charts/releases/download/my-chart-0.1.0/my-chart-0.1.0.tgz
+
+# Install from local archive
+helm install my-app my-chart-0.1.0.tgz \
+  --namespace production \
+  --create-namespace \
+  --values values.yaml
+```
+
 #### From Local Clone
 
 ```bash
@@ -52,20 +54,9 @@ git clone https://github.com/5ergiu/helm-charts.git
 cd helm-charts
 
 # Install chart
-helm install my-app ./charts/laravel \
+helm install my-app ./charts/my-chart \
   --namespace production \
-  --values values.yaml
-```
-
-#### As Git Submodule
-
-```bash
-# Add to your application repository
-git submodule add https://github.com/5ergiu/helm-charts.git helm-chart
-
-# Install chart
-helm install my-app ./helm-chart/charts/laravel \
-  --namespace production \
+  --create-namespace \
   --values values.yaml
 ```
 
@@ -73,13 +64,15 @@ helm install my-app ./helm-chart/charts/laravel \
 
 All charts in this repository provide:
 
-### Security First
+### Security & Supply Chain
 
 - **Non-root containers** by default
 - **Read-only root filesystems** where possible
 - **Dropped Linux capabilities** for minimal attack surface
 - **Security contexts** properly configured
 - **No hardcoded credentials** - use secrets or external secret providers
+- **Cryptographically signed charts** with [Cosign](https://docs.sigstore.dev/cosign/) - see [COSIGN.md](./COSIGN.md)
+- **Signed commits** encouraged for authenticity - see [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ### Production Ready
 
@@ -88,34 +81,7 @@ All charts in this repository provide:
 - **Persistent storage** configurations when needed
 - **Rolling update strategies** for zero-downtime deployments
 - **Pod disruption budgets** for high availability
-
-### Highly Configurable
-
-- **Extensive values.yaml** with detailed documentation
-- **Support for existing secrets** and ConfigMaps
-- **Flexible ingress** configurations (Traefik, nginx, etc.)
-- **Service account customization**
-- **Common labels and annotations** support
-
-## 🧪 Testing Charts
-
-**See [TESTING.md](./TESTING.md) for detailed testing documentation.**
-
-### Quick Start
-
-```bash
-# Install helm-unittest plugin
-helm plugin install https://github.com/helm-unittest/helm-unittest
-
-# Test all charts
-./scripts/test.sh
-
-# Test specific chart
-./scripts/test.sh laravel
-
-# Test without Kind cluster (unit tests only)
-./scripts/test.sh laravel --no-kind
-```
+- **Horizontal pod autoscaling** support
 
 ## 📚 Configuration
 
@@ -129,99 +95,23 @@ Each chart provides extensive configuration options through `values.yaml`. Key c
 
 Refer to individual chart READMEs for detailed configuration options.
 
-## 🔐 Security & Supply Chain
-
-### Signed Commits
-
-This repository encourages signed commits for security and authenticity. See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions.
-
-### Chart Signing with Cosign
-
-Charts can be cryptographically signed using [Cosign](https://docs.sigstore.dev/cosign/) for supply chain security. See [COSIGN.md](./COSIGN.md) for details on verification.
-
-## 📚 Repository Structure
-
-``` 
-├── charts/                    # Helm charts
-│   └── laravel/              # Laravel application chart
-│       ├── Chart.yaml        # Chart metadata
-│       ├── values.yaml       # Default configuration
-│       ├── values.schema.json # JSON schema for values validation
-│       ├── values.example.yaml
-│       ├── README.md         # Chart documentation
-│       ├── .helmignore       # Files to exclude from chart package
-│       ├── templates/        # Kubernetes manifests
-│       │   ├── NOTES.txt
-│       │   ├── _helpers.tpl
-│       │   ├── web-deployment.yaml
-│       │   ├── worker-deployment.yaml
-│       │   ├── cronjob.yaml
-│       │   ├── migration-job.yaml
-│       │   ├── service.yaml
-│       │   ├── ingress.yaml
-│       │   ├── configmap.yaml
-│       │   ├── secret.yaml
-│       │   ├── serviceaccount.yaml
-│       │   ├── hpa.yaml
-│       │   ├── pdb.yaml
-│       │   ├── pvc.yaml
-│       │   └── middleware.yaml
-│       └── tests/            # Unit tests
-│           ├── web-deployment_test.yaml
-│           ├── worker-deployment_test.yaml
-│           ├── service_test.yaml
-│           ├── ingress_test.yaml
-│           ├── cronjob_test.yaml
-│           ├── migration-job_test.yaml
-│           └── hpa_test.yaml
-├── scripts/                   # Helper scripts
-│   ├── generate-changelog.sh # Changelog generator
-|   ├── test.sh               # Chart testing suite
-│   └── update-appversion.sh  # AppVersion updater
-├── .github/                   # GitHub Actions
-│   └── workflows/
-│       ├── release.yaml      # Automated chart publishing
-│       ├── pull-request.yaml # PR validation & testing
-│       ├── check-signed-commits.yaml
-│       └── stale.yaml
-├── .editorconfig             # Editor configuration
-├── .gitignore                # Git ignore patterns
-├── CODE_OF_CONDUCT.md        # Code of Conduct
-├── CONTRIBUTING.md           # Contribution guidelines
-├── COSIGN.md                 # Chart signing documentation
-├── LICENSE                   # Apache 2.0 License
-├── README.md                 # This file
-├── TESTING.md                # Testing documentation
-└── renovate.json             # Renovate configuration
-```
-
 ## 🤝 Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for details on:
 
 - Setting up your development environment
 - Code standards and best practices
-- Testing requirements
+- Testing requirements and running tests
 - Pull request process
 - Commit signing
+
+**Questions or Need Help?**
+- Check individual chart READMEs and [TESTING.md](./TESTING.md)
+- Open an issue: [GitHub Issues](https://github.com/5ergiu/helm-charts/issues)
+- Start a discussion: [GitHub Discussions](https://github.com/5ergiu/helm-charts/discussions)
 
 ## 📝 License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
-
-## 📧 Support
-
-- **Documentation**: Check individual chart READMEs and our [TESTING.md](./TESTING.md)
-- **Issues**: [GitHub Issues](https://github.com/5ergiu/helm-charts/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/5ergiu/helm-charts/discussions)
-
-## 🌟 Acknowledgments
-
-This project follows best practices inspired by:
-- [CloudPirates Helm Charts](https://github.com/CloudPirates-io/helm-charts)
-- [Bitnami Charts](https://github.com/bitnami/charts)
-- [Artifact Hub](https://artifacthub.io/)
-
-## ⭐ Star History
 
 If you find this project useful, please consider giving it a star on GitHub!

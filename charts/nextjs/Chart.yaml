@@ -23,8 +23,8 @@ annotations:
   category: Web Applications
   licenses: Apache-2.0
   artifacthub.io/changes: |2
-        - kind: added
+        - kind: changed
           description: "feat(nextjs): add initial Next.js Helm chart with SSR/SSG support"
           links:
-            - name: "GitHub Repository"
-              url: "https://github.com/5ergiu/helm-charts"
+            - name: "Commit c1c2b7f"
+              url: "https://github.com/5ergiu/helm-charts/commit/c1c2b7f"
