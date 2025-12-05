@@ -122,27 +122,7 @@ jobs:
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
         run: |
           set -euo pipefail
-          
-          # Retry function for network operations
-          retry() {
-            local max_attempts=3
-            local attempt=1
-            local delay=5
-            
-            while [ $attempt -le $max_attempts ]; do
-              if "$@"; then
-                return 0
-              fi
-              echo "Attempt $attempt/$max_attempts failed. Retrying in ${delay}s..."
-              sleep $delay
-              attempt=$((attempt + 1))
-              delay=$((delay * 2))
-            done
-            
-            echo "ERROR: All retry attempts failed"
-            return 1
-          }
-          
+
           # Determine which charts to release
           if [ -n "${{ github.event.inputs.chart }}" ]; then
             echo "Manual chart specified: ${{ github.event.inputs.chart }}"
@@ -150,97 +130,63 @@ jobs:
           else
             CHANGED_CHARTS="${{ steps.chart-releaser.outputs.changed_charts }}"
           fi
-          
+
           if [ -z "$CHANGED_CHARTS" ]; then
             echo "No charts to release."
             exit 0
           fi
-          
+
+          # Retry function for network operations
+          retry() {
+            local max_attempts=3
+            local attempt=1
+            local delay=5
+            while [ $attempt -le $max_attempts ]; do
+              if "$@"; then return 0; fi
+              echo "Attempt $attempt failed. Retrying in ${delay}s..."
+              sleep $delay
+              delay=$((delay * 2))
+              attempt=$((attempt + 1))
+            done
+            echo "ERROR: All $max_attempts attempts failed"
+            return 1
+          }
+
           echo "Logging into GHCR..."
           retry helm registry login --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }} https://ghcr.io
-          
-          # Optional: Login to secondary registry
-          # Uncomment if using a secondary registry
-          # if [ -n "${{ vars.SECONDARY_REGISTRY || '' }}" ]; then
-          #   echo "Logging into secondary registry..."
-          #   retry helm registry login --username ${{ secrets.REGISTRY_USER }} --password ${{ secrets.REGISTRY_PASSWORD }} https://${{ vars.SECONDARY_REGISTRY }}
-          # fi
-          
+
           RELEASED_CHARTS=""
-          
           for chart_directory in ${CHANGED_CHARTS//,/ }; do
             CHART_NAME=${chart_directory#charts/}
             cd $chart_directory
-            
+
             CHART_VERSION=$(yq eval '.version' "Chart.yaml")
             APP_VERSION=$(yq eval '.appVersion' "Chart.yaml")
-            
-            echo "══════════════════════════════════════════════════════"
-            echo "Publishing: $CHART_NAME v$CHART_VERSION"
-            echo "══════════════════════════════════════════════════════"
-            
-            # Push to GHCR
-            echo "Pushing to GHCR..."
-            if retry helm push ${{ github.workspace }}/.cr-release-packages/${CHART_NAME}-${CHART_VERSION}.tgz oci://ghcr.io/${{ steps.repo-owner.outputs.lowercase }}/helm-charts 2>&1 | tee ${CHART_NAME}-ghcr-output.log; then
+
+            echo "Pushing Helm chart $CHART_NAME-$CHART_VERSION.tgz to GHCR..."
+            if retry helm push ${{ github.workspace }}/.cr-release-packages/${CHART_NAME}-${CHART_VERSION}.tgz oci://ghcr.io/${{ github.repository_owner }}/helm-charts 2>&1 | tee ${CHART_NAME}-ghcr-output.log; then
               GHCR_DIGEST=$(grep -oP 'Digest:\s*\K(sha256:[a-f0-9]+)' ${CHART_NAME}-ghcr-output.log || echo "")
-              
-              if [ -n "$GHCR_DIGEST" ]; then
-                echo "✓ Successfully pushed to GHCR (digest: $GHCR_DIGEST)"
-                
-                # Sign with Cosign if key is available
-                if [ -n "${{ secrets.COSIGN_PRIVATE_KEY || '' }}" ]; then
-                  echo "Signing chart with Cosign..."
-                  cosign sign -y --upload=true --key env://COSIGN_KEY \
-                    ghcr.io/${{ steps.repo-owner.outputs.lowercase }}/helm-charts/${CHART_NAME}:${CHART_VERSION}@$GHCR_DIGEST || \
-                    echo "⚠️  Warning: Failed to sign chart (non-fatal)"
-                else
-                  echo "ℹ️  Cosign key not configured, skipping signing"
-                fi
-              else
-                echo "⚠️  Warning: Could not extract digest from push output"
+              [ -z "$GHCR_DIGEST" ] && echo "ERROR: Failed to extract GHCR digest" && cat ${CHART_NAME}-ghcr-output.log && exit 1
+              if [ -n "$COSIGN_KEY" ]; then
+                cosign sign -y --upload=true --key env://COSIGN_KEY ghcr.io/${{ github.repository_owner }}/helm-charts/${CHART_NAME}:${CHART_VERSION}@$GHCR_DIGEST
               fi
-              
               RELEASED_CHARTS="$RELEASED_CHARTS ${CHART_NAME}"
-            else
-              echo "❌ Error: Failed to push to GHCR"
-              exit 1
             fi
-            
-            # Optional: Push to secondary registry
-            # Uncomment if using a secondary registry
-            # if [ -n "${{ vars.SECONDARY_REGISTRY || '' }}" ]; then
-            #   echo "Pushing to secondary registry..."
-            #   if retry helm push ${{ github.workspace }}/.cr-release-packages/${CHART_NAME}-${CHART_VERSION}.tgz oci://${{ vars.SECONDARY_REGISTRY }}/charts 2>&1 | tee ${CHART_NAME}-secondary-output.log; then
-            #     SECONDARY_DIGEST=$(grep -oP 'Digest:\s*\K(sha256:[a-f0-9]+)' ${CHART_NAME}-secondary-output.log || echo "")
-            #     if [ -n "$SECONDARY_DIGEST" ] && [ -n "${{ secrets.COSIGN_PRIVATE_KEY || '' }}" ]; then
-            #       cosign sign -y --upload=true --key env://COSIGN_KEY \
-            #         ${{ vars.SECONDARY_REGISTRY }}/charts/${CHART_NAME}:${CHART_VERSION}@$SECONDARY_DIGEST || \
-            #         echo "⚠️  Warning: Failed to sign secondary chart (non-fatal)"
-            #     fi
-            #   else
-            #     echo "⚠️  Warning: Failed to push to secondary registry (non-fatal)"
-            #   fi
-            # fi
-            
+
             cd ${{ github.workspace }}
           done
-          
+
           echo "released_charts=$RELEASED_CHARTS" >> "$GITHUB_OUTPUT"
-          
-          # Generate summary
           echo "## 📦 Helm Charts Released" >> $GITHUB_STEP_SUMMARY
           for chart in $RELEASED_CHARTS; do
             echo "- ✅ **$chart**" >> $GITHUB_STEP_SUMMARY
           done
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📍 Registries" >> $GITHUB_STEP_SUMMARY
-          echo "- GHCR: \`ghcr.io/${{ steps.repo-owner.outputs.lowercase }}/helm-charts\`" >> $GITHUB_STEP_SUMMARY
-          # if [ -n "${{ vars.SECONDARY_REGISTRY || '' }}" ]; then
-          #   echo "- Secondary: \`${{ vars.SECONDARY_REGISTRY }}/charts\`" >> $GITHUB_STEP_SUMMARY
-          # fi
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📍 Registry" >> $GITHUB_STEP_SUMMARY
+          echo "- GHCR: \`ghcr.io/${{ github.repository_owner }}/helm-charts\`" >> $GITHUB_STEP_SUMMARY
           echo "### 🔧 Installation" >> $GITHUB_STEP_SUMMARY
           for chart in $RELEASED_CHARTS; do
+            chart=$(echo "$chart" | xargs) # trim whitespace
+            [ -z "$chart" ] && continue
             CHART_VERSION=$(yq eval '.version' "charts/$chart/Chart.yaml")
             echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
             echo "helm install my-release oci://ghcr.io/${{ steps.repo-owner.outputs.lowercase }}/helm-charts/$chart --version $CHART_VERSION" >> $GITHUB_STEP_SUMMARY
