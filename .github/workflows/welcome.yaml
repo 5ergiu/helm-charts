@@ -50,7 +50,7 @@ jobs:
             console.log(`First-time contributor detected: ${author}`);
 
             // Issue welcome message
-            const issueWelcome = `## 👋 Welcome @${author}!
+            const issueWelcome = `## 👋 Welcome @` + `${author}!
 
 Thank you for opening your first issue in our Helm Charts repository! 🎉
 
@@ -70,7 +70,7 @@ While you wait, you might want to check out:
 We appreciate you taking the time to report this! 🙏`;
 
             // PR welcome message
-            const prWelcome = `## 👋 Welcome @${author}!
+            const prWelcome = `## 👋 Welcome @` + `${author}!
 
 Thank you for your first contribution to our Helm Charts repository! 🎉
 
