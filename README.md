@@ -1,16 +1,18 @@
 # Helm Charts
 
-[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/5ergiu)](https://artifacthub.io/packages/search?repo=5ergiu)
-
 Production-grade Helm charts for Kubernetes deployments following cloud-native best practices.
 
-## Available Charts
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/charts-5ergiu)](https://artifacthub.io/packages/search?repo=charts-5ergiu)
 
-| Chart | Description |
-|-------|-------------|
-| Laravel | A production-grade Helm chart for Laravel applications with web server, queue workers, cron jobs, and migrations |
+## 📦 Available Charts
 
-## Quick Start
+| Chart |      | Description | Version | Docs |
+|-------|------|-------------|---------|------|
+| <a href="https://laravel.com/docs/12.x"><img src="https://cdn.brandfetch.io/ide68-31CH/w/346/h/346/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761211589926" alt="Laravel" width="48" height="48" style="border-radius: 4px;"/></a> | [**Laravel**](./charts/laravel/) | Production-ready Laravel application with web/worker deployments, queue management, cron jobs, and auto-scaling | [`0.1.0`](https://github.com/5ergiu/helm-charts/releases/tag/laravel-0.1.0) | [README](./charts/laravel/README.md) |
+| <a href="https://nextjs.org/"><img src="https://cdn.brandfetch.io/id2alue-rx/theme/dark/symbol.svg?c=1bxid64Mup7aczewSAYMX&t=1762498501254" alt="Next.js" width="48" height="48" style="border-radius: 4px;"/></a> | [**Next.js**](./charts/nextjs/) | High-performance Next.js application deployment with SSR/SSG support, image optimization, and CDN integration | [`0.1.0`](https://github.com/5ergiu/helm-charts/releases/tag/nextjs-0.1.0) | [README](./charts/nextjs/README.md) |
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
@@ -20,53 +22,68 @@ Production-grade Helm charts for Kubernetes deployments following cloud-native b
 
 ### Installing Charts
 
+#### From OCI Registry (Recommended)
+
 ```bash
-# From GitHub Container Registry
-helm install my-app oci://ghcr.io/5ergiu/helm-charts/laravel \
+# Install from GitHub Container Registry
+helm install my-app oci://ghcr.io/5ergiu/helm-charts/my-chart \
   --version 0.1.0 \
   --namespace production \
   --create-namespace \
   --values values.yaml
+```
 
-# From local clone
-git clone https://github.com/5ergiu/helm-charts.git
-helm install my-app ./helm-charts/charts/laravel \
+#### From GitHub Release
+
+```bash
+# Download chart from releases
+wget https://github.com/5ergiu/helm-charts/releases/download/my-chart-0.1.0/my-chart-0.1.0.tgz
+
+# Install from local archive
+helm install my-app my-chart-0.1.0.tgz \
   --namespace production \
+  --create-namespace \
   --values values.yaml
 ```
 
-## Chart Features
+#### From Local Clone
+
+```bash
+# Clone repository
+git clone https://github.com/5ergiu/helm-charts.git
+cd helm-charts
+
+# Install chart
+helm install my-app ./charts/my-chart \
+  --namespace production \
+  --create-namespace \
+  --values values.yaml
+```
+
+## 💡 Chart Features
 
 All charts in this repository provide:
 
-### 🔒 Security First
+### Security & Supply Chain
 
 - **Non-root containers** by default
 - **Read-only root filesystems** where possible
 - **Dropped Linux capabilities** for minimal attack surface
 - **Security contexts** properly configured
 - **No hardcoded credentials** - use secrets or external secret providers
-- **Cryptographically Signed** - Charts are signed with Cosign for supply chain security
+- **Cryptographically signed charts** with [Cosign](https://docs.sigstore.dev/cosign/) - see [COSIGN.md](./COSIGN.md)
+- **Signed commits** encouraged for authenticity - see [CONTRIBUTING.md](./CONTRIBUTING.md)
 
-### 📊 Production Ready
+### Production Ready
 
 - **Comprehensive health checks** (liveness, readiness, startup probes)
 - **Resource requests and limits** properly configured
 - **Persistent storage** configurations when needed
 - **Rolling update strategies** for zero-downtime deployments
 - **Pod disruption budgets** for high availability
-- **Horizontal Pod Autoscaling** support
+- **Horizontal pod autoscaling** support
 
-### 🎛️ Highly Configurable
-
-- **Extensive values.yaml** with detailed inline documentation
-- **Support for existing secrets** and ConfigMaps
-- **Flexible ingress configurations** (Traefik, Nginx, etc.)
-- **Service account customization**
-- **Common labels and annotations** support
-- **JSON Schema validation** for values
-
-## Configuration
+## 📚 Configuration
 
 Each chart provides extensive configuration options through `values.yaml`. Key configuration areas include:
 
@@ -78,44 +95,23 @@ Each chart provides extensive configuration options through `values.yaml`. Key c
 
 Refer to individual chart READMEs for detailed configuration options.
 
-## Contributing
+## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](https://github.com/5ergiu/helm-charts/blob/main/CONTRIBUTING.md) for details.
+We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for details on:
 
-### Development Commands
+- Setting up your development environment
+- Code standards and best practices
+- Testing requirements and running tests
+- Pull request process
+- Commit signing
 
-```bash
-# Lint chart
-helm lint ./charts/<chart-name>
+**Questions or Need Help?**
+- Check individual chart READMEs and [TESTING.md](./TESTING.md)
+- Open an issue: [GitHub Issues](https://github.com/5ergiu/helm-charts/issues)
+- Start a discussion: [GitHub Discussions](https://github.com/5ergiu/helm-charts/discussions)
 
-# Test chart
-helm unittest ./charts/<chart-name>
+## 📝 License
 
-# Render templates locally
-helm template test-release ./charts/<chart-name> -n test
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
-# Install for testing
-helm install test-release ./charts/<chart-name> -n test
-
-# Package chart
-helm package ./charts/<chart-name>
-```
-
-## Support
-
-### Chart Issues
-
-For issues specific to these Helm charts:
-
-- Check individual chart README files for troubleshooting
-- Review chart documentation and examples
-- Verify configuration values
-- [Open an issue on GitHub](https://github.com/5ergiu/helm-charts/issues)
-
-## License
-
-Apache 2.0 - See [LICENSE](https://github.com/5ergiu/helm-charts/blob/main/LICENSE) for details.
-
----
-
-This site is open source. [Improve this page](https://github.com/5ergiu/helm-charts/edit/gh-pages/README.md).
+If you find this project useful, please consider giving it a star on GitHub!
