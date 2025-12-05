@@ -241,7 +241,8 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔧 Installation" >> $GITHUB_STEP_SUMMARY
           for chart in $RELEASED_CHARTS; do
+            CHART_VERSION=$(yq eval '.version' "charts/$chart/Chart.yaml")
             echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-            echo "helm install my-release oci://ghcr.io/${{ steps.repo-owner.outputs.lowercase }}/helm-charts/$chart --version \$(yq eval '.version' charts/$chart/Chart.yaml)" >> $GITHUB_STEP_SUMMARY
+            echo "helm install my-release oci://ghcr.io/${{ steps.repo-owner.outputs.lowercase }}/helm-charts/$chart --version $CHART_VERSION" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           done
