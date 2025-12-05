@@ -281,27 +281,31 @@ jobs:
             });
             
             if (prs.length === 1) {
+              const welcomeMessage = [
+                `## 👋 Welcome @${pr.user.login}!`,
+                ``,
+                `Thank you for your first contribution to our Helm Charts repository! 🎉`,
+                ``,
+                `### What's Next?`,
+                ``,
+                `1. ✅ Our CI/CD will automatically run tests on your changes`,
+                `2. 👀 A maintainer will review your PR shortly`,
+                `3. 💬 Feel free to ask questions or request help in the comments`,
+                ``,
+                `### Helpful Resources`,
+                ``,
+                `- 📚 [Contributing Guide](../blob/main/CONTRIBUTING.md)`,
+                `- 🧪 [Testing Guide](../blob/main/TESTING.md)`,
+                `- 🔐 [Chart Signing](../blob/main/COSIGN.md)`,
+                ``,
+                `We appreciate your contribution! 🚀`
+              ].join('\n');
+              
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: pr.number,
-                body: `## 👋 Welcome @` + `${pr.user.login}!
-
-Thank you for your first contribution to our Helm Charts repository! 🎉
-
-### What's Next?
-
-1. ✅ Our CI/CD will automatically run tests on your changes
-2. 👀 A maintainer will review your PR shortly
-3. 💬 Feel free to ask questions or request help in the comments
-
-### Helpful Resources
-
-- 📚 [Contributing Guide](../blob/main/CONTRIBUTING.md)
-- 🧪 [Testing Guide](../blob/main/TESTING.md)
-- 🔐 [Chart Signing](../blob/main/COSIGN.md)
-
-We appreciate your contribution! 🚀`
+                body: welcomeMessage
               });
               
               await github.rest.issues.addLabels({

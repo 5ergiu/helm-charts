@@ -50,53 +50,57 @@ jobs:
             console.log(`First-time contributor detected: ${author}`);
 
             // Issue welcome message
-            const issueWelcome = `## 👋 Welcome @` + `${author}!
-
-Thank you for opening your first issue in our Helm Charts repository! 🎉
-
-### What Happens Next?
-
-1. 🏷️ Our bot will automatically add relevant labels
-2. 👀 A maintainer will review your issue soon
-3. 💬 Feel free to provide additional context if needed
-
-### Getting Started
-
-While you wait, you might want to check out:
-- 📚 [Contributing Guide](../blob/main/CONTRIBUTING.md)
-- 🧪 [Testing Guide](../blob/main/TESTING.md)
-- 💬 [Discussions](../discussions) - Great for questions!
-
-We appreciate you taking the time to report this! 🙏`;
+            const issueWelcome = [
+              `## 👋 Welcome @${author}!`,
+              ``,
+              `Thank you for opening your first issue in our Helm Charts repository! 🎉`,
+              ``,
+              `### What Happens Next?`,
+              ``,
+              `1. 🏷️ Our bot will automatically add relevant labels`,
+              `2. 👀 A maintainer will review your issue soon`,
+              `3. 💬 Feel free to provide additional context if needed`,
+              ``,
+              `### Getting Started`,
+              ``,
+              `While you wait, you might want to check out:`,
+              `- 📚 [Contributing Guide](../blob/main/CONTRIBUTING.md)`,
+              `- 🧪 [Testing Guide](../blob/main/TESTING.md)`,
+              `- 💬 [Discussions](../discussions) - Great for questions!`,
+              ``,
+              `We appreciate you taking the time to report this! 🙏`
+            ].join('\n');
 
             // PR welcome message
-            const prWelcome = `## 👋 Welcome @` + `${author}!
-
-Thank you for your first contribution to our Helm Charts repository! 🎉
-
-### What Happens Next?
-
-1. ✅ Our CI/CD will automatically run tests on your changes
-2. 🏷️ Labels will be applied automatically
-3. 👀 A maintainer will review your PR shortly
-4. 💬 Feel free to ask questions in the comments
-
-### Helpful Resources
-
-- 📚 [Contributing Guide](../blob/main/CONTRIBUTING.md) - Development standards
-- 🧪 [Testing Guide](../blob/main/TESTING.md) - How to test your changes
-- 🔐 [Chart Signing](../blob/main/COSIGN.md) - Supply chain security
-- 📝 [Commit Conventions](../blob/main/CONTRIBUTING.md#commit-message-convention) - Message format
-
-### Before Merging
-
-Please ensure:
-- [ ] All CI checks pass
-- [ ] Chart version is bumped (if applicable)
-- [ ] Documentation is updated
-- [ ] Tests are passing
-
-We're excited to review your contribution! 🚀`;
+            const prWelcome = [
+              `## 👋 Welcome @${author}!`,
+              ``,
+              `Thank you for your first contribution to our Helm Charts repository! 🎉`,
+              ``,
+              `### What Happens Next?`,
+              ``,
+              `1. ✅ Our CI/CD will automatically run tests on your changes`,
+              `2. 🏷️ Labels will be applied automatically`,
+              `3. 👀 A maintainer will review your PR shortly`,
+              `4. 💬 Feel free to ask questions in the comments`,
+              ``,
+              `### Helpful Resources`,
+              ``,
+              `- 📚 [Contributing Guide](../blob/main/CONTRIBUTING.md) - Development standards`,
+              `- 🧪 [Testing Guide](../blob/main/TESTING.md) - How to test your changes`,
+              `- 🔐 [Chart Signing](../blob/main/COSIGN.md) - Supply chain security`,
+              `- 📝 [Commit Conventions](../blob/main/CONTRIBUTING.md#commit-message-convention) - Message format`,
+              ``,
+              `### Before Merging`,
+              ``,
+              `Please ensure:`,
+              `- [ ] All CI checks pass`,
+              `- [ ] Chart version is bumped (if applicable)`,
+              `- [ ] Documentation is updated`,
+              `- [ ] Tests are passing`,
+              ``,
+              `We're excited to review your contribution! 🚀`
+            ].join('\n');
 
             const message = isIssue ? issueWelcome : prWelcome;
 
