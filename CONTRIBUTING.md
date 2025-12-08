@@ -179,171 +179,6 @@ We follow [Semantic Versioning](https://semver.org/) for chart versions:
 
 Changelogs are generated automatically using [git-cliff](https://github.com/orhun/git-cliff), based on Conventional Commits.
 
-### Multi-Chart Repository Workflow
-
-This repository hosts multiple Helm charts. Each chart has **independent versioning** and releases.
-
-**IMPORTANT**: Never push directly to `main`. All changes must go through pull requests.
-
-#### Scenario 1: Adding a New Feature to Existing Chart
-
-Example: Adding Redis support to MyChart chart (MINOR version bump: 0.1.0 → 0.2.0)
-
-```bash
-# 1. Create a feature branch from main
-git checkout main
-git pull origin main
-git checkout -b feat/my-chart-redis-support
-
-# 2. Make your changes
-vim charts/my-chart/values.yaml
-vim charts/my-chart/templates/configmap.yaml
-vim charts/my-chart/README.md
-
-# 3. Bump the chart version in Chart.yaml (0.1.0 → 0.2.0)
-vim charts/my-chart/Chart.yaml
-
-# 4. Run tests locally
-./scripts/test.sh my-chart
-
-# 5. Commit with conventional prefix
-git add charts/my-chart/
-git commit -m "feat(my-chart): add Redis configuration support"
-
-# 6. Push branch and create pull request
-git push origin feat/my-chart-redis-support
-# Then create PR on GitHub targeting main branch
-
-# 7. After PR is approved and merged, maintainer will:
-#    - Pull main branch
-#    - Tag the release: git tag -a my-chart-0.2.0 -m "Add Redis support"
-#    - Push: git push origin main --follow-tags
-```
-
-#### Scenario 2: Fixing a Bug (PATCH version bump)
-
-Example: Fix deployment template issue (0.2.0 → 0.2.1)
-
-```bash
-# 1. Create a fix branch
-git checkout main
-git pull origin main
-git checkout -b fix/my-chart-deployment-probe
-
-# 2. Fix the issue
-vim charts/my-chart/templates/web-deployment.yaml
-
-# 3. Bump version (0.2.0 → 0.2.1)
-vim charts/my-chart/Chart.yaml
-
-# 4. Test locally
-./scripts/test.sh my-chart
-
-# 5. Commit with fix prefix
-git add charts/my-chart/
-git commit -m "fix(my-chart): correct readiness probe path"
-
-# 6. Push and create pull request
-git push origin fix/my-chart-deployment-probe
-# Create PR on GitHub
-
-# 7. After merge, maintainer tags and releases
-```
-
-#### Scenario 3: Documentation Updates (PATCH version bump)
-
-Example: Update README examples (0.2.1 → 0.2.2)
-
-```bash
-# 1. Create docs branch
-git checkout main
-git pull origin main
-git checkout -b docs/my-chart-examples
-
-# 2. Update documentation
-vim charts/my-chart/README.md
-vim charts/my-chart/values.yaml  # Update inline comments
-
-# 3. Bump version (0.2.1 → 0.2.2)
-vim charts/my-chart/Chart.yaml
-
-# 4. Commit with docs prefix
-git add charts/my-chart/
-git commit -m "docs(my-chart): add PostgreSQL configuration examples"
-
-# 5. Push and create pull request
-git push origin docs/my-chart-examples
-# Create PR on GitHub
-
-# 6. After merge, maintainer tags and releases
-```
-
-#### Scenario 4: Adding a New Chart
-
-Example: Creating an Nginx chart starting at 0.1.0
-
-```bash
-# 1. Create feature branch
-git checkout main
-git pull origin main
-git checkout -b feat/nginx-chart
-
-# 2. Create chart structure
-mkdir -p charts/nginx/{templates,tests}
-# ... create all necessary files ...
-
-# 3. Set initial version to 0.1.0 in Chart.yaml
-
-# 4. Add comprehensive documentation
-vim charts/nginx/README.md
-vim charts/nginx/values.yaml
-
-# 5. Write tests
-vim charts/nginx/tests/deployment_test.yaml
-
-# 6. Test the new chart
-./scripts/test.sh nginx
-
-# 7. Commit with feat prefix
-git add charts/nginx/
-git commit -m "feat(nginx): add initial Nginx Helm chart"
-
-# 8. Push and create pull request
-git push origin feat/nginx-chart
-# Create PR on GitHub
-
-# 9. After merge, maintainer will:
-#    - Tag: git tag -a nginx-0.1.0 -m "Initial Nginx chart release"
-#    - Push: git push origin main --follow-tags
-```
-
-#### Scenario 5: Infrastructure Changes (No Release)
-
-Example: Updating CI/CD workflows or repository scripts
-
-```bash
-# 1. Create infrastructure branch
-git checkout main
-git pull origin main
-git checkout -b chore/update-workflow
-
-# 2. Make changes to infrastructure files
-vim .github/workflows/release.yaml
-vim README.md
-
-# 3. NO version bump needed (not touching charts)
-
-# 4. Commit with chore prefix (no chart name)
-git add .github/ scripts/ README.md
-git commit -m "chore: improve chart signing in release workflow"
-
-# 5. Push and create pull request
-git push origin chore/update-workflow
-# Create PR on GitHub
-
-# 6. After merge, NO tagging or release (only chart changes trigger releases)
-```
-
 #### Version Bump Quick Reference
 
 | Change Type | Version Bump | Commit Prefix | Example | Tag Required | Release Triggered |
@@ -356,28 +191,53 @@ git push origin chore/update-workflow
 | Infrastructure | None | `chore:` | Update workflows | ❌ No | ❌ No |
 | New chart | Start at 0.1.0 | `feat(chart/scope):` | Initial release | ✅ Yes | ✅ Yes |
 
-#### Commit Message Convention
+### Commit Message Helper (czg)
 
-Commit messages **must** follow [Conventional Commits](https://www.conventionalcommits.org/) and are enforced by a git hook:
+To make writing Conventional Commits easier, you can use [czg (Commitizen GUI)](https://github.com/Zhengqbbb/cz-git):
 
-**For chart changes:**
-- `feat(chart/scope): description` - New features (MINOR bump)
-- `fix(chart/scope): description` - Bug fixes (PATCH bump)
-- `docs(chart/scope): description` - Documentation only (PATCH bump)
-- `test(chart/scope): description` - Test updates (PATCH bump)
-- `feat(chart/scope)!: description` - Breaking changes (MAJOR bump)
+1. **Install czg globally:**
+   ```bash
+   brew install czg
+   ```
+2. **Create commits interactively:**
+   ```bash
+   git commit
+   ```
+   This will guide you through all Conventional Commit types and help you write a valid commit message.
 
-**For infrastructure changes:**
-- `chore: description` - Tooling, CI/CD, scripts (no release)
-- `docs: description` - Root documentation (no release)
+   Supported types include:
+   - `feat`      – New features (MINOR bump)
+   - `fix`       – Bug fixes (PATCH bump)
+   - `docs`      – Documentation only (PATCH bump)
+   - `style`     – Code style changes (formatting, missing semi colons, etc)
+   - `refactor`  – Code refactoring (no feature or fix)
+   - `perf`      – Performance improvements
+   - `test`      – Test updates (PATCH bump)
+   - `build`     – Build system or external dependencies
+   - `ci`        – CI/CD configuration
+   - `chore`     – Tooling, maintenance, or infrastructure (no release)
+   - `revert`    – Reverts a previous commit
 
-**Note**: Documentation changes within a chart directory (`charts/*/README.md`) warrant a PATCH release because the README is part of the chart package displayed on ArtifactHub.
+   For chart changes, use a scope in parentheses, e.g.:
+   ```
+   feat(my-chart): add Redis configuration support
+   fix(my-chart): correct readiness probe path
+   docs(my-chart): update README examples
+   ```
 
-If your commit message does not match the required format, the commit will be rejected. Example:
+   For infrastructure or repo-level changes (not chart-specific):
+   ```
+   chore: update workflows
+   docs: update root documentation
+   ```
 
-```
-feat(my-chart): add Redis configuration support
-```
+   **Breaking changes:**
+   Add a `!` after the type for breaking changes, e.g.:
+   ```
+   feat(my-chart)!: remove deprecated values
+   ```
+
+   > **Note:** Do not use `czg` in git hooks (e.g., via Lefthook), as interactive prompts do not work in that context. Run `czg` directly in your terminal.
 
 ## Testing
 
@@ -431,10 +291,12 @@ git checkout -b feature/your-chart-improvement
 
 ### 5. Commit Your Changes
 
-Use clear, descriptive commit messages following [Conventional Commits](https://www.conventionalcommits.org/):
+Use clear, descriptive commit messages following [Conventional Commits](https://www.conventionalcommits.org/). The recommended way is to use czg for an interactive prompt:
 
 ```bash
-git commit -m "feat(chart/scope): add support for custom annotations"
+czg
+# or:
+git commit
 ```
 
 ### 5. Push and Create Pull Request
