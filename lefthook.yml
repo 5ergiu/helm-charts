@@ -51,4 +51,3 @@ prepare-commit-msg:
       skip:
         - merge
         - rebase
-
