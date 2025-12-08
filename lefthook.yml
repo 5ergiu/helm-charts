@@ -1,0 +1,98 @@
+# ============================================================
+#  🔥 Lefthook — Modern Git Hooks for Any Language Project
+# ============================================================
+
+# -------------------------------------------------------------------
+# 📝 1. Enforce czg for ALL commits
+# -------------------------------------------------------------------
+prepare-commit-msg:
+  commands:
+    czg:
+      run: czg --hook
+      skip:
+        - merge
+        - rebase
+      # important: allow an empty message so czg can replace it
+      silent: true
+
+# ===================================================================
+# ❌ 2. Block manual messages: `git commit -m "..."` or `-F file`
+# ===================================================================
+commit-msg:
+  commands:
+    block_manual_commit:
+      run: |
+        # If czg generated an empty file, allow it (czg fills message later)
+        if [ "$(sed 's/[[:space:]]//g' $1)" != "" ]; then
+          echo "❌ Direct commit messages are not allowed."
+          echo "👉 Use: git commit (which triggers czg wizard)"
+          exit 1
+        fi
+
+# ===================================================================
+# 🧹 3. Pre-commit checks optimized for a HELM CHARTS repo
+# ===================================================================
+pre-commit:
+  parallel: true
+  commands:
+
+    # --- Syntax & chart validation ---
+    helm_lint:
+      run: |
+        if command -v helm > /dev/null; then
+          for chart in $(ls -d */ | sed 's#/##'); do
+            if [ -f "$chart/Chart.yaml" ]; then
+              echo "🧪 Helm lint: $chart"
+              helm lint "$chart" || exit 1
+            fi
+          done
+        fi
+
+    # --- YAML validation ---
+    yaml_lint:
+      run: |
+        if command -v yamllint > /dev/null; then
+          yamllint . || exit 1
+        fi
+
+    # --- Only run formatters on staged YAML files ---
+    format_yaml:
+      glob: "*.yaml"
+      run: |
+        if command -v prettier > /dev/null; then
+          npx prettier --parser yaml --write {staged_files}
+        fi
+      stage_fixed: true
+
+    # --- Prevent secrets from being committed ---
+    gitleaks:
+      run: |
+        if command -v gitleaks > /dev/null; then
+          gitleaks protect --staged --verbose || exit 1
+        fi
+
+# -------------------------------------------------------------------
+# 🧪 4. Pre-push hooks for Helm repos
+# -------------------------------------------------------------------
+pre-push:
+  parallel: true
+  commands:
+    helm_template:
+      run: |
+        if command -v helm > /dev/null; then
+          for chart in $(ls -d */ | sed 's#/##'); do
+            if [ -f "$chart/Chart.yaml" ]; then
+              echo "📦 Helm template: $chart"
+              helm template "$chart" > /dev/null || exit 1
+            fi
+          done
+        fi
+
+# ===================================================================
+# 📦 5. Optional: Changelog tooling (git-cliff)
+# Run manually via: lefthook run changelog
+# ===================================================================
+changelog:
+  commands:
+    cliff:
+      run: git cliff --output CHANGELOG.md

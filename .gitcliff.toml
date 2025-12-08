@@ -1,0 +1,54 @@
+# ====================================================================================
+# 📜 GIT-CLIFF CONFIGURATION
+# Generates clean, structured changelogs based on Conventional Commits.
+# Fully supports Helm chart-specific commit types.
+# ====================================================================================
+
+[changelog]
+header = "# Changelog\n\nAll notable changes are documented per chart."
+body = """
+## {{ version }} - {{ date }}
+
+{% if commits | length == 0 %}
+_No changes._
+{% else %}
+
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group }}
+
+{% for commit in commits %}
+- {{ commit.message | trim }} ({{ commit.id | truncate(length=7) }})
+{% endfor %}
+
+{% endfor %}
+{% endif %}
+"""
+footer = ""
+
+# Conventional commits parser
+[git]
+conventional_commits = true
+filter_unconventional = true
+
+# Grouping rules
+commit_parsers = [
+  { message = "^feat",    group = "✨ Features" },
+  { message = "^fix",     group = "🐛 Fixes" },
+  { message = "^docs",    group = "📚 Documentation" },
+  { message = "^refactor",group = "♻️ Refactoring" },
+  { message = "^perf",    group = "⚡ Performance" },
+  { message = "^test",    group = "🧪 Tests" },
+  { message = "^ci",      group = "🔄 CI/CD" },
+  { message = "^build",   group = "🏗️ Build" },
+  { message = "^style",   group = "🎨 Style" },
+
+  # Helm-specific groups
+  { message = "^chart",   group = "📦 Chart Updates" },
+  { message = "^helm",    group = "⛵ Helm Infrastructure" },
+
+  # Breaking changes
+  { body = "BREAKING CHANGE", group = "💥 Breaking Changes" },
+]
+
+# Sort newest commits first
+sort_commits = "newest"

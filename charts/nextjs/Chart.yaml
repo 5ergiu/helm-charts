@@ -18,7 +18,7 @@ home: https://github.com/5ergiu/helm-charts
 sources:
   - https://github.com/5ergiu/helm-charts
   - https://github.com/vercel/next.js
-icon: https://cdn.brandfetch.io/id2alue-rx/theme/dark/symbol.svg?c=1bxid64Mup7aczewSAYMX&t=1762498501254
+icon: https://cdn.brandfetch.io/id2alue-rx/w/800/h/800/theme/dark/symbol.png?c=1bxid64Mup7aczewSAYMX&t=1762498501254
 annotations:
   category: Web Applications
   licenses: Apache-2.0

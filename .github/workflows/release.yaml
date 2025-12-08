@@ -36,26 +36,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 🔧 Configure Git
-        run: |
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-
       - name: 🔐 Login to GHCR
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      # Optional: Login to secondary registry (Docker Hub, GitLab, Harbor, etc.)
-      # Uncomment and configure if you want to push to a secondary registry
-      # - name: Login to Secondary Registry
-      #   uses: docker/login-action@v3
-      #   with:
-      #     registry: ${{ vars.SECONDARY_REGISTRY || 'registry.example.com' }}
-      #     username: ${{ secrets.REGISTRY_USER }}
-      #     password: ${{ secrets.REGISTRY_PASSWORD }}
 
       - name: 📦 Update chart dependencies
         run: |
@@ -81,30 +67,6 @@ jobs:
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
-      - name: 📦 Package manually specified chart
-        if: ${{ github.event.inputs.chart != '' }}
-        run: |
-          set -euo pipefail
-          CHART_DIR="${{ github.event.inputs.chart }}"
-          
-          if [ ! -d "$CHART_DIR" ]; then
-            echo "ERROR: Chart directory $CHART_DIR does not exist"
-            exit 1
-          fi
-          
-          # Update dependencies if they exist
-          if grep -q "^dependencies:" "$CHART_DIR/Chart.yaml"; then
-            echo "Updating dependencies for $CHART_DIR..."
-            helm dependency update "$CHART_DIR"
-          fi
-          
-          echo "Packaging chart from $CHART_DIR..."
-          mkdir -p .cr-release-packages
-          helm package "$CHART_DIR" --destination .cr-release-packages
-
-          echo "Packaged charts:"
-          ls -lh .cr-release-packages/
-
       - name: 🔐 Install Cosign
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
         if: ${{ steps.chart-releaser.outputs.changed_charts || github.event.inputs.chart != '' }}
@@ -116,10 +78,9 @@ jobs:
 
       - name: 📤 Upload charts to OCI registries
         id: upload
-        if: ${{ steps.chart-releaser.outputs.changed_charts || github.event.inputs.chart != '' }}
+        if: github.event.inputs.dry_run != 'true' && (steps.chart-releaser.outputs.changed_charts || github.event.inputs.chart != '')
         env:
           COSIGN_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
-          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
         run: |
           set -euo pipefail
 
@@ -152,7 +113,7 @@ jobs:
             return 1
           }
 
-          echo "Logging into GHCR..."
+          echo "🔐 Logging into GHCR..."
           retry helm registry login --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }} https://ghcr.io
 
           RELEASED_CHARTS=""
@@ -183,12 +144,3 @@ jobs:
           done
           echo "### 📍 Registry" >> $GITHUB_STEP_SUMMARY
           echo "- GHCR: \`ghcr.io/${{ github.repository_owner }}/helm-charts\`" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔧 Installation" >> $GITHUB_STEP_SUMMARY
-          for chart in $RELEASED_CHARTS; do
-            chart=$(echo "$chart" | xargs) # trim whitespace
-            [ -z "$chart" ] && continue
-            CHART_VERSION=$(yq eval '.version' "charts/$chart/Chart.yaml")
-            echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-            echo "helm install my-release oci://ghcr.io/${{ steps.repo-owner.outputs.lowercase }}/helm-charts/$chart --version $CHART_VERSION" >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          done

@@ -2,6 +2,8 @@
 
 High-performance Next.js application deployment with SSR/SSG support, image optimization, and CDN integration.
 
+![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational) ![Type: application](https://img.shields.io/badge/Type-application-informational) ![AppVersion: v16.x.0](https://img.shields.io/badge/AppVersion-v16.x-informational)
+
 ## 🚀 Installation
 
 ### Install from OCI Registry
@@ -173,7 +175,6 @@ helm install myapp ./charts/nextjs -f values.yaml -n production --create-namespa
 
 - **Kubernetes 1.24+**
 - **Helm 3.8+**
-- **PV provisioner** support in the underlying infrastructure (if persistence is enabled)
 - **Ingress controller** (Traefik, NGINX, etc.) for external access
 - **cert-manager** (optional, for automatic TLS certificates)
 

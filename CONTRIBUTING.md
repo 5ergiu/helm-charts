@@ -67,7 +67,12 @@ Enhancement suggestions are tracked as GitHub issues. Include:
    helm plugin install https://github.com/helm-unittest/helm-unittest
    ```
 
-4. (Optional) Configure commit signing:
+4. Set up commit message enforcement:
+   - This repository uses [Lefthook](https://github.com/evilmartians/lefthook) for git hooks.
+   - Commit messages are checked against the Conventional Commits format using a shell-based `commit-msg` hook.
+   - If your commit message does not match the required format, the commit will be rejected with an error.
+
+5. (Optional) Configure commit signing:
    ```bash
    # For SSH signing
    git config gpg.format ssh
@@ -160,7 +165,7 @@ Each chart must include:
 
 Chart releases must be immutable. Any change to a chart warrants a chart version bump even if it is only changed to the documentation.
 
-### Versioning
+### Versioning & Changelog
 
 We follow [Semantic Versioning](https://semver.org/) for chart versions:
 
@@ -171,6 +176,8 @@ We follow [Semantic Versioning](https://semver.org/) for chart versions:
 **Pre-1.0 versions** (0.x.x): Indicate charts are in development and may have breaking changes.
 
 **Important**: Always bump the chart version in `Chart.yaml` when making changes.
+
+Changelogs are generated automatically using [git-cliff](https://github.com/orhun/git-cliff), based on Conventional Commits.
 
 ### Multi-Chart Repository Workflow
 
@@ -210,8 +217,6 @@ git push origin feat/my-chart-redis-support
 # 7. After PR is approved and merged, maintainer will:
 #    - Pull main branch
 #    - Tag the release: git tag -a my-chart-0.2.0 -m "Add Redis support"
-#    - Generate changelog: ./scripts/generate-changelog.sh --chart my-chart
-#    - Commit changelog: git commit -am "docs(my-chart): add changelog for v0.2.0"
 #    - Push: git push origin main --follow-tags
 ```
 
@@ -309,8 +314,7 @@ git push origin feat/nginx-chart
 
 # 9. After merge, maintainer will:
 #    - Tag: git tag -a nginx-0.1.0 -m "Initial Nginx chart release"
-#    - Generate changelog: ./scripts/generate-changelog.sh --chart nginx
-#    - Commit and push
+#    - Push: git push origin main --follow-tags
 ```
 
 #### Scenario 5: Infrastructure Changes (No Release)
@@ -325,7 +329,6 @@ git checkout -b chore/update-workflow
 
 # 2. Make changes to infrastructure files
 vim .github/workflows/release.yaml
-vim scripts/generate-changelog.sh
 vim README.md
 
 # 3. NO version bump needed (not touching charts)
@@ -355,7 +358,7 @@ git push origin chore/update-workflow
 
 #### Commit Message Convention
 
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
+Commit messages **must** follow [Conventional Commits](https://www.conventionalcommits.org/) and are enforced by a git hook:
 
 **For chart changes:**
 - `feat(chart/scope): description` - New features (MINOR bump)
@@ -369,6 +372,12 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 - `docs: description` - Root documentation (no release)
 
 **Note**: Documentation changes within a chart directory (`charts/*/README.md`) warrant a PATCH release because the README is part of the chart package displayed on ArtifactHub.
+
+If your commit message does not match the required format, the commit will be rejected. Example:
+
+```
+feat(my-chart): add Redis configuration support
+```
 
 ## Testing
 

@@ -2,6 +2,9 @@
 
 Laravel application deployment with web/worker deployments, queue management, cron jobs, and auto-scaling.
 
+![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational) ![Type: application](https://img.shields.io/badge/Type-application-informational) ![AppVersion: v12.x.0](https://img.shields.io/badge/AppVersion-v12.x-informational)
+
+
 ## 🚀 Installation
 
 ### Install from OCI Registry
@@ -183,7 +186,6 @@ helm install myapp ./charts/laravel -f values.yaml -n production --create-namesp
 
 - **Kubernetes 1.24+**
 - **Helm 3.8+**
-- **PV provisioner** support in the underlying infrastructure (if persistence is enabled)
 - **Ingress controller** (Traefik, NGINX, etc.) for external access
 - **cert-manager** (optional, for automatic TLS certificates)
 - **MySQL/PostgreSQL** database server

@@ -1,0 +1,19 @@
+#!/bin/sh
+# commit-msg hook for enforcing Conventional Commits
+
+commit_msg_file="$1"
+commit_msg=$(cat "$commit_msg_file")
+
+# Regex for Conventional Commits (allowing optional chart/scope)
+pattern='^(feat|fix|docs|test|chore)(\([a-zA-Z0-9\-/]+\))?!?: .+|^(feat|fix|docs|test|chore)!?: .+'
+
+if ! echo "$commit_msg" | grep -Eq "$pattern"; then
+  echo "\033[31mERROR: Commit message does not follow Conventional Commits!\033[0m"
+  echo "Example valid messages:"
+  echo "  feat: add global feature"
+  echo "  feat(laravel): add migration job"
+  echo "  fix(nextjs): correct ingress"
+  echo "  chore(ci): update workflow"
+  echo "  docs(readme): update usage"
+  exit 1
+fi

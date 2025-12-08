@@ -10,7 +10,7 @@ Production-grade Helm charts for Kubernetes deployments following cloud-native b
 | Chart | Description | Version | Docs |
 |-------|-------------|---------|------|
 | <a href="https://laravel.com/docs/12.x" style="display:inline-flex;flex-direction:column;align-items:center;text-decoration:none;"><img src="https://cdn.brandfetch.io/ide68-31CH/w/346/h/346/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761211589926" alt="Laravel" width="48" height="48" style="border-radius:4px;margin-bottom:4px;"/><strong style="margin:0;">Laravel</strong></a> | Laravel application deployment with web/worker deployments, queue management, cron jobs, and auto-scaling | [`0.1.0`](https://github.com/5ergiu/helm-charts/releases/tag/laravel-0.1.0) | [README](./charts/laravel/README.md) |
-| <a href="https://nextjs.org/" style="display:inline-flex;flex-direction:column;align-items:center;text-decoration:none;"><img src="https://cdn.brandfetch.io/id2alue-rx/theme/dark/symbol.svg?c=1bxid64Mup7aczewSAYMX&t=1762498501254" alt="Next.js" width="48" height="48" style="border-radius:4px;margin-bottom:4px;"/><strong style="margin:0;">Next.js</strong></a> | High-performance Next.js application deployment with SSR/SSG support, image optimization, and CDN integration | [`0.1.0`](https://github.com/5ergiu/helm-charts/releases/tag/nextjs-0.1.0) | [README](./charts/nextjs/README.md) |
+| <a href="https://nextjs.org/" style="display:inline-flex;flex-direction:column;align-items:center;text-decoration:none;"><img src="https://cdn.brandfetch.io/id2alue-rx/w/800/h/800/theme/dark/symbol.png?c=1bxid64Mup7aczewSAYMX&t=1762498501254" alt="Next.js" width="48" height="48" style="border-radius:4px;margin-bottom:4px;"/><strong style="margin:0;">Next.js</strong></a> | High-performance Next.js application deployment with SSR/SSG support, image optimization, and CDN integration | [`0.1.0`](https://github.com/5ergiu/helm-charts/releases/tag/nextjs-0.1.0) | [README](./charts/nextjs/README.md) |
 
 ## 🚀 Quick Start
 
@@ -18,7 +18,6 @@ Production-grade Helm charts for Kubernetes deployments following cloud-native b
 
 - **Kubernetes 1.24+**
 - **Helm 3.8+**
-- **PV provisioner** support in the underlying infrastructure (if persistence is enabled)
 
 ### Installing Charts
 
