@@ -47,7 +47,7 @@ prepare-commit-msg:
   commands:
     czg:
       interactive: true
-      run: czg
+      run: czg --hook
       skip:
         - merge
         - rebase
