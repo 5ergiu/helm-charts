@@ -5,30 +5,40 @@ metadata:
   name: {{ include "laravel.fullname" . }}
   labels:
     {{- include "laravel.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
   annotations:
-    {{- toYaml . | nindent 4 }}
-    {{- if $.Values.middleware.enabled }}
-    traefik.ingress.kubernetes.io/router.middlewares: >-
-      {{- $middlewares := list -}}
-      {{- if $.Values.middleware.redirectScheme.enabled -}}
-        {{- $middlewares = append $middlewares (printf "%s-%s-redirect-scheme" $.Release.Namespace (include "laravel.fullname" $)) -}}
-      {{- end -}}
-      {{- if $.Values.middleware.headers.enabled -}}
-        {{- $middlewares = append $middlewares (printf "%s-%s-headers" $.Release.Namespace (include "laravel.fullname" $)) -}}
-      {{- end -}}
-      {{- if $.Values.middleware.rateLimit.enabled -}}
-        {{- $middlewares = append $middlewares (printf "%s-%s-ratelimit" $.Release.Namespace (include "laravel.fullname" $)) -}}
-      {{- end -}}
-      {{- if $.Values.middleware.compress.enabled -}}
-        {{- $middlewares = append $middlewares (printf "%s-%s-compress" $.Release.Namespace (include "laravel.fullname" $)) -}}
-      {{- end -}}
-      {{- if $.Values.middleware.ipWhiteList.enabled -}}
-        {{- $middlewares = append $middlewares (printf "%s-%s-ipwhitelist" $.Release.Namespace (include "laravel.fullname" $)) -}}
-      {{- end -}}
-      {{- $middlewares | join "," -}}
+    {{- $top := . -}}
+    {{- $ann := dict -}}
+    {{- if $top.Values.ingress.annotations -}}
+      {{- $ann = merge $ann $top.Values.ingress.annotations -}}
+    {{- end -}}
+    {{- if $top.Values.middleware.enabled -}}
+      {{- $fullname := include "laravel.fullname" $top -}}
+      {{- $middlewareStr := "" -}}
+      {{- if $top.Values.middleware.redirectScheme.enabled }}
+        {{- if ne $middlewareStr "" }}{{- $middlewareStr = printf "%s," $middlewareStr }}{{- end }}
+        {{- $middlewareStr = printf "%s%s-%s-redirect-scheme" $middlewareStr $top.Release.Namespace $fullname -}}
+      {{- end }}
+      {{- if $top.Values.middleware.headers.enabled }}
+        {{- if ne $middlewareStr "" }}{{- $middlewareStr = printf "%s," $middlewareStr }}{{- end }}
+        {{- $middlewareStr = printf "%s%s-%s-headers" $middlewareStr $top.Release.Namespace $fullname -}}
+      {{- end }}
+      {{- if $top.Values.middleware.rateLimit.enabled }}
+        {{- if ne $middlewareStr "" }}{{- $middlewareStr = printf "%s," $middlewareStr }}{{- end }}
+        {{- $middlewareStr = printf "%s%s-%s-ratelimit" $middlewareStr $top.Release.Namespace $fullname -}}
+      {{- end }}
+      {{- if $top.Values.middleware.compress.enabled }}
+        {{- if ne $middlewareStr "" }}{{- $middlewareStr = printf "%s," $middlewareStr }}{{- end }}
+        {{- $middlewareStr = printf "%s%s-%s-compress" $middlewareStr $top.Release.Namespace $fullname -}}
+      {{- end }}
+      {{- if $top.Values.middleware.ipWhiteList.enabled }}
+        {{- if ne $middlewareStr "" }}{{- $middlewareStr = printf "%s," $middlewareStr }}{{- end }}
+        {{- $middlewareStr = printf "%s%s-%s-ipwhitelist" $middlewareStr $top.Release.Namespace $fullname -}}
+      {{- end }}
+      {{- if ne $middlewareStr "" }}
+        {{- $_ := set $ann "traefik.ingress.kubernetes.io/router.middlewares" $middlewareStr -}}
+      {{- end }}
     {{- end }}
-  {{- end }}
+    {{- toYaml $ann | nindent 4 }}
 spec:
   {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}
