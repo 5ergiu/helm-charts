@@ -274,6 +274,8 @@ middleware:
     scheme: https
 ```
 
+See [values.yaml](values.yaml) for all available configuration options.
+
 ### Environment Variables
 
 Next.js distinguishes between public (browser-accessible) and server-side environment variables:
@@ -436,70 +438,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
 }
 ```
 
-## 🔒 Security Best Practices
-
-### 1. Generate Secure Secrets
-
-```bash
-# Generate NEXTAUTH_SECRET
-openssl rand -base64 32
-
-# Generate API secret
-openssl rand -hex 32
-```
-
-### 2. Use External Secrets Operator
-
-For production, use External Secrets Operator instead of plain Kubernetes secrets:
-
-```yaml
-externalSecrets:
-  enabled: true
-  backendType: secretsManager
-  region: us-east-1
-  data:
-    - key: prod/myapp/database
-      name: DATABASE_PASSWORD
-    - key: prod/myapp/nextauth
-      name: NEXTAUTH_SECRET
-```
-
-### 3. Enable Security Headers
-
-```yaml
-middleware:
-  headers:
-    enabled: true
-    forceSTSHeader: true
-    stsSeconds: 31536000
-    stsIncludeSubdomains: true
-    stsPreload: true
-```
-
-### 4. Set Resource Limits
-
-```yaml
-app:
-  resources:
-    limits:
-      cpu: 2000m
-      memory: 1Gi
-    requests:
-      cpu: 200m
-      memory: 512Mi
-```
-
-### 5. Security Checklist
-
-- [ ] TLS/HTTPS enabled on ingress
-- [ ] Database credentials stored in secrets
-- [ ] Rate limiting configured
-- [ ] Security headers enabled
-- [ ] Read-only root filesystem enabled
-- [ ] Container images scanned for vulnerabilities
-- [ ] Resource limits set for all components
-- [ ] Principle of least privilege for service accounts
-
 ## 🧪 Testing
 
 Test your deployment:
@@ -639,26 +577,6 @@ kubectl describe hpa -n production <hpa-name>
 # View HPA events
 kubectl get events -n production --field-selector involvedObject.kind=HorizontalPodAutoscaler
 ```
-
-## 📚 Configuration Reference
-
-See [values.yaml](values.yaml) for all available configuration options.
-
-Key configuration sections:
-- `image` - Container image settings
-- `app` - Application deployment configuration
-- `app.autoscaling` - HPA configuration
-- `ingress` - Ingress and routing
-- `middleware` - Traefik middleware settings
-- `nextjs.publicEnv` - Browser-accessible environment variables
-- `nextjs.env` - Server-side environment variables
-- `nextjs.secrets` - Sensitive configuration
-- `persistence` - Persistent storage
-- `resources` - CPU/Memory limits and requests
-
-## 🤝 Contributing
-
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for contribution guidelines.
 
 ## 📜 License
 

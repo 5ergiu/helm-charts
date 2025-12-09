@@ -480,6 +480,8 @@ initContainers:
     command: ["php", "artisan", "storage:link"]
 ```
 
+See [values.yaml](values.yaml) for all available configuration options.
+
 ## 🏗️ Docker Image Requirements
 
 Your Laravel Docker image should follow these guidelines:
@@ -573,87 +575,6 @@ Route::get('/ready', function () {
     }
 });
 ```
-
-## 🔒 Security Best Practices
-
-### 1. Generate Secure APP_KEY
-
-```bash
-# Generate Laravel application key
-php artisan key:generate --show
-
-# Use in values.yaml
-laravel:
-  secrets:
-    APP_KEY: "base64:your-generated-key-here"
-```
-
-### 2. Use External Secrets Operator
-
-For production, use External Secrets Operator instead of plain Kubernetes secrets:
-
-```yaml
-externalSecrets:
-  enabled: true
-  backendType: secretsManager
-  region: us-east-1
-  data:
-    - key: prod/myapp/app-key
-      name: APP_KEY
-    - key: prod/myapp/database
-      name: DB_PASSWORD
-    - key: prod/myapp/redis
-      name: REDIS_PASSWORD
-```
-
-### 3. Enable Security Headers
-
-```yaml
-middleware:
-  headers:
-    enabled: true
-    forceSTSHeader: true
-    stsSeconds: 31536000
-    stsIncludeSubdomains: true
-    stsPreload: true
-    browserXssFilter: true
-    contentTypeNosniff: true
-```
-
-### 4. Set Resource Limits
-
-```yaml
-web:
-  resources:
-    limits:
-      cpu: 2000m
-      memory: 1Gi
-    requests:
-      cpu: 200m
-      memory: 512Mi
-
-worker:
-  resources:
-    limits:
-      cpu: 1000m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi
-```
-
-### 5. Security Checklist
-
-- [ ] `APP_DEBUG` is `false` in production
-- [ ] `APP_KEY` is properly generated and secured
-- [ ] TLS/HTTPS enabled on ingress
-- [ ] Database credentials stored in secrets
-- [ ] Rate limiting configured
-- [ ] Security headers enabled
-- [ ] Read-only root filesystem enabled
-- [ ] Container images scanned for vulnerabilities
-- [ ] Resource limits set for all components
-- [ ] Principle of least privilege for service accounts
 
 ## 🧪 Testing
 
@@ -1024,29 +945,6 @@ kubectl get hpa -n production
 # View current replicas
 kubectl get deployments -n production
 ```
-
-## 📚 Configuration Reference
-
-See [values.yaml](values.yaml) for all available configuration options.
-
-Key configuration sections:
-- `image` - Container image settings
-- `web` - Web deployment configuration
-- `web.autoscaling` - HPA configuration for web
-- `worker` - Queue worker configuration
-- `worker.autoscaling` - HPA configuration for workers
-- `scheduler` - Laravel cron scheduler
-- `migration` - Database migration job
-- `ingress` - Ingress and routing
-- `middleware` - Traefik middleware settings
-- `laravel.env` - Environment variables (ConfigMap)
-- `laravel.secrets` - Sensitive configuration (Secret)
-- `persistence` - Persistent storage
-- `tmpfsVolumes` - Tmpfs volumes for cache/sessions
-
-## 🤝 Contributing
-
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for contribution guidelines.
 
 ## 📜 License
 
