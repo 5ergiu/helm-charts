@@ -35,9 +35,9 @@ jobs:
       - name: 🔍 Get changed charts
         id: set-charts
         run: |
-          changed=$(ct list-changed --target-branch ${{ github.event.repository.default_branch }})
+          changed=$(ct list-changed --target-branch main | grep -v '^$' | xargs)
           if [ -n "$changed" ]; then
-            json=$(echo "$changed" | jq -R . | jq -s .)
+            json=$(echo "$changed" | tr ' ' '\n' | jq -R . | jq -s .)
             echo "charts=$json" >> $GITHUB_OUTPUT
           else
             echo "charts=[]" >> $GITHUB_OUTPUT
