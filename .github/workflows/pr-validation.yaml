@@ -44,7 +44,7 @@ jobs:
           fi
 
   chart-validation:
-    name: 🧪 Chart Validation
+    name: 📊 Chart Validation
     needs: detect-charts
     runs-on: ubuntu-latest
     if: needs.detect-charts.outputs.charts != '[]'
@@ -68,7 +68,7 @@ jobs:
       - name: 🔌 Installing plugin helm-unittest
         run: |
           if ! helm plugin list | grep -q unittest; then
-            helm plugin install https://github.com/helm-unittest/helm-unittest
+            helm plugin install https://github.com/helm-unittest/helm-unittest --verify=false
           fi
 
       - name: 📊 Lint chart
@@ -110,7 +110,7 @@ jobs:
             });
 
   integration-test:
-    name: 🧪 Integration Test in Kind
+    name: 🧩 Integration Test in Kind
     needs: chart-validation
     runs-on: ubuntu-latest
     if: needs.detect-charts.outputs.matrix != '[]'
