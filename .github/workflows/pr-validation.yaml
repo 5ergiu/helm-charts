@@ -41,6 +41,7 @@ jobs:
             echo "charts=$json" >> $GITHUB_OUTPUT
           else
             echo "charts=[]" >> $GITHUB_OUTPUT
+          fi
 
   chart-validation:
     name: 🧪 Chart Validation
