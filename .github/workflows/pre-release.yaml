@@ -62,14 +62,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 📝 Generate changelog for ${{ matrix.chart }}
-        uses: orhun/git-cliff-action@d77b37db2e3f7398432d34b72a12aa3e2ba87e51 # v4.6.0
-        with:
-          config: cliff.toml
-          args: --verbose --bump --include-paths "charts/${{ matrix.chart }}/*"
-        env:
-          OUTPUT: "${{ matrix.chart }}/CHANGELOG.md"
-          GITHUB_REPO: ${{ github.repository }}
+      - name: 💿 Install git-cliff
+        uses: taiki-e/install-action@git-cliff
 
       - name: ⎈ Set up Helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
@@ -86,7 +80,17 @@ jobs:
         run: |
           helm schema -input "charts/${{ matrix.chart }}/values.yaml" -output "charts/${{ matrix.chart }}/values.schema.json" -draft 7
 
-      - name: 🔼 Bump chart version
+      - name: 📝 Generate changelog for ${{ matrix.chart }}
+        id: changelog
+        run: |
+          git-cliff --verbose --bump --config cliff.toml --output "${{ matrix.chart }}/CHANGELOG.md" --include-path "charts/${{ matrix.chart }}/*"
+
+      - name: 📝 Generate ArtifactHub annotations for ${{ matrix.chart }}
+        run: |
+          git-cliff --config cliff-artifacthub.toml --output changes.json --include-path "charts/${{ matrix.chart }}/*"
+          yq eval '.annotations."artifacthub.io/changes" += load("changes.json")' -i charts/${{ matrix.chart }}/Chart.yaml
+
+      - name: 🔼 Bump chart version for ${{ matrix.chart }}
         id: bump
         run: |
           chart_dir="charts/${{ matrix.chart }}"
@@ -95,7 +99,7 @@ jobs:
           yq -i ".version = \"$new_version\"" "$chart_dir/Chart.yaml"
           echo "new_version=$new_version" >> $GITHUB_OUTPUT
 
-      - name: ⬆️ Upload artifacts
+      - name: ⬆️ Upload artifacts for ${{ matrix.chart }}
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ matrix.chart }}-artifacts
