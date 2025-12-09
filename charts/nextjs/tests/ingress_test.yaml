@@ -1,0 +1,101 @@
+suite: test ingress
+templates:
+  - ingress.yaml
+tests:
+  - it: should not create ingress when disabled
+    set:
+      ingress.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should create ingress when enabled
+    set:
+      ingress.enabled: true
+      ingress.hosts:
+        - host: nextjs.example.com
+          paths:
+            - path: /
+              pathType: Prefix
+    asserts:
+      - isKind:
+          of: Ingress
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-nextjs
+
+  - it: should configure TLS
+    set:
+      ingress.enabled: true
+      ingress.hosts:
+        - host: nextjs.example.com
+          paths:
+            - path: /
+              pathType: Prefix
+      ingress.tls:
+        - secretName: nextjs-tls
+          hosts:
+            - nextjs.example.com
+    asserts:
+      - equal:
+          path: spec.tls[0].secretName
+          value: nextjs-tls
+      - contains:
+          path: spec.tls[0].hosts
+          content: nextjs.example.com
+
+  - it: should use Traefik ingress class
+    set:
+      ingress.enabled: true
+      ingress.className: traefik
+      ingress.hosts:
+        - host: nextjs.example.com
+          paths:
+            - path: /
+              pathType: Prefix
+    asserts:
+      - equal:
+          path: spec.ingressClassName
+          value: traefik
+
+  - it: should route to app service
+    set:
+      ingress.enabled: true
+      ingress.hosts:
+        - host: nextjs.example.com
+          paths:
+            - path: /
+              pathType: Prefix
+    asserts:
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: RELEASE-NAME-nextjs-app
+
+  - it: should include cert-manager annotation
+    set:
+      ingress.enabled: true
+      ingress.annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+      ingress.hosts:
+        - host: nextjs.example.com
+          paths:
+            - path: /
+              pathType: Prefix
+    asserts:
+      - equal:
+          path: metadata.annotations["cert-manager.io/cluster-issuer"]
+          value: letsencrypt-prod
+
+  - it: should include middleware when enabled
+    set:
+      ingress.enabled: true
+      middleware.enabled: true
+      middleware.rateLimit.enabled: true
+      ingress.hosts:
+        - host: nextjs.example.com
+          paths:
+            - path: /
+              pathType: Prefix
+    asserts:
+      - isNotEmpty:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]

@@ -1,0 +1,50 @@
+suite: test migration job
+templates:
+  - migration-job.yaml
+tests:
+  - it: should create migration job by default
+    asserts:
+      - isKind:
+          of: Job
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-laravel-migration
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: "pre-install,pre-upgrade"
+      - equal:
+          path: spec.template.spec.containers[0].command
+          value: ["php", "artisan", "migrate", "--force"]
+
+  - it: should disable migrations
+    set:
+      migrations.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should have hook-delete-policy
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: "before-hook-creation"
+
+  - it: should have security context
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 1000
+
+  - it: should use readOnlyRootFilesystem
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: tmp
+            emptyDir: {}

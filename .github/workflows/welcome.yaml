@@ -1,0 +1,129 @@
+name: 🎉 Welcome New Contributors
+
+on:
+  pull_request_target:
+    types: [opened]
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  welcome:
+    name: Greet First-Time Contributors
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 👋 Welcome message for first-time contributors
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const isIssue = context.eventName === 'issues';
+            const isPR = context.eventName === 'pull_request_target';
+            const author = context.payload.issue?.user.login || context.payload.pull_request?.user.login;
+            const number = context.payload.issue?.number || context.payload.pull_request?.number;
+
+            // Check if this is the user's first contribution
+            const { data: contributions } = isIssue 
+              ? await github.rest.issues.listForRepo({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  creator: author,
+                  state: 'all'
+                })
+              : await github.rest.pulls.list({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  state: 'all',
+                  creator: author
+                });
+
+            const isFirstContribution = contributions.length === 1;
+
+            if (!isFirstContribution) {
+              console.log(`Not a first-time contributor: ${author}`);
+              return;
+            }
+
+            console.log(`First-time contributor detected: ${author}`);
+
+            // Issue welcome message
+            const issueWelcome = [
+              `## 👋 Welcome @${author}!`,
+              ``,
+              `Thank you for opening your first issue in our Helm Charts repository! 🎉`,
+              ``,
+              `### What Happens Next?`,
+              ``,
+              `1. 🏷️ Our bot will automatically add relevant labels`,
+              `2. 👀 A maintainer will review your issue soon`,
+              `3. 💬 Feel free to provide additional context if needed`,
+              ``,
+              `### Getting Started`,
+              ``,
+              `While you wait, you might want to check out:`,
+              `- 📚 [Contributing Guide](../blob/main/CONTRIBUTING.md)`,
+              `- 🧪 [Testing Guide](../blob/main/TESTING.md)`,
+              `- 💬 [Discussions](../discussions) - Great for questions!`,
+              ``,
+              `We appreciate you taking the time to report this! 🙏`
+            ].join('\n');
+
+            // PR welcome message
+            const prWelcome = [
+              `## 👋 Welcome @${author}!`,
+              ``,
+              `Thank you for your first contribution to our Helm Charts repository! 🎉`,
+              ``,
+              `### What Happens Next?`,
+              ``,
+              `1. ✅ Our CI/CD will automatically run tests on your changes`,
+              `2. 🏷️ Labels will be applied automatically`,
+              `3. 👀 A maintainer will review your PR shortly`,
+              `4. 💬 Feel free to ask questions in the comments`,
+              ``,
+              `### Helpful Resources`,
+              ``,
+              `- 📚 [Contributing Guide](../blob/main/CONTRIBUTING.md) - Development standards`,
+              `- 🧪 [Testing Guide](../blob/main/TESTING.md) - How to test your changes`,
+              `- 🔐 [Chart Signing](../blob/main/COSIGN.md) - Supply chain security`,
+              `- 📝 [Commit Conventions](../blob/main/CONTRIBUTING.md#commit-message-convention) - Message format`,
+              ``,
+              `### Before Merging`,
+              ``,
+              `Please ensure:`,
+              `- [ ] All CI checks pass`,
+              `- [ ] Chart version is bumped (if applicable)`,
+              `- [ ] Documentation is updated`,
+              `- [ ] Tests are passing`,
+              ``,
+              `We're excited to review your contribution! 🚀`
+            ].join('\n');
+
+            const message = isIssue ? issueWelcome : prWelcome;
+
+            if (isIssue) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: number,
+                body: message
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: number,
+                body: message
+              });
+              
+              // Add first-time-contributor label to PR
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: number,
+                labels: ['first-time-contributor']
+              });
+            }

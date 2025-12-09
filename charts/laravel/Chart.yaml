@@ -1,0 +1,29 @@
+apiVersion: v2
+name: laravel
+description: A production-grade Helm chart for Laravel applications
+type: application
+version: 0.1.0
+appVersion: "12.x"
+keywords:
+  - laravel
+  - php
+  - web
+  - application
+  - framework
+maintainers:
+  - name: 5ergiu
+    url: https://github.com/5ergiu
+home: https://github.com/5ergiu/helm-charts
+sources:
+  - https://github.com/5ergiu/helm-charts
+  - https://github.com/laravel/laravel
+icon: https://cdn.brandfetch.io/ide68-31CH/w/346/h/346/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761211589926
+annotations:
+  category: Web Applications
+  licenses: Apache-2.0
+  artifacthub.io/changes: |2
+        - kind: changed
+          description: "feat(laravel): add initial Laravel Helm chart"
+          links:
+            - name: "Commit 3b5fd71"
+              url: "https://github.com/5ergiu/helm-charts/commit/3b5fd71"

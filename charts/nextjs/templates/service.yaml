@@ -1,0 +1,21 @@
+{{- if .Values.app.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nextjs.fullname" . }}-app
+  labels:
+    {{- include "nextjs.app.labels" . | nindent 4 }}
+  {{- with .Values.app.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.app.service.type }}
+  ports:
+    - port: {{ .Values.app.service.port }}
+      targetPort: {{ .Values.app.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "nextjs.app.selectorLabels" . | nindent 4 }}
+{{- end }}

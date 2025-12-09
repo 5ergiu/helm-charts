@@ -1,0 +1,61 @@
+# ============================================================
+#  🔥 Lefthook — Modern Git Hooks for Any Language Project
+# ============================================================
+
+# ===================================================================
+# 🧹 Pre-commit checks optimized for a HELM CHARTS repo
+# ===================================================================
+pre-commit:
+  parallel: true
+  commands:
+
+    # --- Syntax & chart validation ---
+    helm_lint:
+      run: |
+        if command -v helm > /dev/null; then
+          for chart in $(ls -d */ | sed 's#/##'); do
+            if [ -f "$chart/Chart.yaml" ]; then
+              echo "🧪 Helm lint: $chart"
+              helm lint "$chart" || exit 1
+            fi
+          done
+        fi
+
+    # --- Render templates to catch errors ---
+    helm_template:
+      run: |
+        if command -v helm > /dev/null; then
+          for chart in $(ls -d */ | sed 's#/##'); do
+            if [ -f "$chart/Chart.yaml" ]; then
+              echo "📦 Helm template: $chart"
+              helm template "$chart" > /dev/null || exit 1
+            fi
+          done
+        fi
+
+    # --- Prevent secrets from being committed ---
+    gitleaks:
+      run: |
+        if command -v gitleaks > /dev/null; then
+          gitleaks protect --staged --verbose || exit 1
+        fi
+
+# -------------------------------------------------------------------
+# 🧪 Validate Conventional Commits format
+# -------------------------------------------------------------------
+commit-msg:
+  commands:
+    validate_commit:
+      run: ./.lefthook/validate-commit-msg.sh {1}
+
+# -------------------------------------------------------------------
+# 📝 Enforce czg for ALL commits
+# -------------------------------------------------------------------
+prepare-commit-msg:
+  commands:
+    czg:
+      interactive: true
+      run: czg --hook
+      skip:
+        - merge
+        - rebase

@@ -1,0 +1,212 @@
+{{- $webEnabled := .Values.web.enabled -}}
+{{- $workerEnabled := .Values.worker.enabled -}}
+{{- $schedulerEnabled := .Values.scheduler.enabled -}}
+{{- $fullName := include "laravel.fullname" . -}}
+{{- $ingressEnabled := .Values.ingress.enabled -}}
+{{- $hosts := .Values.ingress.hosts -}}
+
+═══════════════════════════════════════════════════════════════════════════════
+   🚀 Laravel Application Successfully Deployed!
+═══════════════════════════════════════════════════════════════════════════════
+
+Thank you for deploying {{ .Chart.Name }} version {{ .Chart.Version }}!
+
+📦 Release Information:
+   Name:      {{ .Release.Name }}
+   Namespace: {{ .Release.Namespace }}
+   Revision:  {{ .Release.Revision }}
+
+───────────────────────────────────────────────────────────────────────────────
+📊 Deployed Components:
+───────────────────────────────────────────────────────────────────────────────
+
+{{- if $webEnabled }}
+✓ Web Application
+  - Deployment:  {{ $fullName }}-web
+  - Service:     {{ $fullName }}-web ({{ .Values.web.service.type }}:{{ .Values.web.service.port }})
+  {{- if .Values.web.autoscaling.enabled }}
+  - HPA:         {{ .Values.web.autoscaling.minReplicas }}-{{ .Values.web.autoscaling.maxReplicas }} replicas
+  {{- else }}
+  - Replicas:    {{ .Values.web.replicaCount }}
+  {{- end }}
+  {{- if .Values.web.pdb.enabled }}
+  - PDB:         Enabled (minAvailable: {{ .Values.web.pdb.minAvailable }})
+  {{- end }}
+{{- end }}
+
+{{- if $workerEnabled }}
+✓ Queue Workers
+  - Deployment:  {{ $fullName }}-worker
+  {{- if .Values.worker.autoscaling.enabled }}
+  - HPA:         {{ .Values.worker.autoscaling.minReplicas }}-{{ .Values.worker.autoscaling.maxReplicas }} replicas
+  {{- else }}
+  - Replicas:    {{ .Values.worker.replicaCount }}
+  {{- end }}
+  {{- if .Values.worker.pdb.enabled }}
+  - PDB:         Enabled (minAvailable: {{ .Values.worker.pdb.minAvailable }})
+  {{- end }}
+{{- end }}
+
+{{- if $schedulerEnabled }}
+✓ Scheduler (Cron)
+  - CronJob:     {{ $fullName }}-scheduler
+  - Schedule:    {{ .Values.scheduler.schedule }}
+{{- end }}
+
+{{- if .Values.persistence.enabled }}
+✓ Persistent Storage
+  - PVC:         {{ $fullName }}-storage
+  - Size:        {{ .Values.persistence.size }}
+  - Access Mode: {{ .Values.persistence.accessMode }}
+{{- end }}
+
+───────────────────────────────────────────────────────────────────────────────
+🌐 Application Access:
+───────────────────────────────────────────────────────────────────────────────
+
+{{- if $ingressEnabled }}
+Your application is accessible at:
+
+{{- range $hosts }}
+  {{- if .host }}
+  🔗 https://{{ .host }}
+  {{- end }}
+{{- end }}
+
+{{- if .Values.middleware.enabled }}
+🛡️  Traefik Middlewares Enabled:
+  {{- if .Values.middleware.rateLimit.enabled }}
+  - Rate Limiting: {{ .Values.middleware.rateLimit.average }}/s (burst: {{ .Values.middleware.rateLimit.burst }})
+  {{- end }}
+  {{- if .Values.middleware.headers.enabled }}
+  - Security Headers
+  {{- end }}
+  {{- if .Values.middleware.compress.enabled }}
+  - Response Compression
+  {{- end }}
+  {{- if .Values.middleware.redirectScheme.enabled }}
+  - HTTP → HTTPS Redirect
+  {{- end }}
+  {{- if .Values.middleware.ipWhiteList.enabled }}
+  - IP Whitelisting
+  {{- end }}
+{{- end }}
+
+{{- else }}
+To access your application, you can port-forward to the service:
+
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ $fullName }}-web 8080:{{ .Values.web.service.port }}
+
+Then visit: http://localhost:8080
+{{- end }}
+
+───────────────────────────────────────────────────────────────────────────────
+📋 Useful Commands:
+───────────────────────────────────────────────────────────────────────────────
+
+# View pod status
+kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+# View logs for web pods
+kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/component=web -f
+
+{{- if $workerEnabled }}
+# View logs for worker pods
+kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/component=worker -f
+{{- end }}
+
+{{- if $schedulerEnabled }}
+# View scheduler jobs
+kubectl get jobs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/component=scheduler
+
+# View scheduler logs (latest job)
+kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/component=scheduler --tail=100
+{{- end }}
+
+# View migration job status
+kubectl get jobs -n {{ .Release.Namespace }} -l app.kubernetes.io/component=migration
+
+# View migration logs
+kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/component=migration --tail=100
+
+# Execute Artisan commands
+kubectl exec -n {{ .Release.Namespace }} -it deployment/{{ $fullName }}-web -- php artisan <command>
+
+# Access the application shell
+kubectl exec -n {{ .Release.Namespace }} -it deployment/{{ $fullName }}-web -- bash
+
+# Run database migrations manually (if needed)
+kubectl exec -n {{ .Release.Namespace }} -it deployment/{{ $fullName }}-web -- php artisan migrate
+
+# Clear all caches
+kubectl exec -n {{ .Release.Namespace }} -it deployment/{{ $fullName }}-web -- php artisan cache:clear
+kubectl exec -n {{ .Release.Namespace }} -it deployment/{{ $fullName }}-web -- php artisan config:clear
+kubectl exec -n {{ .Release.Namespace }} -it deployment/{{ $fullName }}-web -- php artisan route:clear
+kubectl exec -n {{ .Release.Namespace }} -it deployment/{{ $fullName }}-web -- php artisan view:clear
+
+───────────────────────────────────────────────────────────────────────────────
+⚙️  Configuration:
+───────────────────────────────────────────────────────────────────────────────
+
+ConfigMap: {{ $fullName }}-env
+Secret:     {{ $fullName }}-secret
+
+To update configuration:
+1. Modify your values.yaml file
+2. Run: helm upgrade {{ .Release.Name }} {{ .Chart.Name }} -f values.yaml -n {{ .Release.Namespace }}
+
+───────────────────────────────────────────────────────────────────────────────
+🔒 Security Best Practices:
+───────────────────────────────────────────────────────────────────────────────
+
+⚠️  IMPORTANT: Before going to production, ensure you:
+
+1. Set a secure APP_KEY in laravel.secrets.APP_KEY
+   Generate with: php artisan key:generate --show
+
+2. Configure database credentials in laravel.secrets
+   - DB_USERNAME
+   - DB_PASSWORD
+
+3. Set APP_DEBUG to "false" in production (laravel.env.APP_DEBUG)
+
+4. Configure proper resource limits based on your workload
+
+5. Enable and configure persistent storage for uploads/logs
+
+6. Set up proper TLS certificates via cert-manager
+
+7. Review and adjust HPA settings based on your traffic patterns
+
+8. Configure proper backup strategies for PVCs and databases
+
+9. Review security contexts (pods run as non-root with read-only root filesystem)
+   Writable directories are mounted as tmpfs volumes for security
+
+10. Set up monitoring and alerting (Prometheus/Grafana)
+
+───────────────────────────────────────────────────────────────────────────────
+📚 Additional Resources:
+───────────────────────────────────────────────────────────────────────────────
+
+- Laravel Documentation: https://laravel.com/docs
+- Kubernetes Best Practices: https://kubernetes.io/docs/concepts/configuration/overview/
+- Helm Documentation: https://helm.sh/docs/
+
+───────────────────────────────────────────────────────────────────────────────
+
+{{- if .Values.migration.enabled }}
+🔄 Database migrations run automatically via Helm hook Job before install/upgrade.
+   Check migration status: kubectl get jobs -n {{ .Release.Namespace }} -l app.kubernetes.io/component=migration
+{{- else }}
+⚠️  Remember to run database migrations manually:
+   kubectl exec -n {{ .Release.Namespace }} -it deployment/{{ $fullName }}-web -- php artisan migrate --force
+{{- end }}
+
+───────────────────────────────────────────────────────────────────────────────
+
+🎉 Happy coding! Your Laravel application is ready to serve traffic.
+
+For support and issues, please visit https://github.com/5ergiu/helm-charts.
+
+═══════════════════════════════════════════════════════════════════════════════

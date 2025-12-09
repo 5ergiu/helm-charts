@@ -1,0 +1,83 @@
+{{- if .Values.scheduler.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "laravel.fullname" . }}-scheduler
+  labels:
+    {{- include "laravel.scheduler.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.scheduler.schedule | quote }}
+  concurrencyPolicy: {{ .Values.scheduler.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.scheduler.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.scheduler.failedJobsHistoryLimit }}
+  jobTemplate:
+    metadata:
+      labels:
+        {{- include "laravel.scheduler.selectorLabels" . | nindent 8 }}
+        {{- with .Values.scheduler.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      template:
+        metadata:
+          annotations:
+            checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+            checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+            {{- with .Values.scheduler.podAnnotations }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          labels:
+            {{- include "laravel.scheduler.selectorLabels" . | nindent 12 }}
+            {{- with .Values.scheduler.podLabels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        spec:
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          serviceAccountName: {{ include "laravel.serviceAccountName" . }}
+          securityContext:
+            {{- toYaml .Values.scheduler.podSecurityContext | nindent 12 }}
+          restartPolicy: {{ .Values.scheduler.restartPolicy }}
+          containers:
+            - name: scheduler
+              securityContext:
+                {{- toYaml .Values.scheduler.securityContext | nindent 16 }}
+              image: {{ include "laravel.image" . }}
+              imagePullPolicy: {{ include "laravel.imagePullPolicy" . }}
+              command:
+                {{- toYaml .Values.scheduler.command | nindent 16 }}
+              envFrom:
+                {{- include "laravel.envConfigMap" . | nindent 16 }}
+                {{- include "laravel.envSecret" . | nindent 16 }}
+              {{- with .Values.extraEnvFrom }}
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with .Values.extraEnv }}
+              env:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              resources:
+                {{- toYaml .Values.scheduler.resources | nindent 16 }}
+              {{- if or .Values.tmpfsVolumes.enabled .Values.persistence.enabled .Values.extraVolumeMounts }}
+              volumeMounts:
+                {{- include "laravel.volumeMounts" . | nindent 16 }}
+              {{- end }}
+          {{- if or .Values.tmpfsVolumes.enabled .Values.persistence.enabled .Values.extraVolumes }}
+          volumes:
+            {{- include "laravel.volumes" . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.scheduler.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.scheduler.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.scheduler.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

@@ -1,0 +1,143 @@
+name: 📦 Pre-Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'charts/**'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (skip creating PR)'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  detect-charts:
+    name: 🔍 Detect Changed Charts
+    runs-on: ubuntu-latest
+    outputs:
+      charts: ${{ steps.set-charts.outputs.charts }}
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: 🔧 Set up chart-testing
+        uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
+
+      - name: 🔍 Get changed charts
+        id: set-charts
+        run: |
+          changed=$(ct list-changed --target-branch ${{ github.event.repository.default_branch }})
+          if [[ -n "$changed" ]]; then
+            json=$(echo "$changed" | jq -R . | jq -s .)
+            echo "charts=$json" >> $GITHUB_OUTPUT
+          else
+            echo "charts=[]" >> $GITHUB_OUTPUT
+          fi
+
+  generate-artifacts:
+    name: 🛠️ Generate Artifacts
+    needs: detect-charts
+    runs-on: ubuntu-latest
+    if: needs.detect-charts.outputs.charts != '[]'
+    strategy:
+      matrix:
+        chart: ${{ fromJSON(needs.detect-charts.outputs.charts) }}
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: 📝 Generate changelog for ${{ matrix.chart }}
+        uses: orhun/git-cliff-action@d77b37db2e3f7398432d34b72a12aa3e2ba87e51 # v4.6.0
+        with:
+          config: cliff.toml
+          args: --verbose --bump --include-paths "charts/${{ matrix.chart }}/*"
+        env:
+          OUTPUT: "${{ matrix.chart }}/CHANGELOG.md"
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: ⎈ Set up Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        with:
+          version: v4.0.1
+
+      - name: 🔌 Install helm-schema plugin
+        run: |
+          if ! helm plugin list | grep -q "schema"; then
+            helm plugin install https://github.com/losisin/helm-values-schema-json.git --version v1.9.2
+          fi
+
+      - name: ⚙️ Generate schema for ${{ matrix.chart }}
+        run: |
+          helm schema -input "charts/${{ matrix.chart }}/values.yaml" -output "charts/${{ matrix.chart }}/values.schema.json" -draft 7
+
+      - name: 🔼 Bump chart version
+        id: bump
+        run: |
+          chart_dir="charts/${{ matrix.chart }}"
+          bumped=$(git cliff --bumped-version)
+          new_version=$(echo "$bumped" | cut -d'-' -f2-)
+          yq -i ".version = \"$new_version\"" "$chart_dir/Chart.yaml"
+          echo "new_version=$new_version" >> $GITHUB_OUTPUT
+
+      - name: ⬆️ Upload artifacts
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: ${{ matrix.chart }}-artifacts
+          path: |
+            charts/${{ matrix.chart }}/Chart.yaml
+            charts/${{ matrix.chart }}/CHANGELOG.md
+            charts/${{ matrix.chart }}/values.schema.json
+
+  create-pr:
+    name: 🔀 Create Pull Request
+    needs: generate-artifacts
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.dry_run != 'true' }} && needs.detect-charts.outputs.charts != '[]'
+    steps:
+      - name: 🔧 Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: 📥 Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: ⬇️ Download all artifacts
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          path: artifacts
+
+      - name: 🔁 Move artifacts into place
+        run: |
+          find artifacts -type f -exec cp --parents {} . \;
+
+      - name: 💾 Commit and create PR
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7.0.11
+        with:
+          commit-message: "chore: pre-release automated updates"
+          title: "chore: pre-release automated updates"
+          body: "Automated updates for all changed charts"
+          branch: "chore/automated-updates"
+          base: "main"
+          add-paths: |
+            charts/*/Chart.yaml
+            charts/*/CHANGELOG.md
+            charts/*/values.schema.json

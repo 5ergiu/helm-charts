@@ -1,0 +1,91 @@
+suite: test hpa
+templates:
+  - hpa.yaml
+tests:
+  - it: should not create HPA when disabled
+    set:
+      app.autoscaling.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should create HPA when enabled
+    set:
+      app.autoscaling.enabled: true
+    asserts:
+      - isKind:
+          of: HorizontalPodAutoscaler
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-nextjs-app
+      - equal:
+          path: spec.scaleTargetRef.name
+          value: RELEASE-NAME-nextjs-app
+      - equal:
+          path: spec.minReplicas
+          value: 2
+      - equal:
+          path: spec.maxReplicas
+          value: 10
+
+  - it: should set custom min and max replicas
+    set:
+      app.autoscaling.enabled: true
+      app.autoscaling.minReplicas: 3
+      app.autoscaling.maxReplicas: 20
+    asserts:
+      - equal:
+          path: spec.minReplicas
+          value: 3
+      - equal:
+          path: spec.maxReplicas
+          value: 20
+
+  - it: should configure CPU target
+    set:
+      app.autoscaling.enabled: true
+      app.autoscaling.targetCPUUtilizationPercentage: 75
+    asserts:
+      - contains:
+          path: spec.metrics
+          content:
+            type: Resource
+            resource:
+              name: cpu
+              target:
+                type: Utilization
+                averageUtilization: 75
+
+  - it: should configure memory target
+    set:
+      app.autoscaling.enabled: true
+      app.autoscaling.targetMemoryUtilizationPercentage: 85
+    asserts:
+      - contains:
+          path: spec.metrics
+          content:
+            type: Resource
+            resource:
+              name: memory
+              target:
+                type: Utilization
+                averageUtilization: 85
+
+  - it: should configure scaling behavior
+    set:
+      app.autoscaling.enabled: true
+      app.autoscaling.behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+    asserts:
+      - equal:
+          path: spec.behavior.scaleDown.stabilizationWindowSeconds
+          value: 300
+
+  - it: should disable when app.enabled is false
+    set:
+      app.enabled: false
+      app.autoscaling.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0

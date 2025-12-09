@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 GitHub Discussions
+    url: https://github.com/5ergiu/helm-charts/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: 📚 Documentation
+    url: https://github.com/5ergiu/helm-charts/blob/main/README.md
+    about: Read the comprehensive documentation
+  - name: 🔐 Security Issues
+    url: https://github.com/5ergiu/helm-charts/security/advisories/new
+    about: Report security vulnerabilities privately
