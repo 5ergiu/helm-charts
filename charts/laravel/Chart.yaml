@@ -21,9 +21,4 @@ icon: https://cdn.brandfetch.io/ide68-31CH/w/346/h/346/theme/dark/icon.jpeg?c=1b
 annotations:
   category: Web Applications
   licenses: Apache-2.0
-  artifacthub.io/changes: |2
-        - kind: changed
-          description: "feat(laravel): add initial Laravel Helm chart"
-          links:
-            - name: "Commit 3b5fd71"
-              url: "https://github.com/5ergiu/helm-charts/commit/3b5fd71"
+  artifacthub.io/changes: []
