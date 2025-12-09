@@ -22,9 +22,4 @@ icon: https://cdn.brandfetch.io/id2alue-rx/w/800/h/800/theme/dark/symbol.png?c=1
 annotations:
   category: Web Applications
   licenses: Apache-2.0
-  artifacthub.io/changes: |2
-        - kind: changed
-          description: "feat(nextjs): add initial Next.js Helm chart with SSR/SSG support"
-          links:
-            - name: "Commit c1c2b7f"
-              url: "https://github.com/5ergiu/helm-charts/commit/c1c2b7f"
+  artifacthub.io/changes: []
