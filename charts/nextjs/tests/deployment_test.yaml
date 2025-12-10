@@ -16,7 +16,7 @@ tests:
           value: 2
       - equal:
           path: spec.template.spec.containers[0].image
-          value: "your-registry/nextjs-app:latest"
+          value: "ghcr.io/5ergiu/nextjs:latest"
 
   - it: should set custom replica count when autoscaling disabled
     set:
