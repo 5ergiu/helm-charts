@@ -10,7 +10,7 @@ global:
 image:
   repository: ghcr.io/5ergiu/nextjs
   pullPolicy: IfNotPresent
-  tag: "latest"
+  tag: "v0.1.0"
 
 imagePullSecrets: []
 nameOverride: ""

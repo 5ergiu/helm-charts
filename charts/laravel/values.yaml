@@ -8,9 +8,9 @@ global:
 
 # Image configuration
 image:
-  repository: ghcr.io/your-github-username/laravel-app
+  repository: ghcr.io/5ergiu/laravel
   pullPolicy: IfNotPresent
-  tag: "latest"
+  tag: "v0.1.0"
 
 imagePullSecrets: []
 nameOverride: ""
