@@ -31,8 +31,6 @@ jobs:
 
       - name: 🔧 Set up chart-testing
         uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
-        with:
-          cache: false
 
       - name: 🔍 Get changed charts
         id: set-charts
@@ -66,8 +64,6 @@ jobs:
 
       - name: 🔧 Set up chart-testing
         uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
-        with:
-          cache: false
 
       - name: 🔌 Installing plugin helm-unittest
         run: |
@@ -115,7 +111,9 @@ jobs:
 
   integration-test:
     name: 🧩 Integration Test
-    needs: chart-validation
+    needs:
+      - detect-charts
+      - chart-validation
     runs-on: ubuntu-latest
     if: needs.detect-charts.outputs.charts != '[]'
     strategy:
@@ -134,8 +132,6 @@ jobs:
 
       - name: 🔧 Set up chart-testing
         uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
-        with:
-          cache: false
 
       - name: 🐳 Create kind cluster
         uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
