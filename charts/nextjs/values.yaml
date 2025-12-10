@@ -8,7 +8,7 @@ global:
 
 # Image configuration
 image:
-  repository: your-registry/nextjs-app
+  repository: ghcr.io/5ergiu/nextjs
   pullPolicy: IfNotPresent
   tag: "latest"
 

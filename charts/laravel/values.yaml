@@ -8,7 +8,7 @@ global:
 
 # Image configuration
 image:
-  repository: your-registry/laravel-app
+  repository: ghcr.io/your-github-username/laravel-app
   pullPolicy: IfNotPresent
   tag: "latest"
 
@@ -496,34 +496,34 @@ laravel:
     APP_ENV: "production"
     APP_DEBUG: "false"
     APP_URL: "https://app.example.com"
-    
+
     LOG_CHANNEL: "stderr"
     LOG_LEVEL: "info"
-    
+
     DB_CONNECTION: "mysql"
     DB_HOST: "mysql"
     DB_PORT: "3306"
     DB_DATABASE: "laravel"
-    
+
     BROADCAST_DRIVER: "redis"
     CACHE_DRIVER: "redis"
     FILESYSTEM_DISK: "local"
     QUEUE_CONNECTION: "redis"
     SESSION_DRIVER: "redis"
     SESSION_LIFETIME: "120"
-    
+
     REDIS_HOST: "redis"
     REDIS_PORT: "6379"
-    
+
     MAIL_MAILER: "smtp"
     MAIL_HOST: "mailpit"
     MAIL_PORT: "1025"
     MAIL_ENCRYPTION: "null"
     MAIL_FROM_ADDRESS: "noreply@example.com"
     MAIL_FROM_NAME: "Laravel App"
-    
+
     AWS_DEFAULT_REGION: "us-east-1"
-    
+
     VITE_APP_NAME: "Laravel"
 
   # Sensitive environment variables from Secret
@@ -539,6 +539,81 @@ laravel:
     PUSHER_APP_ID: ""
     PUSHER_APP_KEY: ""
     PUSHER_APP_SECRET: ""
+
+# PHP Configuration (ServersideUp PHP Image)
+# All settings are passed as environment variables
+# See: https://github.com/serversideup/docker-php/blob/main/docs/content/docs/8.reference/1.environment-variable-specification.md
+php:
+  # Environment variables for PHP configuration
+  # These are passed directly to the container using their exact names
+  env:
+    # General Settings
+    APP_BASE_DIR: "/var/www/html"
+    HEALTHCHECK_PATH: "/healthcheck"
+    LOG_OUTPUT_LEVEL: "warn"  # Options: warn, info, debug
+    SHOW_WELCOME_MESSAGE: "false"
+
+    # PHP Runtime Settings
+    PHP_DATE_TIMEZONE: "UTC"
+    PHP_DISPLAY_ERRORS: "Off"  # Set to "On" for development
+    PHP_DISPLAY_STARTUP_ERRORS: "Off"
+    PHP_ERROR_LOG: "/dev/stderr"
+    PHP_ERROR_REPORTING: "22527"  # E_ALL & ~E_DEPRECATED & ~E_STRICT
+    PHP_MAX_EXECUTION_TIME: "99"  # seconds
+    PHP_MAX_INPUT_TIME: "-1"  # seconds (-1 = unlimited)
+    PHP_MAX_INPUT_VARS: "1000"
+    PHP_MEMORY_LIMIT: "256M"
+    PHP_OPEN_BASEDIR: ""  # Leave empty or set paths: "/var/www/html:/tmp"
+    PHP_POST_MAX_SIZE: "100M"
+    PHP_REALPATH_CACHE_TTL: "120"  # seconds
+    PHP_SESSION_COOKIE_SECURE: "1"  # 1 = true, 0 = false
+    PHP_UPLOAD_MAX_FILE_SIZE: "100M"
+    PHP_ZEND_MULTIBYTE: "Off"
+    PHP_ZEND_DETECT_UNICODE: ""
+
+    # OPcache Settings (Production: enable opcache for performance)
+    PHP_OPCACHE_ENABLE: "1"  # 1 = enabled, 0 = disabled
+    PHP_OPCACHE_ENABLE_FILE_OVERRIDE: "0"
+    PHP_OPCACHE_FORCE_RESTART_TIMEOUT: "180"  # seconds
+    PHP_OPCACHE_INTERNED_STRINGS_BUFFER: "8"  # MB
+    PHP_OPCACHE_JIT: "off"  # Options: off, function, tracing
+    PHP_OPCACHE_JIT_BUFFER_SIZE: "0"  # MB
+    PHP_OPCACHE_MAX_ACCELERATED_FILES: "10000"
+    PHP_OPCACHE_MEMORY_CONSUMPTION: "128"  # MB
+    PHP_OPCACHE_REVALIDATE_FREQ: "2"  # seconds
+    PHP_OPCACHE_SAVE_COMMENTS: "1"
+    PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"  # 0 for production (no file checks), 1 for development
+
+    # PHP-FPM Settings
+    PHP_FPM_POOL_NAME: "www"
+    PHP_FPM_PM_CONTROL: "dynamic"  # Options: static, dynamic, ondemand
+    PHP_FPM_PM_MAX_CHILDREN: "20"
+    PHP_FPM_PM_START_SERVERS: "2"
+    PHP_FPM_PM_MIN_SPARE_SERVERS: "1"
+    PHP_FPM_PM_MAX_SPARE_SERVERS: "3"
+    PHP_FPM_PM_MAX_REQUESTS: "0"  # 0 = unlimited
+    PHP_FPM_PM_STATUS_PATH: ""  # e.g., "/fpm-status"
+    PHP_FPM_PROCESS_CONTROL_TIMEOUT: "10"  # seconds
+
+    # Nginx Settings
+    NGINX_WEBROOT: "/var/www/html/public"
+    NGINX_ACCESS_LOG: "/dev/stdout"
+    NGINX_ERROR_LOG: "/dev/stderr"
+    NGINX_FASTCGI_BUFFERS: "8 8k"  # count size
+    NGINX_FASTCGI_BUFFER_SIZE: "8k"
+    NGINX_LISTEN_IP_PROTOCOL: "all"  # Options: all, ipv4, ipv6
+    NGINX_SERVER_TOKENS: "off"
+    NGINX_CLIENT_MAX_BODY_SIZE: "100M"
+
+    # SSL Settings
+    SSL_MODE: "off"  # Options: off, mixed, full
+    SSL_CERTIFICATE_FILE: "/etc/ssl/private/self-signed-web.crt"
+    SSL_PRIVATE_KEY_FILE: "/etc/ssl/private/self-signed-web.key"
+
+    # Composer Settings
+    COMPOSER_ALLOW_SUPERUSER: "1"
+    COMPOSER_HOME: "/composer"
+    COMPOSER_MAX_PARALLEL_HTTP: "24"
 
 # Temporary filesystem volumes for Laravel writable directories
 # These are required when readOnlyRootFilesystem is enabled

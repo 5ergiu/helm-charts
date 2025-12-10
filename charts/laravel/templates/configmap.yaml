@@ -5,6 +5,12 @@ metadata:
   labels:
     {{- include "laravel.labels" . | nindent 4 }}
 data:
+  # Laravel Application Environment Variables
   {{- range $key, $value := .Values.laravel.env }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+
+  # PHP Configuration (ServersideUp PHP Image)
+  {{- range $key, $value := .Values.php.env }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}

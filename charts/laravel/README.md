@@ -182,6 +182,218 @@ helm install myapp ./charts/laravel -f values.yaml -n production --create-namesp
 - **Tmpfs Volumes** - In-memory volumes for cache, sessions, views, and tmp
 - **Read-Only Filesystem** - Enhanced security with tmpfs for writable paths
 
+
+## 💻 Local Development with Kubernetes
+
+This chart supports full local development using Kubernetes (Docker Desktop, Minikube, or Kind) with hot reload, debugging, and all production features.
+
+### Quick Start (Local Development)
+
+**1. Prerequisites:**
+```bash
+# Start local Kubernetes (Docker Desktop, Minikube, or Kind)
+# Docker Desktop: Enable Kubernetes in settings
+# Minikube: minikube start
+# Kind: kind create cluster
+
+# Install Traefik ingress controller
+helm repo add traefik https://traefik.github.io/charts
+helm repo update
+helm install traefik traefik/traefik -n traefik --create-namespace
+
+# Install MySQL
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm install mysql bitnami/mysql \
+  --set auth.rootPassword=password \
+  --set auth.database=laravel \
+  -n development --create-namespace
+
+# Install Redis
+helm install redis bitnami/redis \
+  --set auth.enabled=false \
+  -n development
+
+# (Optional) Install Mailpit for email testing
+kubectl create deployment mailpit --image=axllent/mailpit -n development
+kubectl expose deployment mailpit --port=1025 --target-port=1025 -n development
+kubectl expose deployment mailpit --port=8025 --target-port=8025 --name=mailpit-web -n development
+```
+
+**2. Build Development Image:**
+```bash
+cd examples/laravel-app
+docker build --target development -t laravel-app:dev .
+```
+
+**3. Update values.dev.yaml:**
+```yaml
+# Set your host user IDs to avoid permission issues
+web:
+  podSecurityContext:
+    runAsUser: 501  # Run: id -u
+    fsGroup: 20     # Run: id -g
+
+worker:
+  podSecurityContext:
+    runAsUser: 501  # Run: id -u
+    fsGroup: 20     # Run: id -g
+
+# Update image
+image:
+  repository: laravel-app
+  tag: dev
+
+# Update database credentials (match MySQL helm install)
+laravel:
+  secrets:
+    DB_PASSWORD: "password"
+```
+
+**4. Add to /etc/hosts:**
+```bash
+echo "127.0.0.1 laravel.local" | sudo tee -a /etc/hosts
+```
+
+**5. Deploy to local Kubernetes:**
+```bash
+helm install myapp-dev ./charts/laravel \
+  -f charts/laravel/values.dev.yaml \
+  -n development
+```
+
+**6. Access your application:**
+- **Laravel App**: http://laravel.local
+- **Laravel Horizon**: http://laravel.local/horizon
+- **Mailpit Web UI**: http://localhost:8025 (if installed)
+
+**7. Development workflow:**
+```bash
+# View logs
+kubectl logs -f deployment/myapp-dev-laravel-web -n development
+
+# Run Artisan commands
+kubectl exec -it deployment/myapp-dev-laravel-web -n development -- php artisan migrate
+kubectl exec -it deployment/myapp-dev-laravel-web -n development -- php artisan tinker
+
+# Restart pods to pick up new code (if not using volume mounts)
+kubectl rollout restart deployment/myapp-dev-laravel-web -n development
+
+# Port-forward for debugging
+kubectl port-forward service/myapp-dev-laravel-web 8080:80 -n development
+
+# View all resources
+kubectl get all -n development
+```
+
+### Hot Reload Setup (Advanced)
+
+For true hot reload without rebuilding images, use volume mounts:
+
+**1. Create a hostPath PersistentVolume:**
+```yaml
+# local-pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: laravel-code
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /path/to/your/laravel/app
+    type: Directory
+  storageClassName: local-path
+```
+
+**2. Update values.dev.yaml:**
+```yaml
+persistence:
+  enabled: true
+  storageClass: "local-path"
+  mounts:
+    - name: code
+      mountPath: /var/www/html
+      subPath: ""
+```
+
+**3. Disable OPcache for immediate code changes:**
+```yaml
+php:
+  opcache:
+    enable: "0"  # See changes immediately
+```
+
+Now code changes on your host are immediately reflected in the pod!
+
+### Debugging with Xdebug
+
+The development image includes Xdebug. To enable:
+
+**1. Add to values.dev.yaml:**
+```yaml
+extraEnv:
+  - name: XDEBUG_MODE
+    value: "debug,coverage"
+  - name: XDEBUG_CONFIG
+    value: "client_host=host.docker.internal client_port=9003"
+```
+
+**2. Configure your IDE:**
+- **VS Code**: Install PHP Debug extension, set breakpoints
+- **PHPStorm**: Go to Settings → PHP → Servers, add server with name matching hostname
+
+**3. Start debugging:**
+```bash
+# Apply changes
+helm upgrade myapp-dev ./charts/laravel -f charts/laravel/values.dev.yaml -n development
+
+# Trigger Xdebug
+curl http://laravel.local?XDEBUG_TRIGGER=1
+```
+
+### Local vs Production Differences
+
+| Feature | Local (values.dev.yaml) | Production (values.prod.yaml) |
+|---------|-------------------------|-------------------------------|
+| **Image Target** | `development` | `production` |
+| **Replicas** | 1 | 3+ with autoscaling |
+| **OPcache** | Disabled | Enabled |
+| **Error Display** | On | Off |
+| **Probes** | Disabled | Enabled |
+| **TLS** | Disabled | Enabled with cert-manager |
+| **Rate Limiting** | Disabled | Enabled |
+| **Log Level** | debug | warning |
+| **Service Type** | LoadBalancer/NodePort | ClusterIP |
+| **Resources** | Minimal | Production-sized |
+
+### Troubleshooting Local Development
+
+**Pod won't start:**
+```bash
+kubectl describe pod -l app.kubernetes.io/name=laravel -n development
+kubectl logs -l app.kubernetes.io/name=laravel -n development --tail=100
+```
+
+**Permission issues with volumes:**
+- Ensure `runAsUser` and `fsGroup` in values.dev.yaml match your host user (run `id -u` and `id -g`)
+
+**Can't access laravel.local:**
+- Verify /etc/hosts entry: `cat /etc/hosts | grep laravel.local`
+- Check service: `kubectl get svc -n development`
+- Check ingress: `kubectl get ingress -n development`
+
+**Database connection fails:**
+- Verify MySQL is running: `kubectl get pods -n development`
+- Check credentials match between MySQL install and values.dev.yaml
+- Test connection: `kubectl exec -it deployment/myapp-dev-laravel-web -n development -- php artisan db:show`
+
+**Changes not reflected:**
+- If using image: rebuild and `kubectl rollout restart deployment/myapp-dev-laravel-web -n development`
+- If using volume mounts: check OPcache is disabled (`PHP_OPCACHE_ENABLE=0`)
+- Clear Laravel caches: `kubectl exec -it deployment/myapp-dev-laravel-web -n development -- php artisan optimize:clear`
+
 ## 📋 Prerequisites
 
 - **Kubernetes 1.24+**
@@ -586,6 +798,179 @@ laravel:
     MAIL_PASSWORD: "your-smtp-password"
 ```
 
+### PHP Configuration (ServersideUp Image)
+
+This chart is designed to work with the ServersideUp PHP Docker images, which provide comprehensive PHP configuration via environment variables. All PHP settings are passed through the `php` section in values.yaml.
+
+#### Production Configuration Example
+
+```yaml
+php:
+  # General Settings
+  healthcheckPath: "/healthcheck"
+  logOutputLevel: "warn"  # warn for production, info for staging, debug for development
+
+  # PHP Runtime Settings
+  memoryLimit: "512M"  # Increase for memory-intensive applications
+  maxExecutionTime: "120"  # seconds
+  uploadMaxFilesize: "100M"
+  postMaxSize: "100M"
+
+  # OPcache (Critical for Production Performance)
+  opcache:
+    enable: "1"  # Always enabled in production
+    validateTimestamps: "0"  # Disable file checks in production for performance
+    memoryConsumption: "256"  # MB - adjust based on application size
+    maxAcceleratedFiles: "20000"  # Increase for large applications
+    jit: "tracing"  # Enable JIT compilation (PHP 8.0+)
+    jitBufferSize: "100"  # MB
+
+  # PHP-FPM Process Management
+  fpm:
+    pmControl: "dynamic"  # Options: static, dynamic, ondemand
+    pmMaxChildren: "50"  # Max concurrent PHP-FPM processes
+    pmStartServers: "10"  # Initial process count
+    pmMinSpareServers: "5"
+    pmMaxSpareServers: "15"
+    pmMaxRequests: "1000"  # Restart workers after N requests (prevents memory leaks)
+    pmStatusPath: "/fpm-status"  # Enable FPM status page
+
+  # Nginx Settings
+  nginx:
+    webroot: "/var/www/html/public"
+    clientMaxBodySize: "100M"
+    fastcgiBuffers: "16 16k"  # Increase for larger responses
+    fastcgiBufferSize: "32k"
+```
+
+#### Development Configuration Example
+
+For local development or staging environments:
+
+```yaml
+php:
+  logOutputLevel: "debug"
+  showWelcomeMessage: "true"
+
+  # PHP Settings (Development)
+  displayErrors: "On"
+  displayStartupErrors: "On"
+  errorReporting: "32767"  # E_ALL
+  memoryLimit: "512M"
+
+  # OPcache (Disabled for Development)
+  opcache:
+    enable: "0"  # Disable opcache to see code changes immediately
+    # OR keep enabled but validate timestamps:
+    # enable: "1"
+    # validateTimestamps: "1"  # Check files for changes on each request
+    # revalidateFreq: "0"  # Check every request
+
+  # PHP-FPM (Development)
+  fpm:
+    pmControl: "ondemand"  # More efficient for low-traffic dev environments
+    pmMaxChildren: "10"
+    pmProcessIdleTimeout: "10s"
+```
+
+#### Available PHP Configuration Options
+
+**General Settings:**
+- `appBaseDir` - Application root directory (default: `/var/www/html`)
+- `healthcheckPath` - Health check endpoint (default: `/healthcheck`)
+- `logOutputLevel` - Container log level: `warn`, `info`, `debug`
+- `showWelcomeMessage` - Show startup message (default: `false`)
+
+**PHP Runtime:**
+- `dateTimezone` - PHP timezone (default: `UTC`)
+- `displayErrors` - Show errors (`Off` for production, `On` for development)
+- `errorReporting` - Error reporting level (default: `22527`)
+- `memoryLimit` - PHP memory limit (default: `256M`)
+- `maxExecutionTime` - Script timeout in seconds (default: `99`)
+- `maxInputVars` - Maximum input variables (default: `1000`)
+- `uploadMaxFilesize` - Max upload size (default: `100M`)
+- `postMaxSize` - Max POST size (default: `100M`)
+
+**OPcache:**
+- `opcache.enable` - Enable OPcache (`1` or `0`)
+- `opcache.validateTimestamps` - Check files for changes (`0` for production, `1` for dev)
+- `opcache.memoryConsumption` - OPcache memory in MB (default: `128`)
+- `opcache.maxAcceleratedFiles` - Max cached files (default: `10000`)
+- `opcache.jit` - JIT mode: `off`, `function`, `tracing`
+- `opcache.jitBufferSize` - JIT buffer in MB (default: `0`)
+
+**PHP-FPM:**
+- `fpm.pmControl` - Process manager: `static`, `dynamic`, `ondemand`
+- `fpm.pmMaxChildren` - Maximum child processes (default: `20`)
+- `fpm.pmStartServers` - Initial processes (default: `2`)
+- `fpm.pmMinSpareServers` - Minimum idle processes (default: `1`)
+- `fpm.pmMaxSpareServers` - Maximum idle processes (default: `3`)
+- `fpm.pmMaxRequests` - Requests before worker restart (default: `0` = unlimited)
+- `fpm.pmStatusPath` - FPM status endpoint (e.g., `/fpm-status`)
+
+**Nginx:**
+- `nginx.webroot` - Document root (default: `/var/www/html/public`)
+- `nginx.clientMaxBodySize` - Max request body size (default: `100M`)
+- `nginx.fastcgiBuffers` - FastCGI buffer configuration (default: `8 8k`)
+- `nginx.serverTokens` - Hide Nginx version (default: `off`)
+
+**SSL:**
+- `ssl.mode` - SSL mode: `off`, `mixed`, `full`
+- `ssl.certificateFile` - SSL certificate path
+- `ssl.privateKeyFile` - SSL private key path
+
+For the complete list of available configuration options, see:
+- [ServersideUp PHP Environment Variables Reference](https://github.com/serversideup/docker-php/blob/main/docs/content/docs/8.reference/1.environment-variable-specification.md)
+
+#### Performance Tuning Guidelines
+
+**Small Applications (< 1000 RPM):**
+```yaml
+php:
+  memoryLimit: "256M"
+  opcache:
+    memoryConsumption: "128"
+  fpm:
+    pmMaxChildren: "20"
+```
+
+**Medium Applications (1000-10000 RPM):**
+```yaml
+php:
+  memoryLimit: "512M"
+  opcache:
+    memoryConsumption: "256"
+    maxAcceleratedFiles: "20000"
+  fpm:
+    pmMaxChildren: "50"
+    pmMaxRequests: "1000"
+```
+
+**Large Applications (> 10000 RPM):**
+```yaml
+php:
+  memoryLimit: "1G"
+  opcache:
+    memoryConsumption: "512"
+    maxAcceleratedFiles: "50000"
+    jit: "tracing"
+    jitBufferSize: "200"
+  fpm:
+    pmControl: "static"
+    pmMaxChildren: "100"
+    pmMaxRequests: "500"
+```
+
+**Calculate FPM Workers:**
+```
+Available RAM = Total Container Memory - OPcache Memory - System Overhead (100MB)
+Max Workers = Available RAM / Average PHP Process Memory (typically 30-50MB)
+
+Example with 2GB container:
+Available RAM = 2048MB - 256MB (opcache) - 100MB = 1692MB
+Max Workers = 1692MB / 40MB = 42 workers
+```
+
 ### Persistent Storage
 
 ```yaml
@@ -644,58 +1029,6 @@ initContainers:
 ```
 
 See [values.yaml](values.yaml) for all available configuration options.
-
-## 🏗️ Docker Image Requirements
-
-Your Laravel Docker image should follow these guidelines:
-
-### Dockerfile Example
-
-```dockerfile
-# Build stage
-FROM composer:2 AS composer
-
-WORKDIR /app
-COPY composer.* ./
-RUN composer install --no-dev --optimize-autoloader --no-interaction
-
-# Production stage
-FROM php:8.3-fpm-alpine
-
-WORKDIR /var/www/html
-
-# Install dependencies
-RUN apk add --no-cache \
-    nginx \
-    supervisor \
-    mysql-client \
-    && docker-php-ext-install pdo_mysql opcache
-
-# Create non-root user
-RUN addgroup -g 1000 www && \
-    adduser -D -u 1000 -G www www
-
-# Copy application
-COPY --chown=www:www . .
-COPY --from=composer --chown=www:www /app/vendor ./vendor
-
-# Set permissions
-RUN chown -R www:www /var/www/html/storage /var/www/html/bootstrap/cache
-
-USER www
-
-EXPOSE 8080
-
-CMD ["php-fpm"]
-```
-
-### Optimization Tips
-
-- Use multi-stage builds to minimize image size
-- Run `composer install --optimize-autoloader --no-dev` for production
-- Enable PHP OPcache for better performance
-- Use Alpine-based images for smaller footprint
-- Copy only necessary files (use .dockerignore)
 
 ## 🩺 Health Check Endpoints
 
@@ -1109,22 +1442,3 @@ kubectl get hpa -n production
 kubectl get deployments -n production
 ```
 
-## 📜 License
-
-This chart is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
-
-## 🔗 Links
-
-- **Chart Repository**: https://github.com/5ergiu/helm-charts
-- **Laravel Documentation**: https://laravel.com/docs
-- **Laravel Horizon**: https://laravel.com/docs/horizon
-- **Artifact Hub**: https://artifacthub.io/packages/helm/5ergiu/laravel
-- **Issues**: https://github.com/5ergiu/helm-charts/issues
-
-## 📝 Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for version history and changes.
-
----
-
-**Made with ❤️ for the Laravel community**
