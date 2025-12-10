@@ -3,6 +3,8 @@ templates:
   - worker-deployment.yaml
 tests:
   - it: should create a worker deployment with default values
+    set:
+      worker.autoscaling.enabled: false
     asserts:
       - isKind:
           of: Deployment
@@ -11,7 +13,7 @@ tests:
           value: RELEASE-NAME-laravel-worker
       - equal:
           path: spec.replicas
-          value: 1
+          value: 2
       - equal:
           path: spec.template.spec.containers[0].command[0]
           value: "php"
@@ -22,13 +24,21 @@ tests:
           path: spec.template.spec.containers[0].command[2]
           value: "horizon"
 
-  - it: should scale workers independently
+  - it: should scale workers independently when autoscaling disabled
     set:
-      worker.replicas: 5
+      worker.autoscaling.enabled: false
+      worker.replicaCount: 5
     asserts:
       - equal:
           path: spec.replicas
           value: 5
+
+  - it: should not have replicas field when autoscaling enabled
+    set:
+      worker.autoscaling.enabled: true
+    asserts:
+      - isNull:
+          path: spec.replicas
 
   - it: should use custom horizon command
     set:
@@ -47,7 +57,7 @@ tests:
 
   - it: should mount storage volumes when enabled
     set:
-      storage.enabled: true
+      persistence.enabled: true
     asserts:
       - contains:
           path: spec.template.spec.volumes
@@ -65,4 +75,5 @@ tests:
           path: spec.template.spec.volumes
           content:
             name: tmp
-            emptyDir: {}
+            emptyDir:
+              medium: Memory

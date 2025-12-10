@@ -8,7 +8,7 @@ tests:
           of: Service
       - equal:
           path: metadata.name
-          value: RELEASE-NAME-laravel
+          value: RELEASE-NAME-laravel-web
       - equal:
           path: spec.type
           value: ClusterIP
@@ -24,7 +24,7 @@ tests:
 
   - it: should set custom service type
     set:
-      service.type: LoadBalancer
+      web.service.type: LoadBalancer
     asserts:
       - equal:
           path: spec.type
@@ -32,7 +32,7 @@ tests:
 
   - it: should set custom port
     set:
-      service.port: 8080
+      web.service.port: 8080
     asserts:
       - equal:
           path: spec.ports[0].port

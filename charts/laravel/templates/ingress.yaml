@@ -5,40 +5,10 @@ metadata:
   name: {{ include "laravel.fullname" . }}
   labels:
     {{- include "laravel.labels" . | nindent 4 }}
+{{- with .Values.ingress.annotations }}
   annotations:
-    {{- $top := . -}}
-    {{- $ann := dict -}}
-    {{- if $top.Values.ingress.annotations -}}
-      {{- $ann = merge $ann $top.Values.ingress.annotations -}}
-    {{- end -}}
-    {{- if $top.Values.middleware.enabled -}}
-      {{- $fullname := include "laravel.fullname" $top -}}
-      {{- $middlewareStr := "" -}}
-      {{- if $top.Values.middleware.redirectScheme.enabled }}
-        {{- if ne $middlewareStr "" }}{{- $middlewareStr = printf "%s," $middlewareStr }}{{- end }}
-        {{- $middlewareStr = printf "%s%s-%s-redirect-scheme" $middlewareStr $top.Release.Namespace $fullname -}}
-      {{- end }}
-      {{- if $top.Values.middleware.headers.enabled }}
-        {{- if ne $middlewareStr "" }}{{- $middlewareStr = printf "%s," $middlewareStr }}{{- end }}
-        {{- $middlewareStr = printf "%s%s-%s-headers" $middlewareStr $top.Release.Namespace $fullname -}}
-      {{- end }}
-      {{- if $top.Values.middleware.rateLimit.enabled }}
-        {{- if ne $middlewareStr "" }}{{- $middlewareStr = printf "%s," $middlewareStr }}{{- end }}
-        {{- $middlewareStr = printf "%s%s-%s-ratelimit" $middlewareStr $top.Release.Namespace $fullname -}}
-      {{- end }}
-      {{- if $top.Values.middleware.compress.enabled }}
-        {{- if ne $middlewareStr "" }}{{- $middlewareStr = printf "%s," $middlewareStr }}{{- end }}
-        {{- $middlewareStr = printf "%s%s-%s-compress" $middlewareStr $top.Release.Namespace $fullname -}}
-      {{- end }}
-      {{- if $top.Values.middleware.ipWhiteList.enabled }}
-        {{- if ne $middlewareStr "" }}{{- $middlewareStr = printf "%s," $middlewareStr }}{{- end }}
-        {{- $middlewareStr = printf "%s%s-%s-ipwhitelist" $middlewareStr $top.Release.Namespace $fullname -}}
-      {{- end }}
-      {{- if ne $middlewareStr "" }}
-        {{- $_ := set $ann "traefik.ingress.kubernetes.io/router.middlewares" $middlewareStr -}}
-      {{- end }}
-    {{- end }}
-    {{- toYaml $ann | nindent 4 }}
+{{ toYaml . | indent 4 }}
+{{- end }}
 spec:
   {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}

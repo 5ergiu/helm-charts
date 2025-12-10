@@ -331,9 +331,10 @@ migration:
   tolerations: []
   affinity: {}
 
-# Ingress configuration
+# Ingress configuration (legacy Kubernetes Ingress)
+# Note: Use either ingress OR ingressRoute, not both
 ingress:
-  enabled: true
+  enabled: false
   className: traefik
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
@@ -348,6 +349,62 @@ ingress:
     - secretName: laravel-tls
       hosts:
         - app.example.com
+
+# Traefik IngressRoute configuration (modern CRD-based routing)
+# This is the recommended approach for Traefik users
+ingressRoute:
+  enabled: true
+  annotations: {}
+
+  # Entry points to use (web, websecure, etc.)
+  entryPoints:
+    - websecure
+
+  # Global middlewares applied to all routes
+  # Reference format: "middleware-name" (same namespace) or "namespace/middleware-name"
+  # The template will automatically prepend the fullname, so just use the suffix
+  middlewares:
+    - headers
+    - compress
+    - ratelimit
+
+  # Routes configuration
+  routes:
+    - match: "Host(`app.example.com`)"
+      kind: Rule
+      priority: 10
+      # Per-route middlewares (optional, combines with global middlewares)
+      middlewares: []
+      # Sticky sessions configuration (optional)
+      sticky:
+        cookieName: laravel_sticky
+        secure: true
+        httpOnly: true
+        sameSite: lax
+      # Service weight for A/B testing or canary deployments (optional)
+      weight: 100
+      # Response forwarding configuration (optional)
+      responseForwarding:
+        flushInterval: 100ms
+
+  # TLS configuration
+  tls:
+    # Use existing TLS secret
+    secretName: laravel-tls
+
+    # OR use cert-resolver for automatic certificate generation
+    # certResolver: letsencrypt-prod
+
+    # Domain configuration for cert-resolver
+    # domains:
+    #   - main: app.example.com
+    #     sans:
+    #       - www.app.example.com
+
+    # TLS options reference (optional)
+    # options:
+    #   name: tls-options
+    #   namespace: default
 
 # Traefik Middleware configuration
 middleware:
@@ -389,6 +446,47 @@ middleware:
     enabled: true
     scheme: https
     permanent: true
+    # port: "443"
+
+  # Strip prefix middleware
+  stripPrefix:
+    enabled: false
+    prefixes: []
+    # - /api/v1
+    forceSlash: false
+
+  # Retry middleware
+  retry:
+    enabled: false
+    attempts: 3
+    initialInterval: 100ms
+
+  # Circuit breaker middleware
+  circuitBreaker:
+    enabled: false
+    expression: "NetworkErrorRatio() > 0.30"
+    checkPeriod: 10s
+    fallbackDuration: 10s
+    recoveryDuration: 10s
+
+  # In-flight requests limiter
+  inFlightReq:
+    enabled: false
+    amount: 100
+    sourceCriterion:
+      ipStrategy:
+        depth: 1
+        excludedIPs: []
+      # requestHeaderName: X-Forwarded-For
+      # requestHost: true
+
+  # Middleware chain (combine multiple middlewares)
+  chain:
+    enabled: false
+    middlewares: []
+    # - headers
+    # - ratelimit
+    # - compress
 
 # Laravel application configuration
 laravel:

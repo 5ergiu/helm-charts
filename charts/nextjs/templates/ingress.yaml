@@ -5,32 +5,10 @@ metadata:
   name: {{ include "nextjs.fullname" . }}
   labels:
     {{- include "nextjs.labels" . | nindent 4 }}
-  {{- $annotations := .Values.ingress.annotations | default dict }}
-  {{- if .Values.middleware.enabled }}
-    {{- $middlewares := list -}}
-    {{- if .Values.middleware.redirectScheme.enabled -}}
-      {{- $middlewares = append $middlewares (printf "%s-%s-redirect-scheme" .Release.Namespace (include "nextjs.fullname" .)) -}}
-    {{- end -}}
-    {{- if .Values.middleware.headers.enabled -}}
-      {{- $middlewares = append $middlewares (printf "%s-%s-headers" .Release.Namespace (include "nextjs.fullname" .)) -}}
-    {{- end -}}
-    {{- if .Values.middleware.rateLimit.enabled -}}
-      {{- $middlewares = append $middlewares (printf "%s-%s-ratelimit" .Release.Namespace (include "nextjs.fullname" .)) -}}
-    {{- end -}}
-    {{- if .Values.middleware.compress.enabled -}}
-      {{- $middlewares = append $middlewares (printf "%s-%s-compress" .Release.Namespace (include "nextjs.fullname" .)) -}}
-    {{- end -}}
-    {{- if .Values.middleware.ipWhiteList.enabled -}}
-      {{- $middlewares = append $middlewares (printf "%s-%s-ipwhitelist" .Release.Namespace (include "nextjs.fullname" .)) -}}
-    {{- end -}}
-    {{- if $middlewares -}}
-      {{- $_ := set $annotations "traefik.ingress.kubernetes.io/router.middlewares" ($middlewares | join ",") -}}
-    {{- end -}}
-  {{- end }}
-  {{- with $annotations }}
+{{- with .Values.ingress.annotations }}
   annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+{{ toYaml . | indent 4 }}
+{{- end }}
 spec:
   {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}

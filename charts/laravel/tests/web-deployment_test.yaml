@@ -3,6 +3,8 @@ templates:
   - web-deployment.yaml
 tests:
   - it: should create a deployment with default values
+    set:
+      web.autoscaling.enabled: false
     asserts:
       - isKind:
           of: Deployment
@@ -11,18 +13,26 @@ tests:
           value: RELEASE-NAME-laravel-web
       - equal:
           path: spec.replicas
-          value: 1
+          value: 2
       - equal:
           path: spec.template.spec.containers[0].image
-          value: "ghcr.io/your-org/your-app:latest"
+          value: "your-registry/laravel-app:latest"
 
-  - it: should set custom replica count
+  - it: should set custom replica count when autoscaling disabled
     set:
-      web.replicas: 3
+      web.autoscaling.enabled: false
+      web.replicaCount: 3
     asserts:
       - equal:
           path: spec.replicas
           value: 3
+
+  - it: should not have replicas field when autoscaling enabled
+    set:
+      web.autoscaling.enabled: true
+    asserts:
+      - isNull:
+          path: spec.replicas
 
   - it: should set custom image
     set:
@@ -43,7 +53,7 @@ tests:
 
   - it: should mount storage volumes when enabled
     set:
-      storage.enabled: true
+      persistence.enabled: true
     asserts:
       - contains:
           path: spec.template.spec.volumes
@@ -81,7 +91,8 @@ tests:
           path: spec.template.spec.volumes
           content:
             name: tmp
-            emptyDir: {}
+            emptyDir:
+              medium: Memory
       - contains:
           path: spec.template.spec.containers[0].volumeMounts
           content:
@@ -100,26 +111,22 @@ tests:
           path: spec.template.spec.securityContext.fsGroup
           value: 1000
 
-  - it: should add environment variables from config
-    set:
-      config:
-        APP_ENV: production
-        APP_DEBUG: "false"
+  - it: should use environment from configmap and secret
     asserts:
       - contains:
-          path: spec.template.spec.containers[0].env
+          path: spec.template.spec.containers[0].envFrom
           content:
-            name: APP_ENV
-            value: production
+            configMapRef:
+              name: RELEASE-NAME-laravel-env
       - contains:
-          path: spec.template.spec.containers[0].env
+          path: spec.template.spec.containers[0].envFrom
           content:
-            name: APP_DEBUG
-            value: "false"
+            secretRef:
+              name: RELEASE-NAME-laravel-secret
 
   - it: should add extra environment variables
     set:
-      web.extraEnv:
+      extraEnv:
         - name: CUSTOM_VAR
           value: custom-value
     asserts:

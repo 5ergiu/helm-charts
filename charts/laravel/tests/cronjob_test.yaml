@@ -15,6 +15,10 @@ tests:
       - equal:
           path: spec.jobTemplate.spec.template.spec.containers[0].command
           value: ["php", "artisan", "schedule:run"]
+      - isNotEmpty:
+          path: metadata.annotations."checksum/config"
+      - isNotEmpty:
+          path: metadata.annotations."checksum/secret"
 
   - it: should disable scheduler
     set:

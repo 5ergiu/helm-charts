@@ -231,9 +231,11 @@ app:
 
 ### Ingress & TLS
 
+#### Option 1: Kubernetes Ingress (Legacy)
+
 ```yaml
 ingress:
-  enabled: true
+  enabled: true  # Set to false if using IngressRoute
   className: traefik
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
@@ -248,31 +250,180 @@ ingress:
         - app.example.com
 ```
 
-### Middleware (Traefik)
+#### Option 2: Traefik IngressRoute (Recommended)
+
+Modern CRD-based routing with advanced Traefik features:
+
+```yaml
+# Disable standard Ingress
+ingress:
+  enabled: false
+
+# Enable IngressRoute (default)
+ingressRoute:
+  enabled: true
+
+  # Entry points (web, websecure, etc.)
+  entryPoints:
+    - websecure
+
+  # Global middlewares applied to all routes
+  # Use shorthand names (template will prepend fullname automatically)
+  # Or use "namespace/middleware-name" for cross-namespace references
+  middlewares:
+    - headers
+    - compress
+    - ratelimit
+
+  # Route configuration
+  routes:
+    - match: "Host(`app.example.com`)"
+      kind: Rule
+      priority: 10
+      # Per-route middlewares (optional)
+      middlewares: []
+      # Sticky sessions for Next.js apps
+      sticky:
+        cookieName: nextjs_sticky
+        secure: true
+        httpOnly: true
+        sameSite: lax
+      # Service weight (for A/B testing or canary)
+      weight: 100
+
+  # TLS configuration
+  tls:
+    # Option A: Use existing secret
+    secretName: nextjs-tls
+
+    # Option B: Use cert-resolver for automatic certificates
+    # certResolver: letsencrypt-prod
+    # domains:
+    #   - main: app.example.com
+    #     sans:
+    #       - www.app.example.com
+
+    # TLS options (optional)
+    # options:
+    #   name: tls-options
+    #   namespace: default
+```
+
+**IngressRoute Benefits:**
+- Native Traefik integration with advanced features
+- Sticky sessions for stateful Next.js apps
+- Fine-grained routing control with priorities
+- Service weights for canary deployments
+- Better middleware composition
+- TCP/UDP routing support
+
+### Traefik Middlewares
+
+The chart includes comprehensive middleware support for security, performance, and reliability:
 
 ```yaml
 middleware:
   enabled: true
-  
+
+  # Rate Limiting - Protect against abuse
   rateLimit:
     enabled: true
-    average: 200
-    burst: 400
-  
+    average: 100  # Average requests per period
+    burst: 200    # Burst capacity
+    period: 1s
+    # Advanced IP strategy
+    sourceCriterion:
+      ipStrategy:
+        depth: 1  # For X-Forwarded-For header
+        excludedIPs: []
+
+  # Security Headers - OWASP best practices
   headers:
     enabled: true
     browserXssFilter: true
     contentTypeNosniff: true
     forceSTSHeader: true
     stsSeconds: 31536000
-  
+    stsIncludeSubdomains: true
+    stsPreload: true
+    customFrameOptionsValue: "SAMEORIGIN"
+    # Additional headers
+    contentSecurityPolicy: "default-src 'self'"
+    referrerPolicy: "strict-origin-when-cross-origin"
+    permissionsPolicy: "geolocation=(self), microphone=()"
+    # CORS support
+    accessControlAllowOriginList:
+      - "https://example.com"
+    customResponseHeaders:
+      X-Powered-By: ""  # Hide server info
+      Server: ""
+
+  # Response Compression - Improve performance
   compress:
     enabled: true
-  
+    excludedContentTypes:
+      - text/event-stream
+    minResponseBodyBytes: 1024
+
+  # HTTP to HTTPS Redirect
   redirectScheme:
     enabled: true
     scheme: https
+    permanent: true
+
+  # Strip Prefix - Remove path prefix before forwarding
+  stripPrefix:
+    enabled: false
+    prefixes:
+      - /api/v1
+    forceSlash: false
+
+  # Retry - Automatic retry on failures
+  retry:
+    enabled: false
+    attempts: 3
+    initialInterval: 100ms
+
+  # Circuit Breaker - Prevent cascading failures
+  circuitBreaker:
+    enabled: false
+    expression: "NetworkErrorRatio() > 0.30"
+    checkPeriod: 10s
+    fallbackDuration: 10s
+    recoveryDuration: 10s
+
+  # In-Flight Requests - Limit concurrent requests
+  inFlightReq:
+    enabled: false
+    amount: 100
+
+  # IP Whitelist - Restrict access by IP
+  ipWhiteList:
+    enabled: false
+    sourceRange:
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+
+  # Middleware Chain - Combine multiple middlewares
+  chain:
+    enabled: false
+    middlewares:
+      - headers
+      - ratelimit
+      - compress
 ```
+
+**Available Middlewares:**
+- ✅ **Rate Limiting** - Protect against DDoS and abuse
+- ✅ **Security Headers** - HSTS, CSP, XSS protection, CORS
+- ✅ **Compression** - Gzip compression for better performance
+- ✅ **Redirect Scheme** - HTTP to HTTPS redirection
+- ✅ **Strip Prefix** - Path manipulation for API versioning
+- ✅ **Retry** - Automatic retry on transient failures
+- ✅ **Circuit Breaker** - Prevent cascading failures
+- ✅ **In-Flight Requests** - Limit concurrent connections
+- ✅ **IP Whitelist** - IP-based access control
+- ✅ **Middleware Chain** - Compose multiple middlewares
 
 See [values.yaml](values.yaml) for all available configuration options.
 

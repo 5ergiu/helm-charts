@@ -1,7 +1,13 @@
 {{- $appEnabled := .Values.app.enabled -}}
 {{- $fullName := include "nextjs.fullname" . -}}
-{{- $ingressEnabled := .Values.ingress.enabled -}}
+{{- $ingressEnabled := or .Values.ingress.enabled .Values.ingressRoute.enabled -}}
 {{- $hosts := .Values.ingress.hosts -}}
+{{- $ingressRouteHosts := list -}}
+{{- if .Values.ingressRoute.enabled -}}
+  {{- range .Values.ingressRoute.routes -}}
+    {{- $ingressRouteHosts = append $ingressRouteHosts .match -}}
+  {{- end -}}
+{{- end -}}
 
 ═══════════════════════════════════════════════════════════════════════════════
    🚀 Next.js Application Successfully Deployed!
@@ -46,28 +52,58 @@ Thank you for deploying {{ .Chart.Name }} version {{ .Chart.Version }}!
 {{- if $ingressEnabled }}
 Your Next.js application is accessible at:
 
+{{- if .Values.ingress.enabled }}
 {{- range $hosts }}
   {{- if .host }}
   🔗 https://{{ .host }}
   {{- end }}
 {{- end }}
+{{- else if .Values.ingressRoute.enabled }}
+{{- range $ingressRouteHosts }}
+  🔗 {{ . | replace "Host(`" "" | replace "`)" "" | trimPrefix "(" | trimSuffix ")" }}
+{{- end }}
+{{- end }}
+
+{{- if .Values.ingressRoute.enabled }}
+📡 Routing Type: Traefik IngressRoute (CRD-based)
+   Entry Points: {{ join ", " .Values.ingressRoute.entryPoints }}
+{{- else if .Values.ingress.enabled }}
+📡 Routing Type: Kubernetes Ingress
+   IngressClass: {{ .Values.ingress.className }}
+{{- end }}
 
 {{- if .Values.middleware.enabled }}
-🛡️  Traefik Middlewares Enabled:
+
+🛡️  Traefik Middlewares:
   {{- if .Values.middleware.rateLimit.enabled }}
-  - Rate Limiting: {{ .Values.middleware.rateLimit.average }}/s (burst: {{ .Values.middleware.rateLimit.burst }})
+  ✓ Rate Limiting: {{ .Values.middleware.rateLimit.average }}/s (burst: {{ .Values.middleware.rateLimit.burst }})
   {{- end }}
   {{- if .Values.middleware.headers.enabled }}
-  - Security Headers
+  ✓ Security Headers (HSTS, XSS Protection, etc.)
   {{- end }}
   {{- if .Values.middleware.compress.enabled }}
-  - Response Compression
+  ✓ Response Compression (gzip)
   {{- end }}
   {{- if .Values.middleware.redirectScheme.enabled }}
-  - HTTP → HTTPS Redirect
+  ✓ HTTP → HTTPS Redirect
   {{- end }}
   {{- if .Values.middleware.ipWhiteList.enabled }}
-  - IP Whitelisting
+  ✓ IP Whitelisting ({{ len .Values.middleware.ipWhiteList.sourceRange }} ranges)
+  {{- end }}
+  {{- if .Values.middleware.stripPrefix.enabled }}
+  ✓ Strip Prefix: {{ join ", " .Values.middleware.stripPrefix.prefixes }}
+  {{- end }}
+  {{- if .Values.middleware.retry.enabled }}
+  ✓ Retry ({{ .Values.middleware.retry.attempts }} attempts)
+  {{- end }}
+  {{- if .Values.middleware.circuitBreaker.enabled }}
+  ✓ Circuit Breaker
+  {{- end }}
+  {{- if .Values.middleware.inFlightReq.enabled }}
+  ✓ In-Flight Request Limiter ({{ .Values.middleware.inFlightReq.amount }} max)
+  {{- end }}
+  {{- if .Values.middleware.chain.enabled }}
+  ✓ Middleware Chain
   {{- end }}
 {{- end }}
 

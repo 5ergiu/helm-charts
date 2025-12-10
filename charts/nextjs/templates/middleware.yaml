@@ -1,6 +1,7 @@
 {{- if .Values.middleware.enabled }}
-{{- if .Values.middleware.rateLimit.enabled }}
 ---
+# Rate limiting middleware
+{{- if .Values.middleware.rateLimit.enabled }}
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
@@ -10,13 +11,37 @@ metadata:
 spec:
   rateLimit:
     average: {{ .Values.middleware.rateLimit.average }}
+    {{- if .Values.middleware.rateLimit.burst }}
     burst: {{ .Values.middleware.rateLimit.burst }}
+    {{- end }}
     {{- if .Values.middleware.rateLimit.period }}
     period: {{ .Values.middleware.rateLimit.period }}
     {{- end }}
+    {{- if .Values.middleware.rateLimit.sourceCriterion }}
+    sourceCriterion:
+      {{- if .Values.middleware.rateLimit.sourceCriterion.ipStrategy }}
+      ipStrategy:
+        {{- if .Values.middleware.rateLimit.sourceCriterion.ipStrategy.depth }}
+        depth: {{ .Values.middleware.rateLimit.sourceCriterion.ipStrategy.depth }}
+        {{- end }}
+        {{- if .Values.middleware.rateLimit.sourceCriterion.ipStrategy.excludedIPs }}
+        excludedIPs:
+          {{- range .Values.middleware.rateLimit.sourceCriterion.ipStrategy.excludedIPs }}
+          - {{ . }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- if .Values.middleware.rateLimit.sourceCriterion.requestHeaderName }}
+      requestHeaderName: {{ .Values.middleware.rateLimit.sourceCriterion.requestHeaderName }}
+      {{- end }}
+      {{- if .Values.middleware.rateLimit.sourceCriterion.requestHost }}
+      requestHost: {{ .Values.middleware.rateLimit.sourceCriterion.requestHost }}
+      {{- end }}
+    {{- end }}
 {{- end }}
-{{- if .Values.middleware.headers.enabled }}
 ---
+# Security headers middleware
+{{- if .Values.middleware.headers.enabled }}
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
@@ -25,22 +50,82 @@ metadata:
     {{- include "nextjs.labels" . | nindent 4 }}
 spec:
   headers:
+    {{- if .Values.middleware.headers.browserXssFilter }}
     browserXssFilter: {{ .Values.middleware.headers.browserXssFilter }}
+    {{- end }}
+    {{- if .Values.middleware.headers.contentTypeNosniff }}
     contentTypeNosniff: {{ .Values.middleware.headers.contentTypeNosniff }}
+    {{- end }}
+    {{- if .Values.middleware.headers.forceSTSHeader }}
     forceSTSHeader: {{ .Values.middleware.headers.forceSTSHeader }}
+    {{- end }}
+    {{- if .Values.middleware.headers.stsIncludeSubdomains }}
     stsIncludeSubdomains: {{ .Values.middleware.headers.stsIncludeSubdomains }}
+    {{- end }}
+    {{- if .Values.middleware.headers.stsPreload }}
     stsPreload: {{ .Values.middleware.headers.stsPreload }}
+    {{- end }}
+    {{- if .Values.middleware.headers.stsSeconds }}
     stsSeconds: {{ .Values.middleware.headers.stsSeconds }}
+    {{- end }}
     {{- if .Values.middleware.headers.customFrameOptionsValue }}
     customFrameOptionsValue: {{ .Values.middleware.headers.customFrameOptionsValue }}
     {{- end }}
+    {{- if .Values.middleware.headers.contentSecurityPolicy }}
+    contentSecurityPolicy: {{ .Values.middleware.headers.contentSecurityPolicy }}
+    {{- end }}
+    {{- if .Values.middleware.headers.referrerPolicy }}
+    referrerPolicy: {{ .Values.middleware.headers.referrerPolicy }}
+    {{- end }}
+    {{- if .Values.middleware.headers.permissionsPolicy }}
+    permissionsPolicy: {{ .Values.middleware.headers.permissionsPolicy }}
+    {{- end }}
+    {{- if .Values.middleware.headers.customRequestHeaders }}
+    customRequestHeaders:
+      {{- range $key, $value := .Values.middleware.headers.customRequestHeaders }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
+    {{- end }}
     {{- if .Values.middleware.headers.customResponseHeaders }}
     customResponseHeaders:
-      {{- toYaml .Values.middleware.headers.customResponseHeaders | nindent 6 }}
+      {{- range $key, $value := .Values.middleware.headers.customResponseHeaders }}
+      {{ $key }}: {{ $value | quote }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.middleware.headers.accessControlAllowOriginList }}
+    accessControlAllowOriginList:
+      {{- range .Values.middleware.headers.accessControlAllowOriginList }}
+      - {{ . }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.middleware.headers.accessControlAllowMethods }}
+    accessControlAllowMethods:
+      {{- range .Values.middleware.headers.accessControlAllowMethods }}
+      - {{ . }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.middleware.headers.accessControlAllowHeaders }}
+    accessControlAllowHeaders:
+      {{- range .Values.middleware.headers.accessControlAllowHeaders }}
+      - {{ . }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.middleware.headers.accessControlExposeHeaders }}
+    accessControlExposeHeaders:
+      {{- range .Values.middleware.headers.accessControlExposeHeaders }}
+      - {{ . }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.middleware.headers.accessControlMaxAge }}
+    accessControlMaxAge: {{ .Values.middleware.headers.accessControlMaxAge }}
+    {{- end }}
+    {{- if .Values.middleware.headers.accessControlAllowCredentials }}
+    accessControlAllowCredentials: {{ .Values.middleware.headers.accessControlAllowCredentials }}
     {{- end }}
 {{- end }}
-{{- if .Values.middleware.compress.enabled }}
 ---
+# Compression middleware
+{{- if .Values.middleware.compress.enabled }}
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
@@ -48,10 +133,23 @@ metadata:
   labels:
     {{- include "nextjs.labels" . | nindent 4 }}
 spec:
-  compress: {}
+  compress:
+    {{- if .Values.middleware.compress.excludedContentTypes }}
+    excludedContentTypes:
+      {{- range .Values.middleware.compress.excludedContentTypes }}
+      - {{ . }}
+      {{- end }}
+    {{- else }}
+    excludedContentTypes:
+      - text/event-stream
+    {{- end }}
+    {{- if .Values.middleware.compress.minResponseBodyBytes }}
+    minResponseBodyBytes: {{ .Values.middleware.compress.minResponseBodyBytes }}
+    {{- end }}
 {{- end }}
-{{- if .Values.middleware.ipWhiteList.enabled }}
 ---
+# IP whitelist middleware
+{{- if .Values.middleware.ipWhiteList.enabled }}
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
@@ -61,19 +159,152 @@ metadata:
 spec:
   ipWhiteList:
     sourceRange:
-      {{- toYaml .Values.middleware.ipWhiteList.sourceRange | nindent 6 }}
+      {{- range .Values.middleware.ipWhiteList.sourceRange }}
+      - {{ . }}
+      {{- end }}
+    {{- if .Values.middleware.ipWhiteList.ipStrategy }}
+    ipStrategy:
+      {{- if .Values.middleware.ipWhiteList.ipStrategy.depth }}
+      depth: {{ .Values.middleware.ipWhiteList.ipStrategy.depth }}
+      {{- end }}
+      {{- if .Values.middleware.ipWhiteList.ipStrategy.excludedIPs }}
+      excludedIPs:
+        {{- range .Values.middleware.ipWhiteList.ipStrategy.excludedIPs }}
+        - {{ . }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
 {{- end }}
-{{- if .Values.middleware.redirectScheme.enabled }}
 ---
+# Redirect scheme middleware (HTTP to HTTPS)
+{{- if .Values.middleware.redirectScheme.enabled }}
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: {{ include "nextjs.fullname" . }}-redirect-scheme
+  name: {{ include "nextjs.fullname" . }}-redirect-https
   labels:
     {{- include "nextjs.labels" . | nindent 4 }}
 spec:
   redirectScheme:
-    scheme: {{ .Values.middleware.redirectScheme.scheme }}
-    permanent: {{ .Values.middleware.redirectScheme.permanent }}
+    scheme: {{ .Values.middleware.redirectScheme.scheme | default "https" }}
+    permanent: {{ .Values.middleware.redirectScheme.permanent | default true }}
+    {{- if .Values.middleware.redirectScheme.port }}
+    port: {{ .Values.middleware.redirectScheme.port | quote }}
+    {{- end }}
+{{- end }}
+---
+# Strip prefix middleware (if configured)
+{{- if .Values.middleware.stripPrefix.enabled }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "nextjs.fullname" . }}-stripprefix
+  labels:
+    {{- include "nextjs.labels" . | nindent 4 }}
+spec:
+  stripPrefix:
+    prefixes:
+      {{- range .Values.middleware.stripPrefix.prefixes }}
+      - {{ . }}
+      {{- end }}
+    {{- if .Values.middleware.stripPrefix.forceSlash }}
+    forceSlash: {{ .Values.middleware.stripPrefix.forceSlash }}
+    {{- end }}
+{{- end }}
+---
+# Retry middleware (if configured)
+{{- if .Values.middleware.retry.enabled }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "nextjs.fullname" . }}-retry
+  labels:
+    {{- include "nextjs.labels" . | nindent 4 }}
+spec:
+  retry:
+    {{- if .Values.middleware.retry.attempts }}
+    attempts: {{ .Values.middleware.retry.attempts }}
+    {{- end }}
+    {{- if .Values.middleware.retry.initialInterval }}
+    initialInterval: {{ .Values.middleware.retry.initialInterval }}
+    {{- end }}
+{{- end }}
+---
+# Circuit breaker middleware (if configured)
+{{- if .Values.middleware.circuitBreaker.enabled }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "nextjs.fullname" . }}-circuitbreaker
+  labels:
+    {{- include "nextjs.labels" . | nindent 4 }}
+spec:
+  circuitBreaker:
+    {{- if .Values.middleware.circuitBreaker.expression }}
+    expression: {{ .Values.middleware.circuitBreaker.expression }}
+    {{- end }}
+    {{- if .Values.middleware.circuitBreaker.checkPeriod }}
+    checkPeriod: {{ .Values.middleware.circuitBreaker.checkPeriod }}
+    {{- end }}
+    {{- if .Values.middleware.circuitBreaker.fallbackDuration }}
+    fallbackDuration: {{ .Values.middleware.circuitBreaker.fallbackDuration }}
+    {{- end }}
+    {{- if .Values.middleware.circuitBreaker.recoveryDuration }}
+    recoveryDuration: {{ .Values.middleware.circuitBreaker.recoveryDuration }}
+    {{- end }}
+{{- end }}
+---
+# In-flight requests middleware (if configured)
+{{- if .Values.middleware.inFlightReq.enabled }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "nextjs.fullname" . }}-inflightreq
+  labels:
+    {{- include "nextjs.labels" . | nindent 4 }}
+spec:
+  inFlightReq:
+    amount: {{ .Values.middleware.inFlightReq.amount }}
+    {{- if .Values.middleware.inFlightReq.sourceCriterion }}
+    sourceCriterion:
+      {{- if .Values.middleware.inFlightReq.sourceCriterion.ipStrategy }}
+      ipStrategy:
+        {{- if .Values.middleware.inFlightReq.sourceCriterion.ipStrategy.depth }}
+        depth: {{ .Values.middleware.inFlightReq.sourceCriterion.ipStrategy.depth }}
+        {{- end }}
+        {{- if .Values.middleware.inFlightReq.sourceCriterion.ipStrategy.excludedIPs }}
+        excludedIPs:
+          {{- range .Values.middleware.inFlightReq.sourceCriterion.ipStrategy.excludedIPs }}
+          - {{ . }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- if .Values.middleware.inFlightReq.sourceCriterion.requestHeaderName }}
+      requestHeaderName: {{ .Values.middleware.inFlightReq.sourceCriterion.requestHeaderName }}
+      {{- end }}
+      {{- if .Values.middleware.inFlightReq.sourceCriterion.requestHost }}
+      requestHost: {{ .Values.middleware.inFlightReq.sourceCriterion.requestHost }}
+      {{- end }}
+    {{- end }}
+{{- end }}
+---
+# Chain middleware (combines multiple middlewares)
+{{- if .Values.middleware.chain.enabled }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "nextjs.fullname" . }}-chain
+  labels:
+    {{- include "nextjs.labels" . | nindent 4 }}
+spec:
+  chain:
+    middlewares:
+      {{- range .Values.middleware.chain.middlewares }}
+      - name: {{ . }}
+        {{- if contains "/" . }}
+        {{- else }}
+        namespace: {{ $.Release.Namespace }}
+        {{- end }}
+      {{- end }}
 {{- end }}
 {{- end }}
