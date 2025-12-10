@@ -139,6 +139,28 @@ jobs:
           cluster_name: helm-chart-test
           wait: 300s
 
+      - name: 📦 Install Traefik
+        run: |
+          echo "Adding Traefik Helm repository..."
+          helm repo add traefik https://traefik.github.io/charts
+          helm repo update
+
+          echo "Installing Traefik with CRD provider enabled..."
+          helm install traefik traefik/traefik \
+            --namespace traefik \
+            --create-namespace \
+            --set providers.kubernetesCRD.enabled=true \
+            --set providers.kubernetesIngress.enabled=true \
+            --wait --timeout=5m
+
+          echo "Verifying Traefik installation..."
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=traefik -n traefik --timeout=5m
+          kubectl get pods -n traefik
+
+          echo "Verifying CRDs are installed..."
+          kubectl get crd | grep traefik
+          echo "✅ Traefik installed successfully with CRD support"
+
       - name: ✅ Run chart-testing (install)
         run: |
           ct install --target-branch ${{ github.event.repository.default_branch }} \
