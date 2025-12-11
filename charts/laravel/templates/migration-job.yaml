@@ -58,14 +58,13 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.migration.resources | nindent 12 }}
-          {{- if or .Values.tmpfsVolumes.enabled .Values.persistence.enabled .Values.extraVolumeMounts }}
           volumeMounts:
-            {{- include "laravel.volumeMounts" . | nindent 12 }}
-          {{- end }}
-      {{- if or .Values.tmpfsVolumes.enabled .Values.persistence.enabled .Values.extraVolumes }}
+            - name: tmp
+              mountPath: /tmp
       volumes:
-        {{- include "laravel.volumes" . | nindent 8 }}
-      {{- end }}
+        - name: tmp
+          emptyDir:
+            medium: Memory
       {{- with .Values.migration.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
