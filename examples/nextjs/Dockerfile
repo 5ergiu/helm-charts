@@ -21,10 +21,16 @@ WORKDIR /app
 RUN bunx create-next-app@latest . --typescript --tailwind --app --src-dir \
     --import-alias "@/*" --no-git --yes
 
+# Automatically leverage output traces to reduce image size
+# https://nextjs.org/docs/app/api-reference/config/next-config-js/output
+RUN sed -i '/const nextConfig: NextConfig = {/a\  output: "standalone",' next.config.ts
+
+RUN bun run build
+
 ###############################
 # Development Stage: For local development with hot reload
 ###############################
-FROM nexjts-builder AS development
+FROM nextjs-builder AS development
 
 WORKDIR /app
 
@@ -47,8 +53,8 @@ FROM oven/bun:1 AS production
 WORKDIR /app
 
 # Create non-root user for running the application
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+RUN groupadd -g 1001 nodejs && \
+    useradd -u 1001 -g nodejs --system --create-home nextjs
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
@@ -58,12 +64,8 @@ ENV NODE_ENV=production \
     HOSTNAME="0.0.0.0"
 
 COPY --from=nextjs-builder /app/public ./public
-
-# Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
 COPY --from=nextjs-builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=nextjs-builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
 
 # Switch to non-root user
 USER nextjs
