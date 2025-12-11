@@ -16,7 +16,7 @@ tests:
           value: 2
       - equal:
           path: spec.template.spec.containers[0].image
-          value: "ghcr.io/5ergiu/laravel:v0.1.0"
+          value: "ghcr.io/5ergiu/laravel:latest"
 
   - it: should set custom replica count when autoscaling disabled
     set:

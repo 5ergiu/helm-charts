@@ -16,15 +16,53 @@ worker:
 ingress:
   enabled: false
 
-ingressRoute:
-  enabled: false
-
-middleware:
-  enabled: false
-
-# Use minimal database setup for CI
 laravel:
+  env:
+    APP_ENV: "testing"
+    APP_DEBUG: "true"
+    DB_CONNECTION: "sqlite"
+    DB_DATABASE: ":memory:"
+    LOG_CHANNEL: "stderr"
+    LOG_LEVEL: "debug"
+    MAIL_MAILER: "log"
+    MAIL_HOST: "localhost"
+    MAIL_PORT: "1025"
+    MAIL_FROM_ADDRESS: "test@example.com"
+    MAIL_FROM_NAME: "Test"
   secrets:
-    # These will be overridden by the actual test if needed
     APP_KEY: "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-    DB_PASSWORD: "testpassword"
+    AWS_ACCESS_KEY_ID: ""
+    AWS_SECRET_ACCESS_KEY: ""
+    MAIL_USERNAME: ""
+    MAIL_PASSWORD: ""
+    PUSHER_APP_ID: ""
+    PUSHER_APP_KEY: ""
+    PUSHER_APP_SECRET: ""
+
+php:
+  env:
+    LOG_OUTPUT_LEVEL: "debug"
+    PHP_DISPLAY_ERRORS: "On"
+    PHP_DISPLAY_STARTUP_ERRORS: "On"
+
+migration:
+  enabled: true
+
+scheduler:
+  enabled: false
+
+tmpfsVolumes:
+  enabled: true
+
+persistence:
+  enabled: false
+
+initContainers:
+  cacheConfig:
+    enabled: true
+  cacheRoute:
+    enabled: true
+  cacheView:
+    enabled: true
+  storageLink:
+    enabled: true

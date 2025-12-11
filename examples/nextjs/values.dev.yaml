@@ -14,8 +14,8 @@ global:
 # Image configuration - use development build target
 image:
   repository: ghcr.io/5ergiu/nextjs
-  pullPolicy: IfNotPresent
-  tag: "dev"  # Build with: docker build --target development -t ghcr.io/your-github-username/nextjs:dev .
+  pullPolicy: Always
+  tag: "dev"
 
 # Application - local development configuration
 app:

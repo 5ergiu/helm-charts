@@ -9,8 +9,7 @@ global:
 # Image configuration
 image:
   repository: ghcr.io/5ergiu/laravel
-  pullPolicy: IfNotPresent
-  tag: "v0.1.0"
+  pullPolicy: Always
 
 imagePullSecrets: []
 nameOverride: ""

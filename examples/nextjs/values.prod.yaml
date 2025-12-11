@@ -7,7 +7,7 @@ global:
 # Image configuration - use production build target
 image:
   repository: ghcr.io/5ergiu/nextjs
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 imagePullSecrets:
   - name: ghcr-secret

@@ -185,8 +185,7 @@ helm install myapp ./charts/nextjs -f values.yaml -n production --create-namespa
 ```yaml
 image:
   repository: ghcr.io/yourorg/nextjs-app
-  pullPolicy: IfNotPresent
-  tag: "1.0.0"
+  pullPolicy: Always
 
 imagePullSecrets:
   - name: ghcr-secret
@@ -498,76 +497,12 @@ app:
 
 This repository includes a complete demo Dockerfile that creates a fresh Next.js 16.x installation. You can use it to test the Helm chart immediately or as a template for your own projects.
 
-### Quick Start - Build Demo Image
-
-```bash
-# Navigate to the example directory
-cd examples/nextjs-app
-
-# Build development image (with hot reload, debug tools)
-docker build --target development -t ghcr.io/5ergiu/nextjs:dev .
-
-# Build production image (standalone optimized)
-docker build --target production -t ghcr.io/5ergiu/nextjs:v0.1.0 .
-
-# Test locally
-docker run -p 3000:3000 ghcr.io/5ergiu/nextjs:dev
-# Visit: http://localhost:3000
-```
-
-### Push to GitHub Container Registry
-
-```bash
-# Login to GitHub Container Registry
-echo $GITHUB_TOKEN | docker login ghcr.io -u your-github-username --password-stdin
-
-# Tag images (replace with your GitHub username)
-docker tag ghcr.io/5ergiu/nextjs:dev ghcr.io/your-github-username/nextjs:dev
-docker tag ghcr.io/5ergiu/nextjs:v0.1.0 ghcr.io/your-github-username/nextjs:v0.1.0
-
-# Push to registry
-docker push ghcr.io/your-github-username/nextjs:dev
-docker push ghcr.io/your-github-username/nextjs:v0.1.0
-```
-
-After pushing, make sure to:
-1. Go to GitHub → Packages → Your package → Package settings
-2. Change visibility to "Public" (for free hosting)
-3. Link the package to your repository
-
 ### Using with Your Own Next.js Project
 
 The demo Dockerfile is designed as a template. To use it with your own project:
 
 **Option 1: Modify the builder stage**
-
-Replace the `builder` stage in `examples/nextjs-app/Dockerfile`:
-
-```dockerfile
-# Replace this stage:
-FROM node:20-alpine AS builder
-WORKDIR /app
-RUN apk add --no-cache libc6-compat
-RUN npx create-next-app@latest . --typescript --tailwind --app --src-dir \
-    --import-alias "@/*" --no-git --yes
-RUN npm ci
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
-
-# With:
-FROM node:20-alpine AS builder
-WORKDIR /app
-RUN apk add --no-cache libc6-compat
-COPY package*.json ./
-RUN npm ci
-COPY . .
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
-```
-
 **Option 2: Copy the pattern into your project**
-
-Copy the multi-stage build pattern, security practices, and optimization techniques from the demo Dockerfile into your own project structure.
 
 ### Dockerfile Features
 
@@ -982,18 +917,6 @@ Before deploying to production, ensure you have:
 - Redis for caching/sessions (or managed service)
 - Container registry (ghcr.io, ECR, GCR, ACR)
 
-### Build Production Image
-
-```bash
-cd examples/nextjs-app
-
-# Build optimized production image
-docker build --target production -t ghcr.io/5ergiu/nextjs:v0.1.0 .
-
-# Push to registry
-docker push ghcr.io/5ergiu/nextjs:v0.1.0
-```
-
 ### Deploy to Production
 
 ```bash
@@ -1023,7 +946,7 @@ global:
 
 image:
   repository: ghcr.io/5ergiu/nextjs
-  tag: "v0.1.0"  # Semantic versioning
+  tag: latest
 
 imagePullSecrets:
   - name: ghcr-secret

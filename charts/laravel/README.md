@@ -410,8 +410,7 @@ kubectl logs -l app.kubernetes.io/name=laravel -n development --tail=100
 ```yaml
 image:
   repository: ghcr.io/yourorg/laravel-app
-  pullPolicy: IfNotPresent
-  tag: "1.0.0"
+  pullPolicy: Always
 
 imagePullSecrets:
   - name: ghcr-secret
@@ -752,7 +751,7 @@ middleware:
 
 ### Environment Variables
 
-Laravel application configuration via ConfigMap:
+All application and PHP configuration is provided via environment variables in the ConfigMap. The chart supports both Laravel and PHP (ServersideUp image) environment variables, matching the structure in values.yaml:
 
 ```yaml
 laravel:
@@ -761,32 +760,25 @@ laravel:
     APP_ENV: "production"
     APP_DEBUG: "false"
     APP_URL: "https://app.example.com"
-    
     LOG_CHANNEL: "stderr"
     LOG_LEVEL: "info"
-    
     DB_CONNECTION: "mysql"
     DB_HOST: "mysql"
     DB_PORT: "3306"
     DB_DATABASE: "laravel"
-    
     BROADCAST_DRIVER: "redis"
     CACHE_DRIVER: "redis"
     FILESYSTEM_DISK: "local"
     QUEUE_CONNECTION: "redis"
     SESSION_DRIVER: "redis"
     SESSION_LIFETIME: "120"
-    
     REDIS_HOST: "redis"
     REDIS_PORT: "6379"
-    
     MAIL_MAILER: "smtp"
     MAIL_HOST: "mailpit"
     MAIL_PORT: "1025"
     MAIL_FROM_ADDRESS: "noreply@example.com"
     MAIL_FROM_NAME: "Laravel App"
-  
-  # Sensitive data (stored in Kubernetes Secret)
   secrets:
     APP_KEY: "base64:your-generated-app-key"
     DB_USERNAME: "laravel"
@@ -796,131 +788,66 @@ laravel:
     AWS_SECRET_ACCESS_KEY: "your-aws-secret"
     MAIL_USERNAME: "your-smtp-user"
     MAIL_PASSWORD: "your-smtp-password"
-```
 
-### PHP Configuration (ServersideUp Image)
-
-This chart is designed to work with the ServersideUp PHP Docker images, which provide comprehensive PHP configuration via environment variables. All PHP settings are passed through the `php` section in values.yaml.
-
-#### Production Configuration Example
-
-```yaml
 php:
-  # General Settings
-  healthcheckPath: "/healthcheck"
-  logOutputLevel: "warn"  # warn for production, info for staging, debug for development
-
-  # PHP Runtime Settings
-  memoryLimit: "512M"  # Increase for memory-intensive applications
-  maxExecutionTime: "120"  # seconds
-  uploadMaxFilesize: "100M"
-  postMaxSize: "100M"
-
-  # OPcache (Critical for Production Performance)
-  opcache:
-    enable: "1"  # Always enabled in production
-    validateTimestamps: "0"  # Disable file checks in production for performance
-    memoryConsumption: "256"  # MB - adjust based on application size
-    maxAcceleratedFiles: "20000"  # Increase for large applications
-    jit: "tracing"  # Enable JIT compilation (PHP 8.0+)
-    jitBufferSize: "100"  # MB
-
-  # PHP-FPM Process Management
-  fpm:
-    pmControl: "dynamic"  # Options: static, dynamic, ondemand
-    pmMaxChildren: "50"  # Max concurrent PHP-FPM processes
-    pmStartServers: "10"  # Initial process count
-    pmMinSpareServers: "5"
-    pmMaxSpareServers: "15"
-    pmMaxRequests: "1000"  # Restart workers after N requests (prevents memory leaks)
-    pmStatusPath: "/fpm-status"  # Enable FPM status page
-
-  # Nginx Settings
-  nginx:
-    webroot: "/var/www/html/public"
-    clientMaxBodySize: "100M"
-    fastcgiBuffers: "16 16k"  # Increase for larger responses
-    fastcgiBufferSize: "32k"
+  env:
+    APP_BASE_DIR: "/var/www/html"
+    HEALTHCHECK_PATH: "/healthcheck"
+    LOG_OUTPUT_LEVEL: "warn"
+    SHOW_WELCOME_MESSAGE: "false"
+    PHP_DATE_TIMEZONE: "UTC"
+    PHP_DISPLAY_ERRORS: "Off"
+    PHP_DISPLAY_STARTUP_ERRORS: "Off"
+    PHP_ERROR_LOG: "/dev/stderr"
+    PHP_ERROR_REPORTING: "22527"
+    PHP_MAX_EXECUTION_TIME: "99"
+    PHP_MAX_INPUT_TIME: "-1"
+    PHP_MAX_INPUT_VARS: "1000"
+    PHP_MEMORY_LIMIT: "256M"
+    PHP_OPEN_BASEDIR: ""
+    PHP_POST_MAX_SIZE: "100M"
+    PHP_REALPATH_CACHE_TTL: "120"
+    PHP_SESSION_COOKIE_SECURE: "1"
+    PHP_UPLOAD_MAX_FILE_SIZE: "100M"
+    PHP_ZEND_MULTIBYTE: "Off"
+    PHP_ZEND_DETECT_UNICODE: ""
+    PHP_OPCACHE_ENABLE: "1"
+    PHP_OPCACHE_ENABLE_FILE_OVERRIDE: "0"
+    PHP_OPCACHE_FORCE_RESTART_TIMEOUT: "180"
+    PHP_OPCACHE_INTERNED_STRINGS_BUFFER: "8"
+    PHP_OPCACHE_JIT: "off"
+    PHP_OPCACHE_JIT_BUFFER_SIZE: "0"
+    PHP_OPCACHE_MAX_ACCELERATED_FILES: "10000"
+    PHP_OPCACHE_MEMORY_CONSUMPTION: "128"
+    PHP_OPCACHE_REVALIDATE_FREQ: "2"
+    PHP_OPCACHE_SAVE_COMMENTS: "1"
+    PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"
+    PHP_FPM_POOL_NAME: "www"
+    PHP_FPM_PM_CONTROL: "dynamic"
+    PHP_FPM_PM_MAX_CHILDREN: "20"
+    PHP_FPM_PM_START_SERVERS: "2"
+    PHP_FPM_PM_MIN_SPARE_SERVERS: "1"
+    PHP_FPM_PM_MAX_SPARE_SERVERS: "3"
+    PHP_FPM_PM_MAX_REQUESTS: "0"
+    PHP_FPM_PM_STATUS_PATH: ""
+    PHP_FPM_PROCESS_CONTROL_TIMEOUT: "10"
+    NGINX_WEBROOT: "/var/www/html/public"
+    NGINX_ACCESS_LOG: "/dev/stdout"
+    NGINX_ERROR_LOG: "/dev/stderr"
+    NGINX_FASTCGI_BUFFERS: "8 8k"
+    NGINX_FASTCGI_BUFFER_SIZE: "8k"
+    NGINX_LISTEN_IP_PROTOCOL: "all"
+    NGINX_SERVER_TOKENS: "off"
+    NGINX_CLIENT_MAX_BODY_SIZE: "100M"
+    SSL_MODE: "off"
+    SSL_CERTIFICATE_FILE: "/etc/ssl/private/self-signed-web.crt"
+    SSL_PRIVATE_KEY_FILE: "/etc/ssl/private/self-signed-web.key"
+    COMPOSER_ALLOW_SUPERUSER: "1"
+    COMPOSER_HOME: "/composer"
+    COMPOSER_MAX_PARALLEL_HTTP: "24"
 ```
 
-#### Development Configuration Example
-
-For local development or staging environments:
-
-```yaml
-php:
-  logOutputLevel: "debug"
-  showWelcomeMessage: "true"
-
-  # PHP Settings (Development)
-  displayErrors: "On"
-  displayStartupErrors: "On"
-  errorReporting: "32767"  # E_ALL
-  memoryLimit: "512M"
-
-  # OPcache (Disabled for Development)
-  opcache:
-    enable: "0"  # Disable opcache to see code changes immediately
-    # OR keep enabled but validate timestamps:
-    # enable: "1"
-    # validateTimestamps: "1"  # Check files for changes on each request
-    # revalidateFreq: "0"  # Check every request
-
-  # PHP-FPM (Development)
-  fpm:
-    pmControl: "ondemand"  # More efficient for low-traffic dev environments
-    pmMaxChildren: "10"
-    pmProcessIdleTimeout: "10s"
-```
-
-#### Available PHP Configuration Options
-
-**General Settings:**
-- `appBaseDir` - Application root directory (default: `/var/www/html`)
-- `healthcheckPath` - Health check endpoint (default: `/healthcheck`)
-- `logOutputLevel` - Container log level: `warn`, `info`, `debug`
-- `showWelcomeMessage` - Show startup message (default: `false`)
-
-**PHP Runtime:**
-- `dateTimezone` - PHP timezone (default: `UTC`)
-- `displayErrors` - Show errors (`Off` for production, `On` for development)
-- `errorReporting` - Error reporting level (default: `22527`)
-- `memoryLimit` - PHP memory limit (default: `256M`)
-- `maxExecutionTime` - Script timeout in seconds (default: `99`)
-- `maxInputVars` - Maximum input variables (default: `1000`)
-- `uploadMaxFilesize` - Max upload size (default: `100M`)
-- `postMaxSize` - Max POST size (default: `100M`)
-
-**OPcache:**
-- `opcache.enable` - Enable OPcache (`1` or `0`)
-- `opcache.validateTimestamps` - Check files for changes (`0` for production, `1` for dev)
-- `opcache.memoryConsumption` - OPcache memory in MB (default: `128`)
-- `opcache.maxAcceleratedFiles` - Max cached files (default: `10000`)
-- `opcache.jit` - JIT mode: `off`, `function`, `tracing`
-- `opcache.jitBufferSize` - JIT buffer in MB (default: `0`)
-
-**PHP-FPM:**
-- `fpm.pmControl` - Process manager: `static`, `dynamic`, `ondemand`
-- `fpm.pmMaxChildren` - Maximum child processes (default: `20`)
-- `fpm.pmStartServers` - Initial processes (default: `2`)
-- `fpm.pmMinSpareServers` - Minimum idle processes (default: `1`)
-- `fpm.pmMaxSpareServers` - Maximum idle processes (default: `3`)
-- `fpm.pmMaxRequests` - Requests before worker restart (default: `0` = unlimited)
-- `fpm.pmStatusPath` - FPM status endpoint (e.g., `/fpm-status`)
-
-**Nginx:**
-- `nginx.webroot` - Document root (default: `/var/www/html/public`)
-- `nginx.clientMaxBodySize` - Max request body size (default: `100M`)
-- `nginx.fastcgiBuffers` - FastCGI buffer configuration (default: `8 8k`)
-- `nginx.serverTokens` - Hide Nginx version (default: `off`)
-
-**SSL:**
-- `ssl.mode` - SSL mode: `off`, `mixed`, `full`
-- `ssl.certificateFile` - SSL certificate path
-- `ssl.privateKeyFile` - SSL private key path
-
-For the complete list of available configuration options, see:
-- [ServersideUp PHP Environment Variables Reference](https://github.com/serversideup/docker-php/blob/main/docs/content/docs/8.reference/1.environment-variable-specification.md)
+All PHP configuration options are set as environment variables under `php.env`. For a full list, see [ServersideUp PHP Environment Variables Reference](https://github.com/serversideup/docker-php/blob/main/docs/content/docs/8.reference/1.environment-variable-specification.md).
 
 #### Performance Tuning Guidelines
 

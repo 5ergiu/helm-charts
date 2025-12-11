@@ -134,7 +134,6 @@ ghcr.io/5ergiu/nextjs:dev
 ghcr.io/5ergiu/laravel:dev
 
 # Production
-ghcr.io/5ergiu/nextjs:v0.1.0
 ghcr.io/5ergiu/nextjs:latest
 ```
 
