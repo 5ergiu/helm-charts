@@ -20,7 +20,7 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat
 
 # Create a fresh Next.js application with TypeScript and App Router
-# This installs Next.js 15.x (latest version)
+# This installs Next.js 16.x (latest version)
 RUN npx create-next-app@latest . --typescript --tailwind --app --src-dir \
     --import-alias "@/*" --no-git --yes
 

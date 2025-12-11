@@ -1,0 +1,18 @@
+# CI test values for Next.js chart
+# This file is used by chart-testing during PR validation
+
+# Disable autoscaling for CI tests (requires metrics-server)
+app:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+
+# Disable ingress for CI tests
+ingress:
+  enabled: false
+
+ingressRoute:
+  enabled: false
+
+middleware:
+  enabled: false

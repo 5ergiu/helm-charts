@@ -15,9 +15,224 @@ concurrency:
 
 permissions:
   contents: read
+  packages: write
   pull-requests: write
 
 jobs:
+  detect-images:
+    name: 🔍 Detect Changed Images
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: 🔍 Detect changed images and build targets
+        id: set-matrix
+        run: |
+          # Get all app directories in examples/
+          all_apps=$(find examples -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
+
+          # Detect which apps changed (only if Dockerfile changed)
+          changed_apps=""
+          for app in $all_apps; do
+            if git diff --name-only origin/${{ github.event.repository.default_branch }}...HEAD | grep -q "examples/$app/Dockerfile"; then
+              changed_apps="$changed_apps $app"
+            fi
+          done
+
+          # Build matrix with image and target combinations
+          matrix_include="["
+          first=true
+
+          for app in $changed_apps; do
+            dockerfile="examples/$app/Dockerfile"
+
+            if [ -f "$dockerfile" ]; then
+              # Check for development and production targets in Dockerfile
+              has_dev=$(grep -i "^FROM .* AS development" "$dockerfile" || echo "")
+              has_prod=$(grep -i "^FROM .* AS production" "$dockerfile" || echo "")
+
+              if [ -n "$has_dev" ] || [ -n "$has_prod" ]; then
+                # Build both targets if they exist
+                if [ -n "$has_dev" ]; then
+                  [ "$first" = false ] && matrix_include+=","
+                  matrix_include+="{\"image\":\"$app\",\"target\":\"development\"}"
+                  first=false
+                fi
+                if [ -n "$has_prod" ]; then
+                  [ "$first" = false ] && matrix_include+=","
+                  matrix_include+="{\"image\":\"$app\",\"target\":\"production\"}"
+                  first=false
+                fi
+              else
+                # No specific targets, build default
+                [ "$first" = false ] && matrix_include+=","
+                matrix_include+="{\"image\":\"$app\",\"target\":\"\"}"
+                first=false
+              fi
+            fi
+          done
+
+          matrix_include+="]"
+
+          if [ "$matrix_include" = "[]" ]; then
+            echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
+            echo "No images to build"
+          else
+            echo "matrix={\"include\":$matrix_include}" >> $GITHUB_OUTPUT
+            echo "Build matrix: {\"include\":$matrix_include}"
+          fi
+
+  build-images:
+    name: 🏗️ Build ${{ matrix.image }} (${{ matrix.target || 'default' }})
+    needs: detect-images
+    if: needs.detect-images.outputs.matrix != '{"include":[]}'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(needs.detect-images.outputs.matrix) }}
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: 🔐 Login to GHCR
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏷️ Determine version for ${{ matrix.image }}
+        id: version
+        run: |
+          IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}"
+
+          if [ "${{ matrix.target }}" = "development" ]; then
+            # Development: always use 'dev' tag
+            echo "VERSION=dev" >> $GITHUB_OUTPUT
+            echo "TAGS=${IMAGE_NAME}:dev" >> $GITHUB_OUTPUT
+            echo "Development build - using 'dev' tag"
+          else
+            # Production or default: use semantic versioning
+
+            # Try to get the latest version from GHCR
+            LATEST_TAG=$(docker manifest inspect ${IMAGE_NAME}:latest 2>/dev/null | \
+              jq -r '.manifests[0].annotations."org.opencontainers.image.version"' 2>/dev/null || echo "")
+
+            if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+              # No existing version, check git tags for this app
+              LATEST_TAG=$(git tag -l "${{ matrix.image }}/v*" --sort=-v:refname | head -n1 | sed 's|${{ matrix.image }}/||' || echo "")
+            fi
+
+            if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+              # No version found, start with v0.1.0
+              NEW_VERSION="v0.1.0"
+              echo "No existing version found, starting with $NEW_VERSION"
+            else
+              # Bump version based on commits
+              echo "Latest version: $LATEST_TAG"
+
+              # Get commits since last tag for this app
+              LAST_TAG_COMMIT=$(git rev-list -n 1 "${{ matrix.image }}/${LATEST_TAG}" 2>/dev/null || echo "")
+
+              if [ -n "$LAST_TAG_COMMIT" ]; then
+                COMMITS=$(git log ${LAST_TAG_COMMIT}..HEAD --oneline -- examples/${{ matrix.image }}/ | wc -l)
+              else
+                COMMITS=$(git log --oneline -- examples/${{ matrix.image }}/ | wc -l)
+              fi
+
+              if [ "$COMMITS" -eq 0 ]; then
+                # No changes, keep same version
+                NEW_VERSION="$LATEST_TAG"
+                echo "No changes detected, keeping version $NEW_VERSION"
+              else
+                # Analyze commits for version bump type
+                if git log ${LAST_TAG_COMMIT}..HEAD -- examples/${{ matrix.image }}/ | grep -qiE "^(feat|feature)(\(.*\))?!:|BREAKING CHANGE:"; then
+                  # Breaking change -> major bump
+                  BUMP_TYPE="major"
+                elif git log ${LAST_TAG_COMMIT}..HEAD -- examples/${{ matrix.image }}/ | grep -qiE "^(feat|feature)(\(.*\))?:"; then
+                  # New feature -> minor bump
+                  BUMP_TYPE="minor"
+                else
+                  # Bug fix or other -> patch bump
+                  BUMP_TYPE="patch"
+                fi
+
+                # Parse current version
+                CURRENT_VERSION="${LATEST_TAG#v}"
+                IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+
+                # Bump version
+                case "$BUMP_TYPE" in
+                  major)
+                    MAJOR=$((MAJOR + 1))
+                    MINOR=0
+                    PATCH=0
+                    ;;
+                  minor)
+                    MINOR=$((MINOR + 1))
+                    PATCH=0
+                    ;;
+                  patch)
+                    PATCH=$((PATCH + 1))
+                    ;;
+                esac
+
+                NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+                echo "Bumped version: $LATEST_TAG -> $NEW_VERSION (type: $BUMP_TYPE, commits: $COMMITS)"
+              fi
+            fi
+
+            echo "VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+            echo "TAGS=${IMAGE_NAME}:${NEW_VERSION},${IMAGE_NAME}:latest" >> $GITHUB_OUTPUT
+            echo "Production build - using version $NEW_VERSION"
+          fi
+
+      - name: 🏗️ Build and push ${{ matrix.image }} (${{ matrix.target || 'default' }})
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: examples/${{ matrix.image }}
+          target: ${{ matrix.target }}
+          push: true
+          tags: ${{ steps.version.outputs.TAGS }}
+          labels: |
+            org.opencontainers.image.version=${{ steps.version.outputs.VERSION }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:buildcache-${{ matrix.target || 'default' }}
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:buildcache-${{ matrix.target || 'default' }},mode=max
+
+      - name: 🏷️ Create git tag for production release
+        if: matrix.target != 'development'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          TAG_NAME="${{ matrix.image }}/${{ steps.version.outputs.VERSION }}"
+
+          if ! git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            git tag -a "$TAG_NAME" -m "Release ${{ matrix.image }} ${{ steps.version.outputs.VERSION }}"
+            git push origin "$TAG_NAME"
+            echo "Created and pushed tag: $TAG_NAME"
+          else
+            echo "Tag $TAG_NAME already exists, skipping"
+          fi
+
+      - name: ✅ Image built and pushed successfully
+        run: |
+          echo "Successfully built and pushed ${{ matrix.image }} image"
+          echo "Target: ${{ matrix.target || 'default' }}"
+          echo "Version: ${{ steps.version.outputs.VERSION }}"
+          echo "Tags: ${{ steps.version.outputs.TAGS }}"
+
   detect-charts:
     name: 🔍 Detect Changed Charts
     runs-on: ubuntu-latest
@@ -85,37 +300,20 @@ jobs:
       - name: 📦 Template rendering
         run: helm template test-release ${{ matrix.chart }} > /dev/null
 
-      - name: 💬 Comment PR
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
-        with:
-          script: |
-            const chart = '${{ matrix.chart }}';
-            const body = [
-              '## 📦 Chart Validation Report',
-              '',
-              `- ✅ \`${chart}\``,
-              '',
-              '### Validation Steps',
-              '- ✅ Helm linting passed',
-              '- ✅ Unit tests passed',
-              '- ✅ Template rendering successful',
-              '',
-              '> Ready for integration testing'
-            ].join('\n');
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: body
-            });
-
   integration-test:
     name: 🧩 Integration Test
     needs:
+      - build-images
       - detect-charts
       - chart-validation
+    # Run if charts changed, and either images were built successfully or skipped
+    if: |
+      always() &&                                    # Always evaluate this condition
+      needs.detect-charts.outputs.charts != '[]' &&  # Charts were changed
+      needs.chart-validation.result == 'success' &&  # Charts passed validation
+      (needs.build-images.result == 'success' ||     # Images were built successfully
+      needs.build-images.result == 'skipped')        # OR no images needed building
     runs-on: ubuntu-latest
-    if: needs.detect-charts.outputs.charts != '[]'
     strategy:
       matrix:
         chart: ${{ fromJSON(needs.detect-charts.outputs.charts) }}
@@ -174,35 +372,3 @@ jobs:
           
           echo -e "\n=== Events ==="
           kubectl get events -A --sort-by='.lastTimestamp' | tail -20
-
-      - name: 💬 Comment PR
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
-        with:
-          script: |
-            const chart = '${{ matrix.chart }}';
-            const status = '${{ job.status }}' === 'success' ? '✅' : '❌';
-            const body = [
-              '## 🧪 Integration Test Report',
-              '',
-              `${status} Integration tests ${{ job.status }}`,
-              '',
-              '### Tested Chart',
-              `- ${status} \\`${chart}\\``,
-              '',
-              '### Environment',
-              '- Kubernetes: v1.34.0',
-              '- Helm: v4.0.1',
-              '- Runtime: kind cluster',
-              '',
-              '<details>',
-              '<summary>View test details</summary>',
-              '',
-              `Check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for full logs.`,
-              '</details>'
-            ].join('\n');
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: body
-            });

@@ -8,7 +8,6 @@ global:
 image:
   repository: ghcr.io/5ergiu/laravel
   pullPolicy: IfNotPresent
-  tag: "v0.1.0"  # Build with: docker build --target production -t ghcr.io/your-github-username/laravel:v0.1.0 .
 
 imagePullSecrets:
   - name: ghcr-secret
