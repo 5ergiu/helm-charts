@@ -7,11 +7,6 @@ on:
         description: 'Comma-separated list of apps to build (e.g., "nextjs,laravel"). Leave empty to build all.'
         required: false
         type: string
-  push:
-    branches:
-      - chore/update_charts_annotations
-    paths:
-      - '.github/workflows/build-push-images.yaml'
 
 permissions:
   contents: write
