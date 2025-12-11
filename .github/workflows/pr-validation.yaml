@@ -308,11 +308,10 @@ jobs:
       - chart-validation
     # Run if charts changed, and either images were built successfully or skipped
     if: |
-      always() &&                                    # Always evaluate this condition
-      needs.detect-charts.outputs.charts != '[]' &&  # Charts were changed
-      needs.chart-validation.result == 'success' &&  # Charts passed validation
-      (needs.build-images.result == 'success' ||     # Images were built successfully
-      needs.build-images.result == 'skipped')        # OR no images needed building
+      always() &&
+      needs.detect-charts.outputs.charts != '[]' &&
+      needs.chart-validation.result == 'success' &&
+      (needs.build-images.result == 'success' || needs.build-images.result == 'skipped')
     runs-on: ubuntu-latest
     strategy:
       matrix:
