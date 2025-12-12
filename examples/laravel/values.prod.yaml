@@ -8,6 +8,7 @@ global:
 image:
   repository: ghcr.io/5ergiu/laravel
   pullPolicy: Always
+  tag: latest
 
 imagePullSecrets:
   - name: ghcr-secret
@@ -177,6 +178,13 @@ persistence:
   enabled: true
   storageClass: "fast-ssd"
   size: 50Gi
+
+# Development mode - DISABLED for production
+# Never enable development mode in production!
+development:
+  enabled: false
+  hostPath:
+    enabled: false
 
 # Init containers
 initContainers:

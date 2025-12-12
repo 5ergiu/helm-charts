@@ -15,7 +15,7 @@ global:
 image:
   repository: ghcr.io/5ergiu/laravel
   pullPolicy: Always
-  tag: "dev"
+  tag: dev
 
 # Web application - local development configuration
 web:
@@ -63,6 +63,14 @@ web:
     runAsUser: 1000  # CHANGE THIS: id -u
     fsGroup: 1000    # CHANGE THIS: id -g
 
+  # Container security context - relaxed for development with hostPath
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false  # Disabled for development with hostPath
+
 # Worker configuration - minimal for development
 worker:
   enabled: true
@@ -84,6 +92,14 @@ worker:
     runAsNonRoot: true
     runAsUser: 1000  # CHANGE THIS: id -u
     fsGroup: 1000    # CHANGE THIS: id -g
+
+  # Container security context - relaxed for development with hostPath
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false  # Disabled for development with hostPath
 
 # Scheduler - enabled for development
 scheduler:
@@ -207,33 +223,16 @@ middleware:
   redirectScheme:
     enabled: false  # No HTTPS redirect
 
-# Persistence - enabled for local development
-# This allows data to persist across pod restarts
+# Persistence - DISABLED when using hostPath for development
+# When development.hostPath.enabled is true, all storage is managed via the hostPath mount
 persistence:
-  enabled: true
-  storageClass: ""  # Use default storage class
-  accessMode: ReadWriteOnce
-  size: 5Gi  # Smaller size for local
-  mounts:
-    - name: storage
-      mountPath: /var/www/html/storage/app
-      subPath: app
-    - name: storage
-      mountPath: /var/www/html/storage/logs
-      subPath: logs
+  enabled: false
 
-# Tmpfs volumes - required for read-only root filesystem
+# Tmpfs volumes - DISABLED when using hostPath for development
+# When development.hostPath.enabled is true, the entire /var/www/html directory
+# is mounted from the host, so tmpfs volumes are not needed
 tmpfsVolumes:
-  enabled: true
-  mounts:
-    - name: cache
-      mountPath: /var/www/html/storage/framework/cache
-    - name: sessions
-      mountPath: /var/www/html/storage/framework/sessions
-    - name: views
-      mountPath: /var/www/html/storage/framework/views
-    - name: tmp
-      mountPath: /tmp
+  enabled: false
 
 # Init containers - enabled for proper setup
 initContainers:
@@ -245,6 +244,53 @@ initContainers:
     enabled: false
   storageLink:
     enabled: true  # Keep storage link
+
+# Development mode - ENABLE FOR HOT RELOAD
+# This enables hostPath volume mounts and Bun sidecar for live code updates
+development:
+  enabled: true
+
+  # HostPath volume configuration for hot reloading
+  # IMPORTANT: Update 'path' to point to your Laravel application directory
+  hostPath:
+    enabled: true
+    # CHANGE THIS: Absolute path to your Laravel app on your host machine
+    # Example: /Users/yourname/projects/my-laravel-app
+    path: "/path/to/your/laravel/app"  # UPDATE THIS!
+    mountPath: /var/www/html
+
+# Bun sidecar for Vite dev server (frontend hot module replacement)
+# This runs alongside the Laravel container and shares the same hostPath volume
+sidecars:
+  - name: bun
+    image: oven/bun:1
+    imagePullPolicy: IfNotPresent
+    workingDir: /var/www/html
+    command: ["bun", "run", "dev"]
+    ports:
+      - name: vite
+        containerPort: 5173
+        protocol: TCP
+    env:
+      - name: VITE_HOST
+        value: "0.0.0.0"
+      - name: VITE_PORT
+        value: "5173"
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+    volumeMounts:
+      - name: code
+        mountPath: /var/www/html
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
 
 # Extra environment variables for development
 extraEnv:
