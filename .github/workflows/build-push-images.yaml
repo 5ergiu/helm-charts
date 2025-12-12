@@ -222,6 +222,32 @@ jobs:
             echo "Tag $TAG_NAME already exists, skipping"
           fi
 
+      - name: 📝 Update package README
+        if: matrix.target != 'development'
+        continue-on-error: true
+        run: |
+          README_PATH="examples/${{ matrix.image }}/README.md"
+
+          if [ -f "$README_PATH" ]; then
+            echo "📄 Updating README for ${{ matrix.image }} package..."
+
+            # Read README content and escape it for JSON
+            README_CONTENT=$(cat "$README_PATH" | jq -Rs .)
+
+            # Update package description using GitHub API
+            curl -L \
+              -X PATCH \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/user/packages/container/${{ matrix.image }}" \
+              -d "{\"description\":\"${{ matrix.image }} demo application - built with Helm charts\",\"readme\":$README_CONTENT}" \
+              && echo "✅ Successfully updated README for ${{ matrix.image }}" \
+              || echo "⚠️ Failed to update README (this is non-critical)"
+          else
+            echo "⚠️ README not found at $README_PATH, skipping"
+          fi
+
       - name: ✅ Image built and pushed successfully
         run: |
           echo "Successfully built and pushed ${{ matrix.image }} image"
