@@ -1,11 +1,11 @@
 name: 🚀 Release Charts
 
 on:
-  workflow_run:
-    workflows: 
-      - "📦 Pre-Release"
-    types:
-      - completed
+  push:
+    branches:
+      - main
+    paths:
+      - 'charts/**'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -27,21 +27,106 @@ permissions:
   packages: write
 
 jobs:
-  release:
+  test-charts:
+    name: 🧪 Test Charts
+    # Skip if triggered by github-actions bot
+    if: github.actor != 'github-actions[bot]'
+    uses: ./.github/workflows/test-charts.yaml
+
+  build:
+    name: 🔨 Build Chart Artifacts
+    needs: test-charts
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    if: needs.test-charts.outputs.charts != '[]'
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 🔐 Login to GHCR
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+      - name: 🔧 Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: 💿 Install git-cliff
+        uses: taiki-e/install-action@git-cliff
+
+      - name: ⎈ Set up Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          version: v4.0.1
+
+      - name: 🔌 Install helm-schema plugin
+        run: |
+          if ! helm plugin list | grep -q "schema"; then
+            helm plugin install https://github.com/losisin/helm-values-schema-json.git --version v1.9.2
+          fi
+
+      - name: 🛠️ Generate artifacts for all changed charts
+        run: |
+          charts='${{ needs.test-charts.outputs.charts }}'
+          echo "Processing charts: $charts"
+
+          # Convert JSON array to bash array
+          chart_list=$(echo "$charts" | jq -r '.[]')
+
+          for chart in $chart_list; do
+            echo "=========================================="
+            echo "Processing chart: $chart"
+            echo "=========================================="
+
+            chart_name=$(basename "$chart")
+
+            # Generate schema
+            echo "⚙️ Generating schema for $chart_name..."
+            helm schema -input "$chart/values.yaml" -output "$chart/values.schema.json" -draft 7
+
+            # Generate changelog
+            echo "📝 Generating changelog for $chart_name..."
+            git-cliff --verbose --bump --config cliff.toml --output "$chart/CHANGELOG.md" --include-path "$chart/*"
+
+            # Generate ArtifactHub annotations
+            echo "📝 Generating ArtifactHub annotations for $chart_name..."
+            git-cliff --config cliff-artifacthub.toml --output changes.json --include-path "$chart/*"
+            yq eval '.annotations."artifacthub.io/changes" += load("changes.json")' -i "$chart/Chart.yaml"
+            rm -f changes.json
+
+            # Bump chart version
+            echo "🔼 Bumping chart version for $chart_name..."
+            bumped=$(git cliff --bumped-version)
+            new_version=$(echo "$bumped" | cut -d'-' -f2-)
+            yq -i ".version = \"$new_version\"" "$chart/Chart.yaml"
+            echo "✅ New version: $new_version"
+          done
+
+      - name: 💾 Commit and push changes
+        run: |
+          git add charts/*/Chart.yaml charts/*/CHANGELOG.md charts/*/values.schema.json
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update chart artifacts"
+            git push origin main
+            echo "✅ Artifacts committed and pushed to main"
+          fi
+
+  release:
+    name: 🚀 Release Charts
+    runs-on: ubuntu-latest
+    needs:
+      - test-charts
+      - build
+    if: github.event.inputs.dry_run != 'true'
+    outputs:
+      changed_charts: ${{ steps.chart-releaser.outputs.changed_charts }}
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+          ref: main
 
       - name: 📦 Update chart dependencies
         run: |
@@ -67,83 +152,19 @@ jobs:
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
-      - name: 🔐 Install Cosign
-        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
-        if: ${{ steps.chart-releaser.outputs.changed_charts || github.event.inputs.chart != '' }}
-
-      - name: 📝 Get repository owner in lowercase
-        id: repo-owner
-        run: |
-          echo "lowercase=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
-
-      - name: 📤 Upload charts to OCI registries
-        id: upload
-        if: github.event.inputs.dry_run != 'true' && (steps.chart-releaser.outputs.changed_charts || github.event.inputs.chart != '')
-        env:
-          COSIGN_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
-        run: |
-          set -euo pipefail
-
-          # Retry function for network commands
-          retry() {
-            local max_attempts=3
-            local attempt=1
-            local delay=5
-            while [ $attempt -le $max_attempts ]; do
-              if "$@"; then return 0; fi
-              echo "Attempt $attempt failed. Retrying in ${delay}s..."
-              sleep $delay
-              delay=$((delay * 2))
-              attempt=$((attempt + 1))
-            done
-            echo "ERROR: All $max_attempts attempts failed"
-            return 1
-          }
-
-          # Determine which charts to release
-          if [ -n "${{ github.event.inputs.chart }}" ]; then
-            echo "Manual chart specified: ${{ github.event.inputs.chart }}"
-            CHANGED_CHARTS="${{ github.event.inputs.chart }}"
-          else
-            CHANGED_CHARTS="${{ steps.chart-releaser.outputs.changed_charts }}"
-          fi
-
-          if [ -z "$CHANGED_CHARTS" ]; then
-            echo "No charts to release."
-            exit 0
-          fi
-
-          echo "🔐 Logging into GHCR..."
-          retry helm registry login --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }} https://ghcr.io
-
-          RELEASED_CHARTS=""
-          for chart_directory in ${CHANGED_CHARTS//,/ }; do
-            CHART_NAME=${chart_directory#charts/}
-            CHART_VERSION=$(yq eval '.version' "$chart_directory/Chart.yaml")
-            PACKAGE_FILE="${{ github.workspace }}/.cr-release-packages/${CHART_NAME}-${CHART_VERSION}.tgz"
-
-            echo "📦 Uploading Helm chart $CHART_NAME-$CHART_VERSION.tgz to GHCR..."
-            if retry helm push "$PACKAGE_FILE" "oci://ghcr.io/${{ github.repository_owner }}/helm-charts" 2>&1 | tee "${CHART_NAME}-ghcr-output.log"; then
-              GHCR_DIGEST=$(grep -oP 'Digest:\s*\K(sha256:[a-f0-9]+)' "${CHART_NAME}-ghcr-output.log" || echo "")
-              if [ -z "$GHCR_DIGEST" ]; then
-                echo "ERROR: Failed to extract GHCR digest"
-                cat "${CHART_NAME}-ghcr-output.log"
-                exit 1
-              fi
-
-              if [ -n "$COSIGN_KEY" ]; then
-                echo "🔐 Signing chart $CHART_NAME:$CHART_VERSION with Cosign..."
-                retry cosign sign -y --upload=true --key env://COSIGN_KEY "ghcr.io/${{ github.repository_owner }}/helm-charts/${CHART_NAME}:${CHART_VERSION}@$GHCR_DIGEST"
-              fi
-
-              RELEASED_CHARTS="$RELEASED_CHARTS $CHART_NAME"
-            fi
-          done
-
-          echo "released_charts=$RELEASED_CHARTS" >> "$GITHUB_OUTPUT"
-          echo "## 📦 Helm Charts Uploaded" >> $GITHUB_STEP_SUMMARY
-          for chart in $RELEASED_CHARTS; do
-            echo "- ✅ **$chart**" >> $GITHUB_STEP_SUMMARY
-          done
-          echo "### 📍 Registry" >> $GITHUB_STEP_SUMMARY
-          echo "- GHCR: \`ghcr.io/${{ github.repository_owner }}/helm-charts\`" >> $GITHUB_STEP_SUMMARY
+  upload-to-oci:
+    name: 📤 Upload to OCI Registry
+    needs:
+      - test-charts
+      - release
+    if: needs.release.outputs.changed_charts != ''
+    strategy:
+      matrix:
+        chart: ${{ fromJSON(needs.test-charts.outputs.charts) }}
+    uses: ./.github/workflows/oci-upload.yaml
+    with:
+      chart: ${{ matrix.chart }}
+    secrets:
+      COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
+      COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+      REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,181 @@
+name: 📤 Upload Chart to OCI Registry
+
+on:
+  workflow_call:
+    inputs:
+      chart:
+        description: 'Chart path (e.g., charts/my-chart)'
+        required: true
+        type: string
+      package_path:
+        description: 'Path to pre-packaged chart .tgz file (if not provided, will be derived from chart path)'
+        required: false
+        type: string
+      registry:
+        description: 'OCI registry URL'
+        required: false
+        type: string
+        default: 'ghcr.io'
+      skip_signing:
+        description: 'Skip chart signing with Cosign'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      COSIGN_KEY:
+        required: false
+      COSIGN_PASSWORD:
+        required: false
+      REGISTRY_TOKEN:
+        required: true
+
+jobs:
+  upload:
+    name: 📤 Upload ${{ inputs.chart }} to OCI
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: ⎈ Set up Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        with:
+          version: v4.0.1
+
+      - name: 🔐 Login to registry
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.REGISTRY_TOKEN }}
+
+      - name: 📝 Get chart metadata
+        id: metadata
+        run: |
+          CHART_NAME=$(basename "${{ inputs.chart }}")
+          CHART_VERSION=$(yq eval '.version' "${{ inputs.chart }}/Chart.yaml")
+
+          echo "Chart: $CHART_NAME"
+          echo "Version: $CHART_VERSION"
+
+          # Determine package file path
+          if [ -n "${{ inputs.package_path }}" ]; then
+            PACKAGE_FILE="${{ inputs.package_path }}"
+          else
+            # Default to chart-releaser output location
+            PACKAGE_FILE=".cr-release-packages/${CHART_NAME}-${CHART_VERSION}.tgz"
+          fi
+
+          # Verify package exists
+          if [ ! -f "$PACKAGE_FILE" ]; then
+            echo "ERROR: Package file not found at $PACKAGE_FILE"
+            echo "Attempting to package chart..."
+            mkdir -p .helm-packages
+            helm package "${{ inputs.chart }}" -d .helm-packages
+            PACKAGE_FILE=".helm-packages/${CHART_NAME}-${CHART_VERSION}.tgz"
+          fi
+
+          echo "chart_name=$CHART_NAME" >> $GITHUB_OUTPUT
+          echo "chart_version=$CHART_VERSION" >> $GITHUB_OUTPUT
+          echo "package_file=$PACKAGE_FILE" >> $GITHUB_OUTPUT
+
+      - name: 🔐 Install Cosign
+        if: ${{ !inputs.skip_signing && secrets.COSIGN_KEY != '' }}
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+
+      - name: 📝 Get repository owner in lowercase
+        id: repo-owner
+        run: |
+          echo "lowercase=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: 📤 Push chart to OCI registry
+        id: push
+        env:
+          CHART_NAME: ${{ steps.metadata.outputs.chart_name }}
+          CHART_VERSION: ${{ steps.metadata.outputs.chart_version }}
+          PACKAGE_FILE: ${{ steps.metadata.outputs.package_file }}
+        run: |
+          # Retry function for registry operations
+          retry_push() {
+            local max_attempts=3
+            local attempt=1
+            local delay=5
+            while [ $attempt -le $max_attempts ]; do
+              if "$@"; then return 0; fi
+              echo "⚠️ Push attempt $attempt/$max_attempts failed. Retrying in ${delay}s..."
+              sleep $delay
+              delay=$((delay * 2))
+              attempt=$((attempt + 1))
+            done
+            echo "❌ ERROR: Failed to push after $max_attempts attempts"
+            return 1
+          }
+
+          echo "🔐 Logging into ${{ inputs.registry }}..."
+          retry_push helm registry login --username ${{ github.actor }} --password ${{ secrets.REGISTRY_TOKEN }} https://${{ inputs.registry }}
+
+          echo "📦 Uploading Helm chart $CHART_NAME-$CHART_VERSION.tgz to ${{ inputs.registry }}..."
+          if retry_push helm push "$PACKAGE_FILE" "oci://${{ inputs.registry }}/${{ steps.repo-owner.outputs.lowercase }}/helm-charts" 2>&1 | tee push-output.log; then
+            DIGEST=$(grep -oP 'Digest:\s*\K(sha256:[a-f0-9]+)' push-output.log || echo "")
+            if [ -z "$DIGEST" ]; then
+              echo "ERROR: Failed to extract digest"
+              cat push-output.log
+              exit 1
+            fi
+            echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+            echo "✅ Successfully pushed $CHART_NAME:$CHART_VERSION"
+            echo "📍 Digest: $DIGEST"
+          else
+            echo "❌ Failed to push chart"
+            exit 1
+          fi
+
+      - name: 🔐 Sign chart with Cosign
+        if: ${{ !inputs.skip_signing && secrets.COSIGN_KEY != '' }}
+        env:
+          COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+          CHART_NAME: ${{ steps.metadata.outputs.chart_name }}
+          CHART_VERSION: ${{ steps.metadata.outputs.chart_version }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          # Retry function for signing operations
+          retry_sign() {
+            local max_attempts=3
+            local attempt=1
+            local delay=5
+            while [ $attempt -le $max_attempts ]; do
+              if "$@"; then return 0; fi
+              echo "⚠️ Signing attempt $attempt/$max_attempts failed. Retrying in ${delay}s..."
+              sleep $delay
+              delay=$((delay * 2))
+              attempt=$((attempt + 1))
+            done
+            echo "❌ ERROR: Failed to sign after $max_attempts attempts"
+            return 1
+          }
+
+          echo "🔐 Signing chart $CHART_NAME:$CHART_VERSION with Cosign..."
+          if retry_sign cosign sign -y --upload=true --key env://COSIGN_KEY "${{ inputs.registry }}/${{ steps.repo-owner.outputs.lowercase }}/helm-charts/${CHART_NAME}:${CHART_VERSION}@$DIGEST"; then
+            echo "✅ Successfully signed $CHART_NAME:$CHART_VERSION"
+          else
+            echo "⚠️ Failed to sign $CHART_NAME:$CHART_VERSION (chart uploaded but not signed)"
+            exit 1
+          fi
+
+      - name: 📊 Summary
+        run: |
+          echo "## 📦 Chart Upload Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Chart**: ${{ steps.metadata.outputs.chart_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ steps.metadata.outputs.chart_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Registry**: \`${{ inputs.registry }}/${{ steps.repo-owner.outputs.lowercase }}/helm-charts\`" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ steps.push.outputs.digest }}" ]; then
+            echo "- **Digest**: \`${{ steps.push.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ inputs.skip_signing }}" == "false" ] && [ -n "${{ secrets.COSIGN_KEY }}" ]; then
+            echo "- **Signed**: ✅ Yes" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Signed**: ⚠️ No" >> $GITHUB_STEP_SUMMARY
+          fi

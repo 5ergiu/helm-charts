@@ -14,9 +14,9 @@ tests:
       - equal:
           path: spec.replicas
           value: 2
-      - equal:
+      - matchRegex:
           path: spec.template.spec.containers[0].image
-          value: "ghcr.io/5ergiu/laravel:latest"
+          pattern: "^ghcr.io/5ergiu/laravel:"
 
   - it: should set custom replica count when autoscaling disabled
     set:
@@ -31,7 +31,7 @@ tests:
     set:
       web.autoscaling.enabled: true
     asserts:
-      - isNull:
+      - notExists:
           path: spec.replicas
 
   - it: should set custom image

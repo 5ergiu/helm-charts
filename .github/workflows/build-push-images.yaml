@@ -200,11 +200,16 @@ jobs:
           push: true
           tags: ${{ steps.version.outputs.TAGS }}
           labels: |
+            org.opencontainers.image.title=${{ matrix.image }} Demo Application
+            org.opencontainers.image.description=${{ matrix.image }} demo application - Production-ready Kubernetes deployment with Helm charts
             org.opencontainers.image.version=${{ steps.version.outputs.VERSION }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}/tree/main/examples/${{ matrix.image }}
+            org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}/blob/main/examples/${{ matrix.image }}/README.md
             org.opencontainers.image.revision=${{ github.sha }}
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:buildcache-${{ matrix.target || 'default' }}
-          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:buildcache-${{ matrix.target || 'default' }},mode=max
+            org.opencontainers.image.licenses=MIT
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: 🏷️ Create git tag for production release
         if: matrix.target != 'development'
@@ -220,32 +225,6 @@ jobs:
             echo "Created and pushed tag: $TAG_NAME"
           else
             echo "Tag $TAG_NAME already exists, skipping"
-          fi
-
-      - name: 📝 Update package README
-        if: matrix.target != 'development'
-        continue-on-error: true
-        run: |
-          README_PATH="examples/${{ matrix.image }}/README.md"
-
-          if [ -f "$README_PATH" ]; then
-            echo "📄 Updating README for ${{ matrix.image }} package..."
-
-            # Read README content and escape it for JSON
-            README_CONTENT=$(cat "$README_PATH" | jq -Rs .)
-
-            # Update package description using GitHub API
-            curl -L \
-              -X PATCH \
-              -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "https://api.github.com/user/packages/container/${{ matrix.image }}" \
-              -d "{\"description\":\"${{ matrix.image }} demo application - built with Helm charts\",\"readme\":$README_CONTENT}" \
-              && echo "✅ Successfully updated README for ${{ matrix.image }}" \
-              || echo "⚠️ Failed to update README (this is non-critical)"
-          else
-            echo "⚠️ README not found at $README_PATH, skipping"
           fi
 
       - name: ✅ Image built and pushed successfully
