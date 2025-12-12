@@ -6,9 +6,9 @@ tests:
     asserts:
       - isKind:
           of: Job
-      - equal:
+      - matchRegex:
           path: metadata.name
-          value: RELEASE-NAME-laravel-migration
+          pattern: ^RELEASE-NAME-laravel-migration-\d+$
       - equal:
           path: metadata.annotations["helm.sh/hook"]
           value: "pre-install,pre-upgrade"
@@ -18,7 +18,7 @@ tests:
 
   - it: should disable migrations
     set:
-      migrations.enabled: false
+      migration.enabled: false
     asserts:
       - hasDocuments:
           count: 0
@@ -47,4 +47,5 @@ tests:
           path: spec.template.spec.volumes
           content:
             name: tmp
-            emptyDir: {}
+            emptyDir:
+              medium: Memory

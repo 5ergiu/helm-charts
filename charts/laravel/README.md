@@ -182,6 +182,218 @@ helm install myapp ./charts/laravel -f values.yaml -n production --create-namesp
 - **Tmpfs Volumes** - In-memory volumes for cache, sessions, views, and tmp
 - **Read-Only Filesystem** - Enhanced security with tmpfs for writable paths
 
+
+## 💻 Local Development with Kubernetes
+
+This chart supports full local development using Kubernetes (Docker Desktop, Minikube, or Kind) with hot reload, debugging, and all production features.
+
+### Quick Start (Local Development)
+
+**1. Prerequisites:**
+```bash
+# Start local Kubernetes (Docker Desktop, Minikube, or Kind)
+# Docker Desktop: Enable Kubernetes in settings
+# Minikube: minikube start
+# Kind: kind create cluster
+
+# Install Traefik ingress controller
+helm repo add traefik https://traefik.github.io/charts
+helm repo update
+helm install traefik traefik/traefik -n traefik --create-namespace
+
+# Install MySQL
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm install mysql bitnami/mysql \
+  --set auth.rootPassword=password \
+  --set auth.database=laravel \
+  -n development --create-namespace
+
+# Install Redis
+helm install redis bitnami/redis \
+  --set auth.enabled=false \
+  -n development
+
+# (Optional) Install Mailpit for email testing
+kubectl create deployment mailpit --image=axllent/mailpit -n development
+kubectl expose deployment mailpit --port=1025 --target-port=1025 -n development
+kubectl expose deployment mailpit --port=8025 --target-port=8025 --name=mailpit-web -n development
+```
+
+**2. Build Development Image:**
+```bash
+cd examples/laravel-app
+docker build --target development -t laravel-app:dev .
+```
+
+**3. Update values.dev.yaml:**
+```yaml
+# Set your host user IDs to avoid permission issues
+web:
+  podSecurityContext:
+    runAsUser: 501  # Run: id -u
+    fsGroup: 20     # Run: id -g
+
+worker:
+  podSecurityContext:
+    runAsUser: 501  # Run: id -u
+    fsGroup: 20     # Run: id -g
+
+# Update image
+image:
+  repository: laravel-app
+  tag: dev
+
+# Update database credentials (match MySQL helm install)
+laravel:
+  secrets:
+    DB_PASSWORD: "password"
+```
+
+**4. Add to /etc/hosts:**
+```bash
+echo "127.0.0.1 laravel.local" | sudo tee -a /etc/hosts
+```
+
+**5. Deploy to local Kubernetes:**
+```bash
+helm install myapp-dev ./charts/laravel \
+  -f charts/laravel/values.dev.yaml \
+  -n development
+```
+
+**6. Access your application:**
+- **Laravel App**: http://laravel.local
+- **Laravel Horizon**: http://laravel.local/horizon
+- **Mailpit Web UI**: http://localhost:8025 (if installed)
+
+**7. Development workflow:**
+```bash
+# View logs
+kubectl logs -f deployment/myapp-dev-laravel-web -n development
+
+# Run Artisan commands
+kubectl exec -it deployment/myapp-dev-laravel-web -n development -- php artisan migrate
+kubectl exec -it deployment/myapp-dev-laravel-web -n development -- php artisan tinker
+
+# Restart pods to pick up new code (if not using volume mounts)
+kubectl rollout restart deployment/myapp-dev-laravel-web -n development
+
+# Port-forward for debugging
+kubectl port-forward service/myapp-dev-laravel-web 8080:80 -n development
+
+# View all resources
+kubectl get all -n development
+```
+
+### Hot Reload Setup (Advanced)
+
+For true hot reload without rebuilding images, use volume mounts:
+
+**1. Create a hostPath PersistentVolume:**
+```yaml
+# local-pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: laravel-code
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /path/to/your/laravel/app
+    type: Directory
+  storageClassName: local-path
+```
+
+**2. Update values.dev.yaml:**
+```yaml
+persistence:
+  enabled: true
+  storageClass: "local-path"
+  mounts:
+    - name: code
+      mountPath: /var/www/html
+      subPath: ""
+```
+
+**3. Disable OPcache for immediate code changes:**
+```yaml
+php:
+  opcache:
+    enable: "0"  # See changes immediately
+```
+
+Now code changes on your host are immediately reflected in the pod!
+
+### Debugging with Xdebug
+
+The development image includes Xdebug. To enable:
+
+**1. Add to values.dev.yaml:**
+```yaml
+extraEnv:
+  - name: XDEBUG_MODE
+    value: "debug,coverage"
+  - name: XDEBUG_CONFIG
+    value: "client_host=host.docker.internal client_port=9003"
+```
+
+**2. Configure your IDE:**
+- **VS Code**: Install PHP Debug extension, set breakpoints
+- **PHPStorm**: Go to Settings → PHP → Servers, add server with name matching hostname
+
+**3. Start debugging:**
+```bash
+# Apply changes
+helm upgrade myapp-dev ./charts/laravel -f charts/laravel/values.dev.yaml -n development
+
+# Trigger Xdebug
+curl http://laravel.local?XDEBUG_TRIGGER=1
+```
+
+### Local vs Production Differences
+
+| Feature | Local (values.dev.yaml) | Production (values.prod.yaml) |
+|---------|-------------------------|-------------------------------|
+| **Image Target** | `development` | `production` |
+| **Replicas** | 1 | 3+ with autoscaling |
+| **OPcache** | Disabled | Enabled |
+| **Error Display** | On | Off |
+| **Probes** | Disabled | Enabled |
+| **TLS** | Disabled | Enabled with cert-manager |
+| **Rate Limiting** | Disabled | Enabled |
+| **Log Level** | debug | warning |
+| **Service Type** | LoadBalancer/NodePort | ClusterIP |
+| **Resources** | Minimal | Production-sized |
+
+### Troubleshooting Local Development
+
+**Pod won't start:**
+```bash
+kubectl describe pod -l app.kubernetes.io/name=laravel -n development
+kubectl logs -l app.kubernetes.io/name=laravel -n development --tail=100
+```
+
+**Permission issues with volumes:**
+- Ensure `runAsUser` and `fsGroup` in values.dev.yaml match your host user (run `id -u` and `id -g`)
+
+**Can't access laravel.local:**
+- Verify /etc/hosts entry: `cat /etc/hosts | grep laravel.local`
+- Check service: `kubectl get svc -n development`
+- Check ingress: `kubectl get ingress -n development`
+
+**Database connection fails:**
+- Verify MySQL is running: `kubectl get pods -n development`
+- Check credentials match between MySQL install and values.dev.yaml
+- Test connection: `kubectl exec -it deployment/myapp-dev-laravel-web -n development -- php artisan db:show`
+
+**Changes not reflected:**
+- If using image: rebuild and `kubectl rollout restart deployment/myapp-dev-laravel-web -n development`
+- If using volume mounts: check OPcache is disabled (`PHP_OPCACHE_ENABLE=0`)
+- Clear Laravel caches: `kubectl exec -it deployment/myapp-dev-laravel-web -n development -- php artisan optimize:clear`
+
 ## 📋 Prerequisites
 
 - **Kubernetes 1.24+**
@@ -198,8 +410,7 @@ helm install myapp ./charts/laravel -f values.yaml -n production --create-namesp
 ```yaml
 image:
   repository: ghcr.io/yourorg/laravel-app
-  pullPolicy: IfNotPresent
-  tag: "1.0.0"
+  pullPolicy: Always
 
 imagePullSecrets:
   - name: ghcr-secret
@@ -328,9 +539,11 @@ migration:
 
 ### Ingress & TLS
 
+#### Option 1: Kubernetes Ingress (Legacy)
+
 ```yaml
 ingress:
-  enabled: true
+  enabled: true  # Set to false if using IngressRoute
   className: traefik
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
@@ -345,18 +558,96 @@ ingress:
         - app.example.com
 ```
 
-### Middleware (Traefik)
+#### Option 2: Traefik IngressRoute (Recommended)
+
+Modern CRD-based routing with advanced Traefik features:
+
+```yaml
+# Disable standard Ingress
+ingress:
+  enabled: false
+
+# Enable IngressRoute (default)
+ingressRoute:
+  enabled: true
+
+  # Entry points (web, websecure, etc.)
+  entryPoints:
+    - websecure
+
+  # Global middlewares applied to all routes
+  # Use shorthand names (template will prepend fullname automatically)
+  # Or use "namespace/middleware-name" for cross-namespace references
+  middlewares:
+    - headers
+    - compress
+    - ratelimit
+
+  # Route configuration
+  routes:
+    - match: "Host(`app.example.com`)"
+      kind: Rule
+      priority: 10
+      # Per-route middlewares (optional)
+      middlewares: []
+      # Sticky sessions for stateful apps
+      sticky:
+        cookieName: laravel_sticky
+        secure: true
+        httpOnly: true
+        sameSite: lax
+      # Service weight (for A/B testing or canary)
+      weight: 100
+
+  # TLS configuration
+  tls:
+    # Option A: Use existing secret
+    secretName: laravel-tls
+
+    # Option B: Use cert-resolver for automatic certificates
+    # certResolver: letsencrypt-prod
+    # domains:
+    #   - main: app.example.com
+    #     sans:
+    #       - www.app.example.com
+
+    # TLS options (optional)
+    # options:
+    #   name: tls-options
+    #   namespace: default
+```
+
+**IngressRoute Benefits:**
+- Native Traefik integration with advanced features
+- Sticky sessions for stateful applications
+- Fine-grained routing control with priorities
+- Service weights for canary deployments
+- Better middleware composition
+- TCP/UDP routing support
+
+### Traefik Middlewares
+
+The chart includes comprehensive middleware support for security, performance, and reliability:
 
 ```yaml
 middleware:
   enabled: true
-  
+
+  # Rate Limiting - Protect against abuse
   rateLimit:
     enabled: true
-    average: 100
-    burst: 200
+    average: 100  # Average requests per period
+    burst: 200    # Burst capacity
     period: 1s
-  
+    # Advanced IP strategy
+    sourceCriterion:
+      ipStrategy:
+        depth: 1  # For X-Forwarded-For header
+        excludedIPs: []
+      # requestHeaderName: X-Forwarded-For
+      # requestHost: true
+
+  # Security Headers - OWASP best practices
   headers:
     enabled: true
     browserXssFilter: true
@@ -365,19 +656,102 @@ middleware:
     stsSeconds: 31536000
     stsIncludeSubdomains: true
     stsPreload: true
-  
+    customFrameOptionsValue: "SAMEORIGIN"
+    # Additional headers
+    contentSecurityPolicy: "default-src 'self'"
+    referrerPolicy: "strict-origin-when-cross-origin"
+    permissionsPolicy: "geolocation=(self), microphone=()"
+    # CORS support
+    accessControlAllowOriginList:
+      - "https://example.com"
+    accessControlAllowMethods:
+      - GET
+      - POST
+      - PUT
+    accessControlAllowHeaders:
+      - Content-Type
+      - Authorization
+    customResponseHeaders:
+      X-Powered-By: ""  # Hide server info
+      Server: ""
+
+  # Response Compression - Improve performance
   compress:
     enabled: true
-  
+    excludedContentTypes:
+      - text/event-stream
+    minResponseBodyBytes: 1024
+
+  # HTTP to HTTPS Redirect
   redirectScheme:
     enabled: true
     scheme: https
     permanent: true
+    # port: "443"
+
+  # Strip Prefix - Remove path prefix before forwarding
+  stripPrefix:
+    enabled: false
+    prefixes:
+      - /api/v1
+    forceSlash: false
+
+  # Retry - Automatic retry on failures
+  retry:
+    enabled: false
+    attempts: 3
+    initialInterval: 100ms
+
+  # Circuit Breaker - Prevent cascading failures
+  circuitBreaker:
+    enabled: false
+    expression: "NetworkErrorRatio() > 0.30"
+    checkPeriod: 10s
+    fallbackDuration: 10s
+    recoveryDuration: 10s
+
+  # In-Flight Requests - Limit concurrent requests
+  inFlightReq:
+    enabled: false
+    amount: 100
+    sourceCriterion:
+      ipStrategy:
+        depth: 1
+
+  # IP Whitelist - Restrict access by IP
+  ipWhiteList:
+    enabled: false
+    sourceRange:
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+    ipStrategy:
+      depth: 1
+      excludedIPs: []
+
+  # Middleware Chain - Combine multiple middlewares
+  chain:
+    enabled: false
+    middlewares:
+      - headers
+      - ratelimit
+      - compress
 ```
+
+**Available Middlewares:**
+- ✅ **Rate Limiting** - Protect against DDoS and abuse
+- ✅ **Security Headers** - HSTS, CSP, XSS protection, CORS
+- ✅ **Compression** - Gzip compression for better performance
+- ✅ **Redirect Scheme** - HTTP to HTTPS redirection
+- ✅ **Strip Prefix** - Path manipulation for API versioning
+- ✅ **Retry** - Automatic retry on transient failures
+- ✅ **Circuit Breaker** - Prevent cascading failures
+- ✅ **In-Flight Requests** - Limit concurrent connections
+- ✅ **IP Whitelist** - IP-based access control
+- ✅ **Middleware Chain** - Compose multiple middlewares
 
 ### Environment Variables
 
-Laravel application configuration via ConfigMap:
+All application and PHP configuration is provided via environment variables in the ConfigMap. The chart supports both Laravel and PHP (ServersideUp image) environment variables, matching the structure in values.yaml:
 
 ```yaml
 laravel:
@@ -386,32 +760,25 @@ laravel:
     APP_ENV: "production"
     APP_DEBUG: "false"
     APP_URL: "https://app.example.com"
-    
     LOG_CHANNEL: "stderr"
     LOG_LEVEL: "info"
-    
     DB_CONNECTION: "mysql"
     DB_HOST: "mysql"
     DB_PORT: "3306"
     DB_DATABASE: "laravel"
-    
     BROADCAST_DRIVER: "redis"
     CACHE_DRIVER: "redis"
     FILESYSTEM_DISK: "local"
     QUEUE_CONNECTION: "redis"
     SESSION_DRIVER: "redis"
     SESSION_LIFETIME: "120"
-    
     REDIS_HOST: "redis"
     REDIS_PORT: "6379"
-    
     MAIL_MAILER: "smtp"
     MAIL_HOST: "mailpit"
     MAIL_PORT: "1025"
     MAIL_FROM_ADDRESS: "noreply@example.com"
     MAIL_FROM_NAME: "Laravel App"
-  
-  # Sensitive data (stored in Kubernetes Secret)
   secrets:
     APP_KEY: "base64:your-generated-app-key"
     DB_USERNAME: "laravel"
@@ -421,6 +788,114 @@ laravel:
     AWS_SECRET_ACCESS_KEY: "your-aws-secret"
     MAIL_USERNAME: "your-smtp-user"
     MAIL_PASSWORD: "your-smtp-password"
+
+php:
+  env:
+    APP_BASE_DIR: "/var/www/html"
+    HEALTHCHECK_PATH: "/healthcheck"
+    LOG_OUTPUT_LEVEL: "warn"
+    SHOW_WELCOME_MESSAGE: "false"
+    PHP_DATE_TIMEZONE: "UTC"
+    PHP_DISPLAY_ERRORS: "Off"
+    PHP_DISPLAY_STARTUP_ERRORS: "Off"
+    PHP_ERROR_LOG: "/dev/stderr"
+    PHP_ERROR_REPORTING: "22527"
+    PHP_MAX_EXECUTION_TIME: "99"
+    PHP_MAX_INPUT_TIME: "-1"
+    PHP_MAX_INPUT_VARS: "1000"
+    PHP_MEMORY_LIMIT: "256M"
+    PHP_OPEN_BASEDIR: ""
+    PHP_POST_MAX_SIZE: "100M"
+    PHP_REALPATH_CACHE_TTL: "120"
+    PHP_SESSION_COOKIE_SECURE: "1"
+    PHP_UPLOAD_MAX_FILE_SIZE: "100M"
+    PHP_ZEND_MULTIBYTE: "Off"
+    PHP_ZEND_DETECT_UNICODE: ""
+    PHP_OPCACHE_ENABLE: "1"
+    PHP_OPCACHE_ENABLE_FILE_OVERRIDE: "0"
+    PHP_OPCACHE_FORCE_RESTART_TIMEOUT: "180"
+    PHP_OPCACHE_INTERNED_STRINGS_BUFFER: "8"
+    PHP_OPCACHE_JIT: "off"
+    PHP_OPCACHE_JIT_BUFFER_SIZE: "0"
+    PHP_OPCACHE_MAX_ACCELERATED_FILES: "10000"
+    PHP_OPCACHE_MEMORY_CONSUMPTION: "128"
+    PHP_OPCACHE_REVALIDATE_FREQ: "2"
+    PHP_OPCACHE_SAVE_COMMENTS: "1"
+    PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"
+    PHP_FPM_POOL_NAME: "www"
+    PHP_FPM_PM_CONTROL: "dynamic"
+    PHP_FPM_PM_MAX_CHILDREN: "20"
+    PHP_FPM_PM_START_SERVERS: "2"
+    PHP_FPM_PM_MIN_SPARE_SERVERS: "1"
+    PHP_FPM_PM_MAX_SPARE_SERVERS: "3"
+    PHP_FPM_PM_MAX_REQUESTS: "0"
+    PHP_FPM_PM_STATUS_PATH: ""
+    PHP_FPM_PROCESS_CONTROL_TIMEOUT: "10"
+    NGINX_WEBROOT: "/var/www/html/public"
+    NGINX_ACCESS_LOG: "/dev/stdout"
+    NGINX_ERROR_LOG: "/dev/stderr"
+    NGINX_FASTCGI_BUFFERS: "8 8k"
+    NGINX_FASTCGI_BUFFER_SIZE: "8k"
+    NGINX_LISTEN_IP_PROTOCOL: "all"
+    NGINX_SERVER_TOKENS: "off"
+    NGINX_CLIENT_MAX_BODY_SIZE: "100M"
+    SSL_MODE: "off"
+    SSL_CERTIFICATE_FILE: "/etc/ssl/private/self-signed-web.crt"
+    SSL_PRIVATE_KEY_FILE: "/etc/ssl/private/self-signed-web.key"
+    COMPOSER_ALLOW_SUPERUSER: "1"
+    COMPOSER_HOME: "/composer"
+    COMPOSER_MAX_PARALLEL_HTTP: "24"
+```
+
+All PHP configuration options are set as environment variables under `php.env`. For a full list, see [ServersideUp PHP Environment Variables Reference](https://github.com/serversideup/docker-php/blob/main/docs/content/docs/8.reference/1.environment-variable-specification.md).
+
+#### Performance Tuning Guidelines
+
+**Small Applications (< 1000 RPM):**
+```yaml
+php:
+  memoryLimit: "256M"
+  opcache:
+    memoryConsumption: "128"
+  fpm:
+    pmMaxChildren: "20"
+```
+
+**Medium Applications (1000-10000 RPM):**
+```yaml
+php:
+  memoryLimit: "512M"
+  opcache:
+    memoryConsumption: "256"
+    maxAcceleratedFiles: "20000"
+  fpm:
+    pmMaxChildren: "50"
+    pmMaxRequests: "1000"
+```
+
+**Large Applications (> 10000 RPM):**
+```yaml
+php:
+  memoryLimit: "1G"
+  opcache:
+    memoryConsumption: "512"
+    maxAcceleratedFiles: "50000"
+    jit: "tracing"
+    jitBufferSize: "200"
+  fpm:
+    pmControl: "static"
+    pmMaxChildren: "100"
+    pmMaxRequests: "500"
+```
+
+**Calculate FPM Workers:**
+```
+Available RAM = Total Container Memory - OPcache Memory - System Overhead (100MB)
+Max Workers = Available RAM / Average PHP Process Memory (typically 30-50MB)
+
+Example with 2GB container:
+Available RAM = 2048MB - 256MB (opcache) - 100MB = 1692MB
+Max Workers = 1692MB / 40MB = 42 workers
 ```
 
 ### Persistent Storage
@@ -481,58 +956,6 @@ initContainers:
 ```
 
 See [values.yaml](values.yaml) for all available configuration options.
-
-## 🏗️ Docker Image Requirements
-
-Your Laravel Docker image should follow these guidelines:
-
-### Dockerfile Example
-
-```dockerfile
-# Build stage
-FROM composer:2 AS composer
-
-WORKDIR /app
-COPY composer.* ./
-RUN composer install --no-dev --optimize-autoloader --no-interaction
-
-# Production stage
-FROM php:8.3-fpm-alpine
-
-WORKDIR /var/www/html
-
-# Install dependencies
-RUN apk add --no-cache \
-    nginx \
-    supervisor \
-    mysql-client \
-    && docker-php-ext-install pdo_mysql opcache
-
-# Create non-root user
-RUN addgroup -g 1000 www && \
-    adduser -D -u 1000 -G www www
-
-# Copy application
-COPY --chown=www:www . .
-COPY --from=composer --chown=www:www /app/vendor ./vendor
-
-# Set permissions
-RUN chown -R www:www /var/www/html/storage /var/www/html/bootstrap/cache
-
-USER www
-
-EXPOSE 8080
-
-CMD ["php-fpm"]
-```
-
-### Optimization Tips
-
-- Use multi-stage builds to minimize image size
-- Run `composer install --optimize-autoloader --no-dev` for production
-- Enable PHP OPcache for better performance
-- Use Alpine-based images for smaller footprint
-- Copy only necessary files (use .dockerignore)
 
 ## 🩺 Health Check Endpoints
 
@@ -946,22 +1369,3 @@ kubectl get hpa -n production
 kubectl get deployments -n production
 ```
 
-## 📜 License
-
-This chart is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
-
-## 🔗 Links
-
-- **Chart Repository**: https://github.com/5ergiu/helm-charts
-- **Laravel Documentation**: https://laravel.com/docs
-- **Laravel Horizon**: https://laravel.com/docs/horizon
-- **Artifact Hub**: https://artifacthub.io/packages/helm/5ergiu/laravel
-- **Issues**: https://github.com/5ergiu/helm-charts/issues
-
-## 📝 Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for version history and changes.
-
----
-
-**Made with ❤️ for the Laravel community**

@@ -3,6 +3,8 @@ templates:
   - deployment.yaml
 tests:
   - it: should create a deployment with default values
+    set:
+      app.autoscaling.enabled: false
     asserts:
       - isKind:
           of: Deployment
@@ -14,15 +16,23 @@ tests:
           value: 2
       - equal:
           path: spec.template.spec.containers[0].image
-          value: "your-registry/nextjs-app:latest"
+          value: "ghcr.io/5ergiu/nextjs:latest"
 
-  - it: should set custom replica count
+  - it: should set custom replica count when autoscaling disabled
     set:
+      app.autoscaling.enabled: false
       app.replicaCount: 5
     asserts:
       - equal:
           path: spec.replicas
           value: 5
+
+  - it: should not have replicas field when autoscaling enabled
+    set:
+      app.autoscaling.enabled: true
+    asserts:
+      - isNull:
+          path: spec.replicas
 
   - it: should set custom image
     set:

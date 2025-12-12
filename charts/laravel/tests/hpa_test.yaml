@@ -4,15 +4,19 @@ templates:
 tests:
   - it: should not create HPA when disabled
     set:
-      hpa.enabled: false
+      web.autoscaling.enabled: false
+      worker.autoscaling.enabled: false
     asserts:
       - hasDocuments:
           count: 0
 
-  - it: should create HPA when enabled
+  - it: should create HPA for web when enabled
     set:
-      hpa.enabled: true
+      web.autoscaling.enabled: true
+      worker.autoscaling.enabled: false
     asserts:
+      - hasDocuments:
+          count: 1
       - isKind:
           of: HorizontalPodAutoscaler
       - equal:
@@ -23,28 +27,38 @@ tests:
           value: RELEASE-NAME-laravel-web
       - equal:
           path: spec.minReplicas
-          value: 1
+          value: 2
       - equal:
           path: spec.maxReplicas
           value: 10
 
-  - it: should set custom min and max replicas
+  - it: should create HPA for both web and worker
     set:
-      hpa.enabled: true
-      hpa.minReplicas: 2
-      hpa.maxReplicas: 20
+      web.autoscaling.enabled: true
+      worker.autoscaling.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 2
+
+  - it: should set custom min and max replicas for web
+    set:
+      web.autoscaling.enabled: true
+      web.autoscaling.minReplicas: 3
+      web.autoscaling.maxReplicas: 20
+      worker.autoscaling.enabled: false
     asserts:
       - equal:
           path: spec.minReplicas
-          value: 2
+          value: 3
       - equal:
           path: spec.maxReplicas
           value: 20
 
-  - it: should configure CPU target
+  - it: should configure CPU target for web
     set:
-      hpa.enabled: true
-      hpa.targetCPUUtilizationPercentage: 70
+      web.autoscaling.enabled: true
+      web.autoscaling.targetCPUUtilizationPercentage: 70
+      worker.autoscaling.enabled: false
     asserts:
       - contains:
           path: spec.metrics
@@ -56,10 +70,11 @@ tests:
                 type: Utilization
                 averageUtilization: 70
 
-  - it: should configure memory target
+  - it: should configure memory target for web
     set:
-      hpa.enabled: true
-      hpa.targetMemoryUtilizationPercentage: 80
+      web.autoscaling.enabled: true
+      web.autoscaling.targetMemoryUtilizationPercentage: 80
+      worker.autoscaling.enabled: false
     asserts:
       - contains:
           path: spec.metrics

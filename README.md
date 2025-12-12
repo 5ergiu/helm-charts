@@ -94,6 +94,62 @@ Each chart provides extensive configuration options through `values.yaml`. Key c
 
 Refer to individual chart READMEs for detailed configuration options.
 
+## 🐳 Building Example Images
+
+The [examples/](./examples/) directory contains sample applications (Next.js, Laravel) with multi-stage Dockerfiles for demonstration purposes. These images are built separately and used by the Helm charts for testing.
+
+### Automatic Builds
+
+Docker images are built automatically and pushed to [GitHub Container Registry (GHCR)](https://github.com/orgs/5ergiu/packages?repo_name=helm-charts) using the **Build and Push Images** workflow.
+
+**When to trigger builds:**
+- When you modify Dockerfiles in the `examples/` directory
+- When you want to update example application dependencies
+- When creating new example applications
+
+### Manual Workflow Trigger
+
+Since Dockerfiles change rarely, image builds are **manually triggered** rather than running on every PR:
+
+1. Go to [Actions → Build and Push Images](../../actions/workflows/build-push-images.yaml)
+2. Click **Run workflow**
+3. Optionally specify which apps to build (comma-separated), or leave empty to build all:
+   ```
+   nextjs,laravel
+   ```
+
+### Image Tagging Strategy
+
+Images are tagged based on the build target:
+
+- **Development builds** (`target: development`): Tagged as `appName:dev` (always overwritten)
+- **Production builds** (`target: production`): Semantic versioning with `appName:vX.Y.Z` + `appName:latest`
+  - Version bumping follows [Conventional Commits](https://www.conventionalcommits.org/)
+  - Git tags are created as `appName/vX.Y.Z`
+
+**Example tags:**
+```bash
+# Development
+ghcr.io/5ergiu/nextjs:dev
+ghcr.io/5ergiu/laravel:dev
+
+# Production
+ghcr.io/5ergiu/nextjs:latest
+```
+
+### Local Builds
+
+You can also build images locally for testing:
+
+```bash
+# Build development target
+cd examples/nextjs
+docker build --target development -t nextjs:dev .
+
+# Build production target
+docker build --target production -t nextjs:latest .
+```
+
 ## 🤝 Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for details on:
