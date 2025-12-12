@@ -203,7 +203,6 @@ jobs:
             org.opencontainers.image.title=${{ matrix.image }} Demo Application
             org.opencontainers.image.description=${{ matrix.image }} demo application - Production-ready Kubernetes deployment with Helm charts
             org.opencontainers.image.version=${{ steps.version.outputs.VERSION }}
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}/tree/main/examples/${{ matrix.image }}
             org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}/blob/main/examples/${{ matrix.image }}/README.md
             org.opencontainers.image.revision=${{ github.sha }}
