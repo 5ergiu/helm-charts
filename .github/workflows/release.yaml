@@ -14,7 +14,7 @@ on:
         type: boolean
         default: false
       chart:
-        description: 'Specific chart to release (optional, e.g. "charts/my-chart")'
+        description: 'Specific chart to release (optional, e.g., charts/my-chart)'
         required: false
         type: string
 
@@ -32,6 +32,8 @@ jobs:
     # Skip if triggered by github-actions bot
     if: github.actor != 'github-actions[bot]'
     uses: ./.github/workflows/test-charts.yaml
+    with:
+      chart: ${{ github.event.inputs.chart }}
 
   build:
     name: 🔨 Build Chart Artifacts

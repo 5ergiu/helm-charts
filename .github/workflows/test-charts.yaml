@@ -2,6 +2,11 @@ name: 🧪 Test Charts
 
 on:
   workflow_call:
+    inputs:
+      chart:
+        description: 'Specific chart to test (e.g., charts/laravel)'
+        required: false
+        type: string
     outputs:
       charts:
         description: "JSON array of changed charts"
@@ -25,12 +30,25 @@ jobs:
       - name: 🔍 Get changed charts
         id: set-charts
         run: |
-          changed=$(ct list-changed --target-branch ${{ github.event.repository.default_branch }})
-          if [ -n "$changed" ]; then
-            json=$(echo "$changed" | jq -R . | jq -s -c .)
+          if [ -n "${{ inputs.chart }}" ]; then
+            # Specific chart provided via input
+            echo "Using specified chart: ${{ inputs.chart }}"
+            json=$(echo '["${{ inputs.chart }}"]' | jq -c .)
             echo "charts=$json" >> $GITHUB_OUTPUT
           else
-            echo "charts=[]" >> $GITHUB_OUTPUT
+            # Auto-detect changed charts
+            changed=$(ct list-changed --target-branch ${{ github.event.repository.default_branch }})
+            if [ -n "$changed" ]; then
+              json=$(echo "$changed" | jq -R . | jq -s -c .)
+              echo "charts=$json" >> $GITHUB_OUTPUT
+              echo "Detected changed charts: $json"
+            else
+              # If no changes detected (e.g., manual run from main), test all charts
+              echo "No changes detected, finding all charts..."
+              all_charts=$(for dir in charts/*/; do echo "${dir%/}"; done | jq -R . | jq -s -c .)
+              echo "charts=$all_charts" >> $GITHUB_OUTPUT
+              echo "Testing all charts: $all_charts"
+            fi
           fi
 
   lint:
