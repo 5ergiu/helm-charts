@@ -82,7 +82,7 @@ jobs:
           echo "package_file=$PACKAGE_FILE" >> $GITHUB_OUTPUT
 
       - name: 🔐 Install Cosign
-        if: ${{ !inputs.skip_signing && secrets.COSIGN_KEY != '' }}
+        if: ${{ !inputs.skip_signing }}
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: 📝 Get repository owner in lowercase
@@ -133,7 +133,7 @@ jobs:
           fi
 
       - name: 🔐 Sign chart with Cosign
-        if: ${{ !inputs.skip_signing && secrets.COSIGN_KEY != '' }}
+        if: ${{ !inputs.skip_signing }}
         env:
           COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
@@ -174,8 +174,8 @@ jobs:
           if [ -n "${{ steps.push.outputs.digest }}" ]; then
             echo "- **Digest**: \`${{ steps.push.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
           fi
-          if [ "${{ inputs.skip_signing }}" == "false" ] && [ -n "${{ secrets.COSIGN_KEY }}" ]; then
-            echo "- **Signed**: ✅ Yes" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.skip_signing }}" == "false" ]; then
+            echo "- **Signing**: Enabled" >> $GITHUB_STEP_SUMMARY
           else
-            echo "- **Signed**: ⚠️ No" >> $GITHUB_STEP_SUMMARY
+            echo "- **Signing**: Skipped" >> $GITHUB_STEP_SUMMARY
           fi
