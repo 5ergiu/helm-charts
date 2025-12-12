@@ -51,7 +51,7 @@ jobs:
     strategy:
       matrix:
         chart: ${{ fromJSON(needs.detect-charts.outputs.charts) }}
-    uses: ./.github/workflows/test-chart.yaml
+    uses: ./.github/workflows/unit-test-chart.yaml
     with:
       chart: ${{ matrix.chart }}
 
