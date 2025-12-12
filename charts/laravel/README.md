@@ -285,47 +285,194 @@ kubectl port-forward service/myapp-dev-laravel-web 8080:80 -n development
 kubectl get all -n development
 ```
 
-### Hot Reload Setup (Advanced)
+### Hot Reload Setup with HostPath (Advanced)
 
-For true hot reload without rebuilding images, use volume mounts:
+For true hot reload without rebuilding images, this chart supports **hostPath volume mounts** and **Bun sidecar** for frontend HMR.
 
-**1. Create a hostPath PersistentVolume:**
-```yaml
-# local-pv.yaml
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: laravel-code
-spec:
-  capacity:
-    storage: 5Gi
-  accessModes:
-    - ReadWriteOnce
-  hostPath:
-    path: /path/to/your/laravel/app
-    type: Directory
-  storageClassName: local-path
+#### Prerequisites
+
+- **Local Kubernetes cluster** (Docker Desktop, Minikube, or Kind)
+- **Laravel application** on your host machine
+- **Development Docker image** built with `--target development`
+
+#### How It Works
+
+When development mode is enabled:
+1. **HostPath volume** mounts your local Laravel code directory into the pod
+2. **PHP OPcache is disabled** so code changes are immediately visible
+3. **Bun sidecar** runs Vite dev server for frontend hot module replacement (HMR)
+4. Both Laravel and Bun containers share the same code volume
+
+#### Setup Steps
+
+**1. Build the development image:**
+```bash
+cd examples/laravel
+docker build --target development -t my-laravel-app:dev .
 ```
 
-**2. Update values.dev.yaml:**
+**2. Configure values.dev.yaml:**
+
+Update the following settings in [values.dev.yaml](../../examples/laravel/values.dev.yaml):
+
 ```yaml
-persistence:
+# Enable development mode with hostPath
+development:
   enabled: true
-  storageClass: "local-path"
-  mounts:
-    - name: code
-      mountPath: /var/www/html
-      subPath: ""
+  hostPath:
+    enabled: true
+    # IMPORTANT: Update this to your actual Laravel app path!
+    path: "/Users/yourname/projects/my-laravel-app"
+    mountPath: /var/www/html
+
+# Configure Bun sidecar for Vite dev server
+sidecars:
+  - name: bun
+    image: oven/bun:1
+    workingDir: /var/www/html
+    command: ["bun", "run", "dev"]
+    ports:
+      - name: vite
+        containerPort: 5173
+    env:
+      - name: VITE_HOST
+        value: "0.0.0.0"
+      - name: VITE_PORT
+        value: "5173"
+    volumeMounts:
+      - name: code
+        mountPath: /var/www/html
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+# Update security context to match your host user
+web:
+  podSecurityContext:
+    runAsUser: 501  # Run: id -u
+    fsGroup: 20     # Run: id -g
+  securityContext:
+    readOnlyRootFilesystem: false  # Required for hostPath
+
+worker:
+  podSecurityContext:
+    runAsUser: 501  # Run: id -u
+    fsGroup: 20     # Run: id -g
+  securityContext:
+    readOnlyRootFilesystem: false  # Required for hostPath
+
+# Disable persistence and tmpfs (not needed with hostPath)
+persistence:
+  enabled: false
+tmpfsVolumes:
+  enabled: false
+
+# Update image
+image:
+  repository: my-laravel-app
+  tag: dev
 ```
 
-**3. Disable OPcache for immediate code changes:**
-```yaml
-php:
-  opcache:
-    enable: "0"  # See changes immediately
+**3. Deploy to local Kubernetes:**
+```bash
+helm install myapp-dev ./charts/laravel \
+  -f examples/laravel/values.dev.yaml \
+  -n development --create-namespace
 ```
 
-Now code changes on your host are immediately reflected in the pod!
+**4. Access your application:**
+- **Laravel App**: http://laravel.local
+- **Vite HMR**: http://laravel.local:5173
+- **Laravel Horizon**: http://laravel.local/horizon
+
+#### Development Workflow
+
+**Edit code on your host machine:**
+```bash
+# Open your Laravel app in your editor
+code /Users/yourname/projects/my-laravel-app
+
+# Make changes to any file:
+# - PHP files: Instantly reflected (OPcache disabled)
+# - Blade templates: Instantly reflected
+# - JS/CSS/Vue files: Hot reloaded via Vite HMR
+```
+
+**View logs:**
+```bash
+# Laravel logs (web container)
+kubectl logs -f deployment/myapp-dev-laravel-web -n development -c web
+
+# Vite dev server logs (Bun sidecar)
+kubectl logs -f deployment/myapp-dev-laravel-web -n development -c bun
+
+# Worker logs
+kubectl logs -f deployment/myapp-dev-laravel-worker -n development
+```
+
+**Run Artisan commands:**
+```bash
+# Get a shell in the web container
+kubectl exec -it deployment/myapp-dev-laravel-web -n development -- bash
+
+# Run migrations
+kubectl exec -it deployment/myapp-dev-laravel-web -n development -- php artisan migrate
+
+# Clear caches
+kubectl exec -it deployment/myapp-dev-laravel-web -n development -- php artisan optimize:clear
+
+# Tinker
+kubectl exec -it deployment/myapp-dev-laravel-web -n development -- php artisan tinker
+```
+
+**Install new dependencies:**
+```bash
+# Install Composer packages
+kubectl exec -it deployment/myapp-dev-laravel-web -n development -- composer require vendor/package
+
+# Install NPM packages
+kubectl exec -it deployment/myapp-dev-laravel-web -n development -c bun -- bun add package-name
+
+# Restart the pod to pick up new dependencies
+kubectl rollout restart deployment/myapp-dev-laravel-web -n development
+```
+
+#### Important Notes
+
+**Security Warnings:**
+- ⚠️ **NEVER enable development mode in production!**
+- ⚠️ **HostPath volumes are only safe for local development**
+- ⚠️ **Read-only filesystem is disabled** when using hostPath
+
+**Performance:**
+- Hot reload works instantly for backend code (PHP, Blade)
+- Frontend changes reload via Vite HMR (< 1 second)
+- No need to rebuild Docker images for code changes
+
+**Troubleshooting:**
+
+*Permission errors:*
+- Ensure `runAsUser` and `fsGroup` match your host user (`id -u` and `id -g`)
+- Check file permissions: `ls -la /path/to/your/laravel/app`
+
+*Changes not reflected:*
+- Verify hostPath is enabled: `kubectl get pods -n development -o yaml | grep hostPath`
+- Check OPcache is disabled: `kubectl exec ... -- php -i | grep opcache.enable`
+- Clear Laravel caches: `kubectl exec ... -- php artisan optimize:clear`
+
+*Vite HMR not working:*
+- Check Bun sidecar logs: `kubectl logs ... -c bun`
+- Verify port 5173 is accessible: `kubectl port-forward ... 5173:5173`
+- Update `VITE_DEV_SERVER_URL` in values.dev.yaml
+
+*Pod stuck in CrashLoopBackOff:*
+- Check hostPath exists: `ls /path/to/your/laravel/app`
+- Verify path is absolute, not relative
+- Check pod events: `kubectl describe pod ...`
 
 ### Debugging with Xdebug
 

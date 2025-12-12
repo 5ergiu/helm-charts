@@ -8,6 +8,7 @@ global:
 image:
   repository: ghcr.io/5ergiu/nextjs
   pullPolicy: Always
+  tag: latest
 
 imagePullSecrets:
   - name: ghcr-secret

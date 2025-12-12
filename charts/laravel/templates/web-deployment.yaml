@@ -73,14 +73,14 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.web.resources | nindent 12 }}
-          {{- if or .Values.tmpfsVolumes.enabled .Values.persistence.enabled .Values.extraVolumeMounts }}
+          {{- if or .Values.tmpfsVolumes.enabled .Values.persistence.enabled .Values.extraVolumeMounts .Values.development.hostPath.enabled }}
           volumeMounts:
             {{- include "laravel.volumeMounts" . | nindent 12 }}
           {{- end }}
         {{- with .Values.sidecars }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-      {{- if or .Values.tmpfsVolumes.enabled .Values.persistence.enabled .Values.extraVolumes }}
+      {{- if or .Values.tmpfsVolumes.enabled .Values.persistence.enabled .Values.extraVolumes .Values.development.hostPath.enabled }}
       volumes:
         {{- include "laravel.volumes" . | nindent 8 }}
       {{- end }}

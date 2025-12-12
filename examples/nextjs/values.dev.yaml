@@ -15,7 +15,7 @@ global:
 image:
   repository: ghcr.io/5ergiu/nextjs
   pullPolicy: Always
-  tag: "dev"
+  tag: dev
 
 # Application - local development configuration
 app:

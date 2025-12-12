@@ -142,6 +142,10 @@ Environment variables from Secret
 Common volume mounts
 */}}
 {{- define "laravel.volumeMounts" -}}
+{{- if and .Values.development.enabled .Values.development.hostPath.enabled }}
+- name: code
+  mountPath: {{ .Values.development.hostPath.mountPath }}
+{{- else }}
 {{- if .Values.tmpfsVolumes.enabled }}
 {{- range .Values.tmpfsVolumes.mounts }}
 - name: {{ .name }}
@@ -157,6 +161,7 @@ Common volume mounts
   {{- end }}
 {{- end }}
 {{- end }}
+{{- end }}
 {{- with .Values.extraVolumeMounts }}
 {{- toYaml . }}
 {{- end }}
@@ -166,6 +171,12 @@ Common volume mounts
 Common volumes
 */}}
 {{- define "laravel.volumes" -}}
+{{- if and .Values.development.enabled .Values.development.hostPath.enabled }}
+- name: code
+  hostPath:
+    path: {{ .Values.development.hostPath.path }}
+    type: Directory
+{{- else }}
 {{- if .Values.tmpfsVolumes.enabled }}
 {{- range .Values.tmpfsVolumes.mounts }}
 - name: {{ .name }}
@@ -177,6 +188,7 @@ Common volumes
 - name: storage
   persistentVolumeClaim:
     claimName: {{ include "laravel.fullname" . }}-storage
+{{- end }}
 {{- end }}
 {{- with .Values.extraVolumes }}
 {{- toYaml . }}

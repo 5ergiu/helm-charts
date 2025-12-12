@@ -10,6 +10,7 @@ global:
 image:
   repository: ghcr.io/5ergiu/laravel
   pullPolicy: Always
+  tag: latest
 
 imagePullSecrets: []
 nameOverride: ""
@@ -642,6 +643,23 @@ persistence:
     - name: storage
       mountPath: /var/www/html/storage/logs
       subPath: logs
+
+# Development mode settings for local Kubernetes with hot reloading
+# These settings enable hostPath mounts for live code updates
+development:
+  # Enable development mode features (hostPath volumes)
+  enabled: false
+
+  # HostPath volume configuration for hot reloading
+  # WARNING: Only use in local development! Never in production!
+  # This mounts your local code directory into the containers
+  hostPath:
+    enabled: false
+    # Absolute path to your Laravel application on the host machine
+    # Example: /Users/yourname/projects/laravel-app
+    path: ""
+    # Mount the entire application directory for hot reload
+    mountPath: /var/www/html
 
 # External secrets (if using external secrets operator)
 externalSecrets:

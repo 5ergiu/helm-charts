@@ -729,7 +729,7 @@ global:
   environment: development
 
 image:
-  tag: "dev"  # Development build target
+  tag: dev  # Development build target
 
 app:
   replicaCount: 1  # Single replica
