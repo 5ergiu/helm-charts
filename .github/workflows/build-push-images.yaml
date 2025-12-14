@@ -198,6 +198,7 @@ jobs:
           context: examples/${{ matrix.image }}
           target: ${{ matrix.target }}
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.version.outputs.TAGS }}
           labels: |
             org.opencontainers.image.title=${{ matrix.image }} Demo Application
@@ -205,7 +206,6 @@ jobs:
             org.opencontainers.image.version=${{ steps.version.outputs.VERSION }}
             org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}/tree/main/examples/${{ matrix.image }}
             org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}/blob/main/examples/${{ matrix.image }}/README.md
-            org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=MIT
           cache-from: type=gha
           cache-to: type=gha,mode=max
