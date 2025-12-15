@@ -37,7 +37,7 @@ USER www-data
 WORKDIR /app
 
 # Copy fresh Laravel application
-COPY --from=laravel-builder /app ./
+COPY --chown=www-data:www-data --from=laravel-builder /app ./
 
 # Install Laravel Horizon for queue management
 RUN composer require laravel/horizon --no-interaction --prefer-dist
