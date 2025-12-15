@@ -17,58 +17,13 @@ FROM composer:2.9 AS laravel-builder
 WORKDIR /app
 
 # Create a fresh Laravel application
-# This installs Laravel 11.x (latest version)
+# This installs Laravel 12.x (latest version)
 RUN composer create-project laravel/laravel . --no-interaction --prefer-dist
-
-###############################
-# Node Builder: Build frontend assets (production only)
-###############################
-FROM node:20-alpine AS node-builder
-
-WORKDIR /app
-
-# Copy package files from Laravel installation
-COPY --from=laravel-builder /app/package*.json ./
-
-# Install Node.js dependencies
-RUN npm install
-
-# Copy source files needed for build
-COPY --from=laravel-builder /app/resources/ resources/
-COPY --from=laravel-builder /app/public/ public/
-COPY --from=laravel-builder /app/vite.config.js* ./
-COPY --from=laravel-builder /app/postcss.config.js* ./
-COPY --from=laravel-builder /app/tailwind.config.js* ./
-
-# Build production assets (Vite/Mix will output to public/build)
-RUN npm run build
-
-###############################
-# PHP Builder: Install Composer dependencies
-###############################
-FROM composer:2.9 AS php-builder
-
-WORKDIR /var/www/html
-
-# Copy Laravel application from laravel-builder
-COPY --from=laravel-builder /app ./
-
-# Install production dependencies (already installed by laravel-builder, but ensuring optimization)
-RUN composer install \
-    --no-dev \
-    --no-interaction \
-    --no-progress \
-    --no-scripts \
-    --prefer-dist \
-    --optimize-autoloader
-
-# Copy built assets from node-builder
-COPY --from=node-builder /app/public/build ./public/build
 
 ###############################
 # Development Stage: For local development with hot reload
 ###############################
-FROM serversideup/php:8.5-fpm-nginx AS development
+FROM serversideup/php:8.5-fpm-nginx-alpine AS development
 
 # Switch to root to install development tools
 USER root
@@ -76,27 +31,16 @@ USER root
 # Install Xdebug and other development extensions
 RUN install-php-extensions xdebug pcov
 
-# Install Node.js for hot module replacement (HMR) / Vite dev server
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Install Bun for hot module replacement (HMR) / Vite dev server
+COPY --from=oven/bun:alpine /usr/local/bin/bun /usr/local/bin/bun
 
 # Switch back to www-data
 USER www-data
 
 WORKDIR /var/www/html
 
-# Copy fresh Laravel application with dev dependencies
+# Copy fresh Laravel application
 COPY --chown=www-data:www-data --from=laravel-builder /app ./
-
-# Install development dependencies (includes dev packages)
-USER root
-RUN composer install --no-interaction --prefer-dist
-USER www-data
-
-# Install Node.js dependencies for Vite dev server
-RUN npm install
 
 # Configure development-specific PHP settings via ENV
 ENV PHP_OPCACHE_ENABLE=0 \
@@ -110,18 +54,17 @@ ENV PHP_OPCACHE_ENABLE=0 \
 EXPOSE 8080 8443 5173
 
 # Development uses default entrypoint (S6 overlay manages PHP-FPM + Nginx)
-# Vite dev server should be run separately: npm run dev (or via docker-compose)
+# Vite dev server should be run separately: bun run dev (or via docker-compose)
 
 ###############################
 # Production Stage: Optimized runtime image
 ###############################
-FROM serversideup/php:8.5-fpm-nginx AS production
+FROM serversideup/php:8.5-fpm-nginx-alpine AS production
 
 WORKDIR /var/www/html
 
-# Copy built application from php-builder stage
-# The serversideup/php image runs as www-data by default
-COPY --chown=www-data:www-data --from=php-builder /var/www/html /var/www/html
+# Copy fresh Laravel application
+COPY --chown=www-data:www-data --from=laravel-builder /app /var/www/html
 
 # Configure production-specific PHP settings via ENV (can be overridden by Helm)
 ENV PHP_OPCACHE_ENABLE=1 \
