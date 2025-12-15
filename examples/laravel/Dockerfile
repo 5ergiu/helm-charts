@@ -34,14 +34,14 @@ FROM serversideup/php:8.5-fpm-nginx-alpine AS development
 # Switch to root to install development tools
 USER root
 
-# Install Xdebug and other development extensions
-RUN install-php-extensions xdebug pcov
-
-# Install Bun for hot module replacement (HMR) / Vite dev server
-COPY --from=oven/bun:alpine /usr/local/bin/bun /usr/local/bin/bun
+# Install extensions
+RUN install-php-extensions xdebug pcov pcntl
 
 # Switch back to www-data
 USER www-data
+
+# Install Bun for hot module replacement (HMR) / Vite dev server
+COPY --from=oven/bun:alpine /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /var/www/html
 
@@ -66,6 +66,15 @@ EXPOSE 8080 8443 5173
 # Production Stage: Optimized runtime image
 ###############################
 FROM serversideup/php:8.5-fpm-nginx-alpine AS production
+
+# Switch to root to install development tools
+USER root
+
+# Install extensions
+RUN install-php-extensions pcntl
+
+# Switch back to www-data
+USER www-data
 
 WORKDIR /var/www/html
 
