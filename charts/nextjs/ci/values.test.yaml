@@ -16,3 +16,29 @@ ingressRoute:
 
 middleware:
   enabled: false
+
+nextjs:
+  env:
+    NODE_ENV: "test"
+    LOG_LEVEL: "debug"
+  secrets:
+    # All secrets should be provided via secrets.local.yaml (gitignored)
+    # See charts/nextjs/ci/secrets.local.yaml.example
+    DATABASE_URL: ""
+    DATABASE_PASSWORD: ""
+    REDIS_URL: ""
+    SMTP_HOST: ""
+    SMTP_USER: ""
+    SMTP_PASSWORD: ""
+    API_SECRET_KEY: ""
+    AWS_ACCESS_KEY_ID: ""
+    AWS_SECRET_ACCESS_KEY: ""
+    NEXTAUTH_SECRET: ""
+    NEXTAUTH_URL: ""
+    GITHUB_CLIENT_ID: ""
+    GITHUB_CLIENT_SECRET: ""
+    GOOGLE_CLIENT_ID: ""
+    GOOGLE_CLIENT_SECRET: ""
+
+tmpfsVolumes:
+  enabled: true

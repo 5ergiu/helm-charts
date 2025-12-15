@@ -296,7 +296,7 @@ For applications that need persistent storage (user uploads, generated files, et
 ```yaml
 persistence:
   enabled: true
-  size: 10Gi
+  size: 1Gi
   mounts:
     - name: storage
       mountPath: /app/public/uploads

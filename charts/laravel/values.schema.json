@@ -242,7 +242,7 @@
                     "type": "string",
                     "description": "Storage size",
                     "pattern": "^[0-9]+(Ei|Pi|Ti|Gi|Mi|Ki)$",
-                    "default": "10Gi"
+                    "default": "1Gi"
                 }
             }
         },

@@ -59,9 +59,14 @@ spec:
           resources:
             {{- toYaml .Values.migration.resources | nindent 12 }}
           volumeMounts:
+            - name: bootstrap-cache
+              mountPath: /var/www/html/bootstrap/cache
             - name: tmp
               mountPath: /tmp
       volumes:
+        - name: bootstrap-cache
+          emptyDir:
+            medium: Memory
         - name: tmp
           emptyDir:
             medium: Memory

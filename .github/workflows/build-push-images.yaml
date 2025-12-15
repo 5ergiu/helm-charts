@@ -210,22 +210,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: 🏷️ Create git tag for production release
-        if: matrix.target != 'development'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          TAG_NAME="${{ matrix.image }}/${{ steps.version.outputs.VERSION }}"
-
-          if ! git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-            git tag -a "$TAG_NAME" -m "Release ${{ matrix.image }} ${{ steps.version.outputs.VERSION }}"
-            git push origin "$TAG_NAME"
-            echo "Created and pushed tag: $TAG_NAME"
-          else
-            echo "Tag $TAG_NAME already exists, skipping"
-          fi
-
       - name: ✅ Image built and pushed successfully
         run: |
           echo "Successfully built and pushed ${{ matrix.image }} image"

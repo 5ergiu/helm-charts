@@ -29,8 +29,17 @@ laravel:
     MAIL_PORT: "1025"
     MAIL_FROM_ADDRESS: "test@example.com"
     MAIL_FROM_NAME: "Test"
+    CACHE_DRIVER: "redis"
+    QUEUE_CONNECTION: "redis"
+    SESSION_DRIVER: "redis"
   secrets:
-    APP_KEY: "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+    # All secrets should be provided via secrets.local.yaml (gitignored)
+    # See charts/laravel/ci/secrets.local.yaml.example
+    APP_KEY: ""
+    DB_HOST: ""
+    DB_USERNAME: ""
+    DB_PASSWORD: ""
+    REDIS_URL: ""
     AWS_ACCESS_KEY_ID: ""
     AWS_SECRET_ACCESS_KEY: ""
     MAIL_USERNAME: ""
@@ -47,22 +56,13 @@ php:
 
 migration:
   enabled: true
+  backoffLimit: 0
 
 scheduler:
-  enabled: false
+  enabled: true
 
 tmpfsVolumes:
   enabled: true
 
 persistence:
   enabled: false
-
-initContainers:
-  cacheConfig:
-    enabled: true
-  cacheRoute:
-    enabled: true
-  cacheView:
-    enabled: true
-  storageLink:
-    enabled: true

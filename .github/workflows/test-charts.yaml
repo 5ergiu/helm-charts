@@ -9,12 +9,20 @@ on:
         type: string
     outputs:
       charts:
-        description: "JSON array of changed charts"
-        value: ${{ jobs.detect-charts.outputs.charts }}
+        description: "JSON array of charts being tested"
+        value: ${{ jobs.resolve-charts.outputs.charts }}
 
 jobs:
-  detect-charts:
-    name: 🔍 Detect Changed Charts
+  changed-charts:
+    name: 🔍 Find Changed Charts
+    if: inputs.chart == ''
+    uses: ./.github/workflows/changed-charts.yaml
+
+  resolve-charts:
+    name: 📋 Resolve Charts to Test
+    needs: 
+      - changed-charts
+    if: always()
     runs-on: ubuntu-latest
     outputs:
       charts: ${{ steps.set-charts.outputs.charts }}
@@ -24,10 +32,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 🔧 Set up chart-testing
-        uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
-
-      - name: 🔍 Get changed charts
+      - name: 📋 Resolve charts to test
         id: set-charts
         run: |
           if [ -n "${{ inputs.chart }}" ]; then
@@ -36,51 +41,28 @@ jobs:
             json=$(echo '["${{ inputs.chart }}"]' | jq -c .)
             echo "charts=$json" >> $GITHUB_OUTPUT
           else
-            # Auto-detect changed charts
-            changed=$(ct list-changed --target-branch ${{ github.event.repository.default_branch }})
-            if [ -n "$changed" ]; then
-              json=$(echo "$changed" | jq -R . | jq -s -c .)
-              echo "charts=$json" >> $GITHUB_OUTPUT
-              echo "Detected changed charts: $json"
-            else
-              # If no changes detected (e.g., manual run from main), test all charts
+            # Use detected charts
+            charts='${{ needs.changed-charts.outputs.charts }}'
+            if [ "$charts" = "[]" ]; then
+              # No changes detected - test all charts
               echo "No changes detected, finding all charts..."
               all_charts=$(for dir in charts/*/; do echo "${dir%/}"; done | jq -R . | jq -s -c .)
               echo "charts=$all_charts" >> $GITHUB_OUTPUT
               echo "Testing all charts: $all_charts"
+            else
+              # Use detected charts
+              echo "charts=$charts" >> $GITHUB_OUTPUT
+              echo "Testing detected charts: $charts"
             fi
           fi
 
-  lint:
-    name: 📊 Lint Charts
-    needs: detect-charts
-    if: needs.detect-charts.outputs.charts != '[]'
-    strategy:
-      matrix:
-        chart: ${{ fromJSON(needs.detect-charts.outputs.charts) }}
-    uses: ./.github/workflows/lint-chart.yaml
-    with:
-      chart: ${{ matrix.chart }}
-
-  unittest:
-    name: 🧪 Unit Test Charts
-    needs: detect-charts
-    if: needs.detect-charts.outputs.charts != '[]'
-    strategy:
-      matrix:
-        chart: ${{ fromJSON(needs.detect-charts.outputs.charts) }}
-    uses: ./.github/workflows/unit-test-chart.yaml
-    with:
-      chart: ${{ matrix.chart }}
-
-  integration-test:
-    name: 🧩 Integration Test
-    needs:
-      - detect-charts
-      - lint
-      - unittest
-    if: needs.detect-charts.outputs.charts != '[]'
+  test:
+    name: 🧪 Test Charts
+    needs: resolve-charts
+    if: needs.resolve-charts.outputs.charts != '[]'
     runs-on: ubuntu-latest
+    env:
+      CI: true
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -95,43 +77,8 @@ jobs:
       - name: 🔧 Set up chart-testing
         uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
 
-      - name: 🐳 Create kind cluster
+      - name: 🐳 Set up kind
         uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
-        with:
-          cluster_name: helm-chart-test
-          wait: 300s
 
-      - name: 📦 Install Traefik
-        run: |
-          echo "Adding Traefik Helm repository..."
-          helm repo add traefik https://traefik.github.io/charts
-          helm repo update
-
-          echo "Installing Traefik with CRD provider enabled..."
-          helm install traefik traefik/traefik \
-            --namespace traefik \
-            --create-namespace \
-            --set providers.kubernetesCRD.enabled=true \
-            --set providers.kubernetesIngress.enabled=true \
-            --wait --timeout=5m
-
-          echo "Verifying Traefik installation..."
-          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=traefik -n traefik --timeout=5m
-          kubectl get pods -n traefik
-
-          echo "Verifying CRDs are installed..."
-          kubectl get crd | grep traefik
-          echo "✅ Traefik installed successfully with CRD support"
-
-      - name: ✅ Install and test all changed charts
-        run: |
-          echo "Testing all changed charts in the cluster..."
-          ct install --target-branch ${{ github.event.repository.default_branch }} --debug
-
-      - name: 📊 Show cluster state
-        run: |
-          echo "=== All Resources ==="
-          kubectl get all -A
-
-          echo -e "\n=== Events ==="
-          kubectl get events -A --sort-by='.lastTimestamp' | tail -20
+      - name: 🧪 Run tests
+        run: ./scripts/test.sh

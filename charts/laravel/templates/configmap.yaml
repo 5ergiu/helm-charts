@@ -14,3 +14,14 @@ data:
   {{- range $key, $value := .Values.php.env }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "laravel.fullname" . }}-nginx
+  labels:
+    {{- include "laravel.labels" . | nindent 4 }}
+data:
+  nginx.conf: |-
+    {{ .Files.Get "charts/laravel/nginx/nginx.conf" | nindent 4 }}

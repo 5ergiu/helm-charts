@@ -10,6 +10,7 @@ global:
 image:
   repository: ghcr.io/5ergiu/laravel
   pullPolicy: Always
+  tag: latest
 
 imagePullSecrets: []
 nameOverride: ""
@@ -183,7 +184,11 @@ worker:
   # Worker command - Laravel Horizon (recommended) or basic queue worker
   # Horizon: Provides dashboard, auto-balancing, metrics at /horizon
   command: ["php", "artisan", "horizon"]
-  
+
+  # Horizon manages its own worker configuration via config/horizon.php
+  # No args needed when using Horizon
+  args: []
+
   # Alternative: Basic queue worker (without Horizon)
   # command: ["php", "artisan", "queue:work"]
   # args:
@@ -192,10 +197,6 @@ worker:
   #   - "--max-time=3600"
   #   - "--sleep=3"
   #   - "--timeout=300"
-  
-  # Horizon manages its own worker configuration via config/horizon.php
-  # No args needed when using Horizon
-  args: []
   
   resources:
     limits:
@@ -211,7 +212,7 @@ worker:
       command:
       - php
       - artisan
-      - queue:health
+      - horizon:status
     initialDelaySeconds: 30
     periodSeconds: 60
     timeoutSeconds: 5
@@ -500,7 +501,6 @@ laravel:
     LOG_LEVEL: "info"
 
     DB_CONNECTION: "mysql"
-    DB_HOST: "mysql"
     DB_PORT: "3306"
     DB_DATABASE: "laravel"
 
@@ -511,7 +511,8 @@ laravel:
     SESSION_DRIVER: "redis"
     SESSION_LIFETIME: "120"
 
-    REDIS_HOST: "redis"
+    REDIS_CLIENT: "phpredis"
+    REDIS_SCHEME: "tcp"
     REDIS_PORT: "6379"
 
     MAIL_MAILER: "smtp"
@@ -526,10 +527,13 @@ laravel:
     VITE_APP_NAME: "Laravel"
 
   # Sensitive environment variables from Secret
+  # All secrets should be provided via secrets.local.yaml (gitignored) or external secrets
   secrets:
     APP_KEY: ""
-    DB_USERNAME: "laravel"
+    DB_HOST: ""
+    DB_USERNAME: ""
     DB_PASSWORD: ""
+    REDIS_HOST: ""
     REDIS_PASSWORD: ""
     AWS_ACCESS_KEY_ID: ""
     AWS_SECRET_ACCESS_KEY: ""
@@ -614,6 +618,31 @@ php:
     COMPOSER_HOME: "/composer"
     COMPOSER_MAX_PARALLEL_HTTP: "24"
 
+# Nginx sidecar configuration
+nginx:
+  enabled: true
+  image:
+    repository: nginx
+    tag: alpine
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 100m
+      memory: 64Mi
+    requests:
+      cpu: 20m
+      memory: 32Mi
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 101
+  extraVolumeMounts: []
+  env: []
+
 # Temporary filesystem volumes for Laravel writable directories
 # These are required when readOnlyRootFilesystem is enabled
 tmpfsVolumes:
@@ -625,6 +654,8 @@ tmpfsVolumes:
       mountPath: /var/www/html/storage/framework/sessions
     - name: views
       mountPath: /var/www/html/storage/framework/views
+    - name: bootstrap-cache
+      mountPath: /var/www/html/bootstrap/cache
     - name: tmp
       mountPath: /tmp
 
@@ -633,7 +664,7 @@ persistence:
   enabled: true
   storageClass: ""
   accessMode: ReadWriteOnce
-  size: 10Gi
+  size: 1Gi
   # Mount paths for persistent storage
   mounts:
     - name: storage
@@ -650,23 +681,8 @@ externalSecrets:
   region: us-east-1
   data: []
 
-# Init containers (for cache warming)
-initContainers:
-  cacheConfig:
-    enabled: true
-    command: ["php", "artisan", "config:cache"]
-  cacheRoute:
-    enabled: true
-    command: ["php", "artisan", "route:cache"]
-  cacheView:
-    enabled: true
-    command: ["php", "artisan", "view:cache"]
-  storageLink:
-    enabled: true
-    command: ["php", "artisan", "storage:link"]
-
-# Additional init containers
-extraInitContainers: []
+# Init containers
+initContainers: []
 
 # Sidecar containers
 sidecars: []

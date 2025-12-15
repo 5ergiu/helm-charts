@@ -10,6 +10,7 @@ global:
 image:
   repository: ghcr.io/5ergiu/nextjs
   pullPolicy: Always
+  tag: latest
 
 imagePullSecrets: []
 nameOverride: ""
@@ -328,18 +329,11 @@ nextjs:
     
     # Logging
     LOG_LEVEL: "info"
-    
-    # Database (if needed)
-    DATABASE_URL: ""
-    
-    # Redis/Cache (if needed)
-    REDIS_URL: ""
-    
-    # Email/SMTP (if needed)
-    SMTP_HOST: ""
+
+    # Email/SMTP (non-sensitive config)
     SMTP_PORT: "587"
     SMTP_FROM: "noreply@example.com"
-    
+
     # AWS/S3 (for image optimization or storage)
     AWS_REGION: "us-east-1"
     AWS_S3_BUCKET: ""
@@ -351,31 +345,35 @@ nextjs:
     NEXT_PUBLIC_ENABLE_ANALYTICS: "false"
 
   # Sensitive environment variables from Secret
+  # All secrets should be provided via secrets.local.yaml (gitignored) or external secrets
   secrets:
-    # Database credentials
+    # Database credentials (connection string)
+    DATABASE_URL: ""
     DATABASE_PASSWORD: ""
-    
-    # Redis credentials
-    REDIS_PASSWORD: ""
-    
+
+    # Redis URL (includes host, port, password, and TLS scheme)
+    # Format: rediss://[username]:[password]@[host]:[port]
+    REDIS_URL: ""
+
+    # SMTP credentials
+    SMTP_HOST: ""
+    SMTP_USER: ""
+    SMTP_PASSWORD: ""
+
     # API keys
     API_SECRET_KEY: ""
-    
+
     # AWS credentials
     AWS_ACCESS_KEY_ID: ""
     AWS_SECRET_ACCESS_KEY: ""
-    
-    # SMTP credentials
-    SMTP_USER: ""
-    SMTP_PASSWORD: ""
-    
+
     # OAuth/Auth providers
     NEXTAUTH_SECRET: ""
-    NEXTAUTH_URL: "https://app.example.com"
-    
+    NEXTAUTH_URL: ""
+
     GITHUB_CLIENT_ID: ""
     GITHUB_CLIENT_SECRET: ""
-    
+
     GOOGLE_CLIENT_ID: ""
     GOOGLE_CLIENT_SECRET: ""
 
@@ -396,7 +394,7 @@ persistence:
   enabled: false
   storageClass: ""
   accessMode: ReadWriteOnce
-  size: 10Gi
+  size: 1Gi
   # Mount paths for persistent storage
   mounts:
     - name: storage

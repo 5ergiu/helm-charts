@@ -241,7 +241,7 @@ To make writing Conventional Commits easier, you can use [czg (Commitizen GUI)](
 
 ## Testing
 
-All charts must include comprehensive unit tests using helm-unittest. **For detailed testing documentation, see [TESTING.md](./TESTING.md).**
+All charts must include comprehensive tests. **For detailed testing documentation, see [TESTING.md](./TESTING.md).**
 
 ### Quick Testing Guide
 
@@ -250,10 +250,10 @@ All charts must include comprehensive unit tests using helm-unittest. **For deta
 ./scripts/test.sh
 
 # Test specific chart
-./scripts/test.sh laravel
+./scripts/test.sh charts/my-chart
 
-# Test without Kind cluster (unit tests only)
-./scripts/test.sh laravel --no-kind
+# Test without integration tests (faster, no cluster needed)
+./scripts/test.sh charts/my-chart --skip-integration
 ```
 
 ### Test Requirements
@@ -265,6 +265,8 @@ Your tests should cover:
 - Required value validation
 - Common configuration scenarios
 - Edge cases and error conditions
+
+See [TESTING.md](./TESTING.md) for comprehensive testing guide.
 
 ## Pull Request Process
 
