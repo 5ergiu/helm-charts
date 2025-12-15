@@ -20,6 +20,12 @@ WORKDIR /app
 # This installs Laravel 12.x (latest version)
 RUN composer create-project laravel/laravel . --no-interaction --prefer-dist
 
+# Install Laravel Horizon for queue management
+RUN composer require laravel/horizon --no-interaction --prefer-dist
+
+# Install and configure Horizon
+RUN php artisan horizon:install
+
 ###############################
 # Development Stage: For local development with hot reload
 ###############################
