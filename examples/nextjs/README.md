@@ -171,16 +171,73 @@ These are NOT exposed to the browser:
 
 ## 💚 Health Checks
 
-The image includes a health check endpoint:
+The image includes a health check endpoint at `/api/health` that provides comprehensive application monitoring:
 
-- **💓 Health Check:** `/api/health` - Returns HTTP 200 when the application is healthy
+### 📊 Health Check Response
 
-You need to create this endpoint in your Next.js application at `app/api/health/route.ts`:
-
-```typescript
-export async function GET() {
-  return Response.json({ status: 'ok' }, { status: 200 })
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-12-15T10:30:45.123Z",
+  "uptime": 3600,
+  "memory": {
+    "rss": 128,
+    "heapTotal": 64,
+    "heapUsed": 32,
+    "external": 8
+  },
+  "environment": "production"
 }
+```
+
+### 🔍 Endpoint Details
+
+- **GET** `/api/health` - Returns detailed health information
+  - **200 OK** when healthy
+  - **503 Service Unavailable** when unhealthy
+- **HEAD** `/api/health` - Lightweight health check (200 OK)
+
+### 📈 Metrics Included
+
+- **Status** - `healthy` or `unhealthy`
+- **Uptime** - Application uptime in seconds
+- **Memory Usage** - RSS, heap total, heap used, and external memory in MB
+- **Timestamp** - ISO 8601 formatted timestamp
+- **Environment** - Current NODE_ENV
+
+### ☸️ Kubernetes Probes
+
+The health check is designed for Kubernetes probes and is automatically configured in the Helm chart:
+
+```yaml
+startupProbe:
+  httpGet:
+    path: /api/health
+    port: 3000
+  periodSeconds: 5
+  failureThreshold: 30
+
+livenessProbe:
+  httpGet:
+    path: /api/health
+    port: 3000
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /api/health
+    port: 3000
+  periodSeconds: 5
+```
+
+### 🧪 Testing
+
+```bash
+# GET request with full details
+curl http://localhost:3000/api/health
+
+# HEAD request (lightweight)
+curl -I http://localhost:3000/api/health
 ```
 
 ## 📦 Standalone Output Mode

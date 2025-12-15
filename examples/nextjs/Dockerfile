@@ -25,6 +25,9 @@ RUN bunx create-next-app@latest . --typescript --tailwind --app --src-dir \
 # https://nextjs.org/docs/app/api-reference/config/next-config-js/output
 RUN sed -i '/const nextConfig: NextConfig = {/a\  output: "standalone",' next.config.ts
 
+# Add enterprise-grade health check endpoint
+COPY health-check-route.ts src/app/api/health/route.ts
+
 RUN bun run build
 
 ###############################
@@ -75,7 +78,7 @@ EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+    CMD curl -f http://localhost:3000/api/health || exit 1
 
 # Start the application
 CMD ["bun", "server.js"]
