@@ -20,6 +20,25 @@ WORKDIR /app
 # This installs Laravel 12.x (latest version)
 RUN composer create-project laravel/laravel . --no-interaction --prefer-dist
 
+###############################
+# Dependencies Builder: Install dependencies
+###############################
+FROM serversideup/php:8.5-fpm-nginx-alpine AS deps-builder
+
+# Switch to root to install extensions
+USER root
+
+# Install extensions
+RUN install-php-extensions pcntl
+
+# Switch back to www-data
+USER www-data
+
+WORKDIR /app
+
+# Copy fresh Laravel application
+COPY --from=laravel-builder /app ./
+
 # Install Laravel Horizon for queue management
 RUN composer require laravel/horizon --no-interaction --prefer-dist
 
@@ -29,13 +48,13 @@ RUN php artisan horizon:install
 ###############################
 # Development Stage: For local development with hot reload
 ###############################
-FROM serversideup/php:8.5-fpm-nginx-alpine AS development
+FROM deps-builder AS development
 
-# Switch to root to install development tools
+# Switch to root to install extensions
 USER root
 
 # Install extensions
-RUN install-php-extensions xdebug pcov pcntl
+RUN install-php-extensions xdebug pcov
 
 # Switch back to www-data
 USER www-data
@@ -46,7 +65,7 @@ COPY --from=oven/bun:alpine /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /var/www/html
 
 # Copy fresh Laravel application
-COPY --chown=www-data:www-data --from=laravel-builder /app ./
+COPY --chown=www-data:www-data --from=deps-builder /app ./
 
 # Configure development-specific PHP settings via ENV
 ENV PHP_OPCACHE_ENABLE=0 \
@@ -65,21 +84,12 @@ EXPOSE 8080 8443 5173
 ###############################
 # Production Stage: Optimized runtime image
 ###############################
-FROM serversideup/php:8.5-fpm-nginx-alpine AS production
-
-# Switch to root to install development tools
-USER root
-
-# Install extensions
-RUN install-php-extensions pcntl
-
-# Switch back to www-data
-USER www-data
+FROM deps-builder AS production
 
 WORKDIR /var/www/html
 
 # Copy fresh Laravel application
-COPY --chown=www-data:www-data --from=laravel-builder /app /var/www/html
+COPY --chown=www-data:www-data --from=deps-builder /app /var/www/html
 
 # Configure production-specific PHP settings via ENV (can be overridden by Helm)
 ENV PHP_OPCACHE_ENABLE=1 \
