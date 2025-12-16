@@ -134,12 +134,6 @@ php:
     PHP_FPM_PM_MAX_SPARE_SERVERS: "15"
     PHP_FPM_PM_MAX_REQUESTS: "1000"
 
-    # Nginx
-    NGINX_WEBROOT: "/var/www/html/public"
-    NGINX_FASTCGI_BUFFERS: "16 16k"
-    NGINX_FASTCGI_BUFFER_SIZE: "32k"
-    NGINX_CLIENT_MAX_BODY_SIZE: "100M"
-
 # Traefik IngressRoute
 ingressRoute:
   enabled: true

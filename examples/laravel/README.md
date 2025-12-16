@@ -49,9 +49,31 @@ docker build --target production -t ghcr.io/5ergiu/laravel:latest .
 The Dockerfile uses a multi-stage build process:
 
 1. **laravel-builder**: Creates a fresh Laravel application using Composer
-2. **bun-builder**: Builds production frontend assets using Bun and Vite
+2. **deps-builder**: Installs dependencies and configures for Kubernetes
 3. **development**: Development-ready image with debugging tools
 4. **production**: Optimized runtime image with compiled assets
+
+### 🔒 Kubernetes-Optimized Configuration
+
+This image is specifically configured for production Kubernetes environments with enhanced security:
+
+**Read-Only Filesystem Support:**
+- Custom static `nginx.conf` with all temp paths pointing to `/tmp`
+- No template processing required at runtime
+- Pre-configured for port 8080 (non-privileged)
+- All configuration baked into the image
+
+**Disabled Default Entrypoint Scripts:**
+- The ServersideUp PHP image's default entrypoint scripts are disabled via `DISABLE_DEFAULT_CONFIG=true`
+- Default scripts require writable filesystem for nginx template processing
+- Custom entrypoint scripts in `entrypoint.d/` provide minimal runtime initialization
+- Only essential container info display script is included
+
+**Security Benefits:**
+- ✅ Compatible with `readOnlyRootFilesystem: true`
+- ✅ Works with restrictive Pod Security Standards
+- ✅ No runtime file modifications needed
+- ✅ Tmpfs volumes only for application cache/sessions
 
 ## ☸️ Deployment with Helm
 
@@ -135,10 +157,6 @@ The image supports configuration via environment variables. See the [ServersideU
 - `PHP_OPCACHE_ENABLE`: Enable OPcache (`0` for dev, `1` for prod)
 - `PHP_DISPLAY_ERRORS`: Display errors (`On` for dev, `Off` for prod)
 
-**🌐 Nginx:**
-- `NGINX_WEBROOT`: Document root (default: `/var/www/html/public`)
-- `NGINX_CLIENT_MAX_BODY_SIZE`: Maximum upload size (default: `100M`)
-
 **⚙️ PHP-FPM:**
 - `PHP_FPM_PM_CONTROL`: Process manager control (`ondemand` for dev, `dynamic` for prod)
 - `PHP_FPM_PM_MAX_CHILDREN`: Maximum child processes
@@ -172,6 +190,69 @@ Runs database migrations automatically before deployment using Helm hooks.
 - 🚫 No privileged escalation
 - 🛡️ All capabilities dropped
 - 🔐 Seccomp profile enabled
+
+## 🔧 Technical Implementation Details
+
+### Custom Nginx Configuration
+
+The image includes a pre-configured `nginx.conf` (located in `nginx/nginx.conf`) that is copied during the build process. This approach differs from the ServersideUp PHP image defaults:
+
+**Why Custom Configuration?**
+- The default ServersideUp image uses template files (`.template`) that are processed at container startup
+- Template processing requires writing to `/etc/nginx/`, which conflicts with `readOnlyRootFilesystem: true`
+- Our custom config is static and requires no runtime modifications
+
+**Division of Responsibilities (Traefik + Nginx):**
+
+This setup uses Traefik as the edge load balancer and Nginx solely as a FastCGI proxy to PHP-FPM. Since Traefik doesn't support FastCGI protocol directly, Nginx acts as the bridge.
+
+*Traefik Handles (via Middlewares):*
+- ✅ Security headers (HSTS, X-Frame-Options, X-Content-Type-Options, CSP, etc.)
+- ✅ Response compression (gzip)
+- ✅ Rate limiting
+- ✅ Real IP detection (X-Forwarded-For parsing)
+- ✅ TLS termination
+- ✅ HTTP to HTTPS redirects
+
+*Nginx Handles (Minimal Config):*
+- ✅ FastCGI proxy to PHP-FPM (port 9000)
+- ✅ Laravel routing and static file serving
+- ✅ Healthcheck endpoint bypass
+- ✅ Read-only filesystem compatibility (temp paths to `/tmp`)
+
+**Key Configuration Points:**
+- Listens on port 8080 (non-privileged port)
+- All temporary paths point to `/tmp` (mounted as tmpfs)
+- Error logs to `/dev/stderr`, access logs disabled (use Traefik logs)
+- Healthcheck endpoint at `/healthcheck`
+- No duplicate security headers (handled by Traefik)
+- No gzip compression (handled by Traefik)
+- Minimal configuration (~100 lines vs 180+ lines with duplicates)
+
+### Entrypoint Script Customization
+
+**Default Behavior (Disabled):**
+The ServersideUp PHP image includes several entrypoint scripts that:
+- Process nginx/PHP configuration templates using `envsubst`
+- Require write access to `/etc/nginx/` and other system directories
+- Are designed for traditional deployment models
+
+**Our Approach:**
+- Set `DISABLE_DEFAULT_CONFIG=true` to disable built-in entrypoint scripts
+- Provide minimal custom scripts in `entrypoint.d/`:
+  - `1-container-info.sh`: Display container runtime information
+- All configuration is baked into the image during build
+
+**Files in the Build:**
+```dockerfile
+# Copy custom entrypoint scripts
+COPY --chmod=755 ./entrypoint.d/ /etc/entrypoint.d/
+
+# Copy custom nginx configuration
+COPY --chmod=644 ./nginx/nginx.conf /etc/nginx/nginx.conf
+```
+
+All other PHP and application configuration is handled via environment variables as documented in the [ServersideUp PHP Environment Variables Reference](https://github.com/serversideup/docker-php/blob/main/docs/content/docs/8.reference/1.environment-variable-specification.md).
 
 ## 📚 Resources
 

@@ -23,7 +23,7 @@ RUN composer create-project laravel/laravel . --no-interaction --prefer-dist
 ###############################
 # Dependencies Builder: Install dependencies
 ###############################
-FROM serversideup/php:8.5-fpm-alpine AS deps-builder
+FROM serversideup/php:8.5-fpm-nginx-alpine AS deps-builder
 
 # The base image provides:
 # - PHP-FPM on port 9000
@@ -32,7 +32,6 @@ FROM serversideup/php:8.5-fpm-alpine AS deps-builder
 # - Environment-based configuration
 # - Proper permissions on /var/www
 #
-# Nginx runs as a sidecar container in Kubernetes pods
 # All runtime configuration is done via environment variables
 # See: https://github.com/serversideup/docker-php/blob/main/docs/content/docs/8.reference/1.environment-variable-specification.md
 
@@ -44,6 +43,9 @@ RUN install-php-extensions pcntl
 
 # Copy custom entrypoint scripts
 COPY --chmod=755 ./entrypoint.d/ /etc/entrypoint.d/
+
+# Copy custom nginx configuration
+COPY --chmod=644 ./nginx/nginx.conf /etc/nginx/nginx.conf
 
 # Switch back to www-data
 USER www-data
