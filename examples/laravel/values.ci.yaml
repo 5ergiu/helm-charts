@@ -1,0 +1,149 @@
+# ============================================================================
+# CI Test Values for Laravel Chart
+# ============================================================================
+# Optimized for automated testing in CI/CD pipelines
+# - Minimal resources
+# - Fast startup
+# - No external dependencies
+# - SQLite for database
+# ============================================================================
+
+# Use the demo image
+image:
+  repository: ghcr.io/5ergiu/laravel
+  tag: latest
+  pullPolicy: Always
+
+# Minimal replicas for CI
+web:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  # Disable probes for faster startup in CI
+  livenessProbe:
+    enabled: false
+  readinessProbe:
+    enabled: false
+  startupProbe:
+    enabled: false
+
+  pdb:
+    enabled: false
+
+worker:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+  pdb:
+    enabled: false
+
+scheduler:
+  enabled: true
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 25m
+      memory: 64Mi
+
+migration:
+  enabled: true
+  backoffLimit: 0
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+# Disable ingress/routing for CI
+ingress:
+  enabled: false
+
+ingressRoute:
+  enabled: false
+
+middleware:
+  enabled: false
+
+# Laravel configuration for CI
+laravel:
+  env:
+    APP_NAME: "Laravel CI"
+    APP_ENV: "testing"
+    APP_DEBUG: "true"
+    APP_URL: "http://localhost"
+
+    LOG_CHANNEL: "stderr"
+    LOG_LEVEL: "debug"
+
+    # Use SQLite for CI (no external DB needed)
+    DB_CONNECTION: "sqlite"
+    DB_DATABASE: ":memory:"
+
+    # Use array driver (no Redis needed)
+    BROADCAST_DRIVER: "log"
+    CACHE_DRIVER: "array"
+    FILESYSTEM_DISK: "local"
+    QUEUE_CONNECTION: "sync"
+    SESSION_DRIVER: "array"
+
+    MAIL_MAILER: "log"
+    MAIL_HOST: "localhost"
+    MAIL_PORT: "1025"
+    MAIL_FROM_ADDRESS: "ci@example.com"
+    MAIL_FROM_NAME: "Laravel CI"
+
+  # Secrets will be provided by CI environment variables
+  secrets:
+    APP_KEY: "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+    DB_HOST: ""
+    DB_USERNAME: ""
+    DB_PASSWORD: ""
+    REDIS_HOST: ""
+    REDIS_PASSWORD: ""
+    AWS_ACCESS_KEY_ID: ""
+    AWS_SECRET_ACCESS_KEY: ""
+    MAIL_USERNAME: ""
+    MAIL_PASSWORD: ""
+    PUSHER_APP_ID: ""
+    PUSHER_APP_KEY: ""
+    PUSHER_APP_SECRET: ""
+
+# PHP configuration for CI
+php:
+  env:
+    LOG_OUTPUT_LEVEL: "debug"
+    SHOW_WELCOME_MESSAGE: "false"
+    PHP_DISPLAY_ERRORS: "On"
+    PHP_DISPLAY_STARTUP_ERRORS: "On"
+    PHP_OPCACHE_ENABLE: "0"  # Disable OPcache for CI
+    PHP_MEMORY_LIMIT: "128M"
+
+# Disable persistence for CI
+persistence:
+  enabled: false
+
+# Tmpfs for testing
+tmpfsVolumes:
+  enabled: true

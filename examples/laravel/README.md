@@ -81,30 +81,35 @@ This image is designed to work with the Laravel Helm chart located in `../../cha
 
 ### 🏠 Local Development Deployment
 
-Deploy to your local Kubernetes cluster with hot reload:
+**Zero External Dependencies!** Uses SQLite and file-based drivers - no MySQL or Redis needed.
 
 ```bash
-# Install Traefik (if not already installed)
+# 1. Install Traefik (if not already installed)
 helm install traefik traefik/traefik -n traefik --create-namespace
 
-# Install dependencies
-helm install mysql bitnami/mysql -n development --create-namespace
-helm install redis bitnami/redis -n development --create-namespace
-
-# Add to /etc/hosts
+# 2. Add to /etc/hosts
 echo "127.0.0.1 laravel.local" | sudo tee -a /etc/hosts
 
-# Deploy Laravel with development values
+# 3. Copy and configure secrets
+cp secrets.local.yaml.example secrets.local.yaml
+# Generate APP_KEY: docker run --rm ghcr.io/5ergiu/laravel:latest php artisan key:generate --show
+# Edit secrets.local.yaml with your APP_KEY
+
+# 4. Deploy with local development values (includes Bun sidecar for Vite HMR)
 helm install myapp-dev ../../charts/laravel \
-  -f values.dev.yaml \
+  -f values.local.yaml \
+  -f secrets.local.yaml \
   -n development \
   --create-namespace
 
-# Port forward to access Vite HMR (hot module replacement)
+# 5. Port forward for Vite HMR
 kubectl port-forward -n development svc/myapp-dev-laravel 5173:5173
 ```
 
-**⚠️ Important:** Update `development.hostPath.path` in [values.dev.yaml](values.dev.yaml) to point to your local Laravel application directory for hot reload functionality.
+**⚠️ For Hot Reload:**
+1. Update `web.podSecurityContext.runAsUser/fsGroup` in [values.local.yaml](values.local.yaml) (run: `id -u && id -g`)
+2. Update `extraVolumes[0].hostPath.path` to your Laravel project directory
+3. Access http://laravel.local and edit code for instant updates!
 
 ### 🌍 Production Deployment
 
@@ -120,9 +125,61 @@ helm install myapp ../../charts/laravel \
   --create-namespace
 ```
 
+## 📊 Database & Caching Strategy
+
+### Local Development (SQLite + File Drivers)
+- **Database**: SQLite (`/tmp/database.sqlite`) - zero setup required
+- **Cache**: File-based (`storage/framework/cache`)
+- **Queue**: Database driver or sync (instant processing)
+- **Session**: File-based (`storage/framework/sessions`)
+- **Benefits**: No external dependencies, instant start, perfect for testing
+
+### Production Recommendations
+
+**Database** - Use managed services for reliability:
+- **✅ PostgreSQL** (Recommended) - Robust, feature-rich, excellent for complex queries
+  - AWS RDS PostgreSQL, Azure Database for PostgreSQL, Google Cloud SQL
+- **✅ MySQL** - Widely supported, good performance
+  - AWS RDS MySQL, PlanetScale, Vitess
+
+**Caching & Queues** - Use Redis for high performance:
+- **✅ Redis** (Highly Recommended) - In-memory data store
+  - AWS ElastiCache, Azure Cache for Redis, Upstash, Redis Cloud
+  - Use with **Laravel Horizon** for beautiful queue dashboard
+- **Alternative**: Database driver works but slower at scale
+
+**Why not SQLite in production?**
+- No concurrent writes (single-file locking)
+- Not suitable for horizontal scaling (multiple pods)
+- File-based, not ideal for distributed systems
+
+**See** [values.prod.yaml](values.prod.yaml) for production configuration example
+
 ## ⚙️ Configuration
 
-### 🛠️ Development Configuration ([values.dev.yaml](values.dev.yaml))
+### 🧪 CI Configuration ([values.ci.yaml](values.ci.yaml))
+
+Key features:
+- 1️⃣ Single replica for fast testing
+- 🚫 Disabled autoscaling and health probes
+- 📦 Minimal resources for CI runners
+- ⚡ In-memory SQLite for speed
+- 🎯 Array cache/session drivers
+- 💨 Sync queue for instant processing
+- 📉 No external dependencies
+
+### 🔬 Test Configuration ([values.test.yaml](values.test.yaml))
+
+Key features:
+- 1️⃣ Single replica for local testing
+- 🏠 HTTP-only ingress (no TLS)
+- 📉 Minimal resources for laptop/desktop
+- 🐛 Debug logging enabled
+- 💾 SQLite with file-based drivers
+- 🎯 Suitable for Kind/K3d/Minikube
+- 🚫 No external dependencies
+
+### 🛠️ Local Development Configuration ([values.local.yaml](values.local.yaml))
 
 Key features:
 - 1️⃣ Single replica for faster iteration
@@ -131,7 +188,8 @@ Key features:
 - 🚫 Disabled health probes for faster startup
 - 🐛 Debug mode enabled
 - 🔓 OPcache disabled
-- 🏠 Local service dependencies (MySQL, Redis, Mailpit)
+- 💾 SQLite + file-based drivers
+- 🚫 No external dependencies
 
 ### 🚀 Production Configuration ([values.prod.yaml](values.prod.yaml))
 
@@ -144,6 +202,7 @@ Key features:
 - 🚦 Rate limiting and security headers
 - 💾 Cached routes, views, and config
 - 🏭 Production-grade PHP-FPM settings
+- 🗄️ PostgreSQL/MySQL + Redis recommended
 
 ## 🔧 Environment Variables
 
@@ -160,14 +219,6 @@ The image supports configuration via environment variables. See the [ServersideU
 **⚙️ PHP-FPM:**
 - `PHP_FPM_PM_CONTROL`: Process manager control (`ondemand` for dev, `dynamic` for prod)
 - `PHP_FPM_PM_MAX_CHILDREN`: Maximum child processes
-
-## 💚 Health Checks
-
-The image includes built-in health check endpoints:
-
-- **💓 Liveness:** `/health` - Checks if the application is alive
-- **✅ Readiness:** `/ready` - Checks if the application is ready to serve traffic
-- **🚀 Startup:** `/health` - Checks if the application has started successfully
 
 ## 🧩 Components
 
@@ -217,14 +268,12 @@ This setup uses Traefik as the edge load balancer and Nginx solely as a FastCGI 
 *Nginx Handles (Minimal Config):*
 - ✅ FastCGI proxy to PHP-FPM (port 9000)
 - ✅ Laravel routing and static file serving
-- ✅ Healthcheck endpoint bypass
 - ✅ Read-only filesystem compatibility (temp paths to `/tmp`)
 
 **Key Configuration Points:**
 - Listens on port 8080 (non-privileged port)
 - All temporary paths point to `/tmp` (mounted as tmpfs)
 - Error logs to `/dev/stderr`, access logs disabled (use Traefik logs)
-- Healthcheck endpoint at `/healthcheck`
 - No duplicate security headers (handled by Traefik)
 - No gzip compression (handled by Traefik)
 - Minimal configuration (~100 lines vs 180+ lines with duplicates)
@@ -240,7 +289,7 @@ The ServersideUp PHP image includes several entrypoint scripts that:
 **Our Approach:**
 - Set `DISABLE_DEFAULT_CONFIG=true` to disable built-in entrypoint scripts
 - Provide minimal custom scripts in `entrypoint.d/`:
-  - `1-container-info.sh`: Display container runtime information
+  - `10-container-info.sh`: Display container runtime information
 - All configuration is baked into the image during build
 
 **Files in the Build:**

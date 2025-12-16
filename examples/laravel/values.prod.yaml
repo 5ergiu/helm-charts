@@ -1,34 +1,42 @@
-# Production Values for Laravel Helm Chart
-# Deploy with: helm install myapp ./charts/laravel -f charts/laravel/values.prod.yaml -n production --create-namespace
+# ============================================================================
+# Production Values for Laravel Chart
+# ============================================================================
+# Enterprise-grade production configuration
+# This file only contains production-specific overrides.
+# All default values are inherited from charts/laravel/values.yaml
+#
+# Prerequisites:
+#   1. Traefik installed with CRD support
+#   2. cert-manager installed for TLS certificates
+#   3. Metrics server for HPA
+#   4. External PostgreSQL/MySQL database
+#   5. External Redis (managed service recommended)
+#   6. Update all TODOs with your production values
+# ============================================================================
 
-global:
-  environment: production
-
-# Image configuration - use production build target
+# Use production image with specific version tags
 image:
-  repository: ghcr.io/5ergiu/laravel
+  repository: ghcr.io/5ergiu/laravel  # TODO: Change to your production registry
+  tag: latest  # TODO: Use specific version tags in production (e.g., v1.2.3)
   pullPolicy: Always
 
-imagePullSecrets:
-  - name: ghcr-secret
+imagePullSecrets: []  # TODO: Add pull secrets if using private registry
+  # - name: ghcr-secret
 
-# Web application - production configuration
+# Web application - high availability
 web:
-  enabled: true
-  replicaCount: 3  # Multiple replicas for high availability
+  replicaCount: 3
 
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
 
   resources:
     limits:
       cpu: 2000m
       memory: 1Gi
     requests:
-      cpu: 200m
+      cpu: 500m
       memory: 512Mi
 
   # Horizontal Pod Autoscaler
@@ -36,149 +44,175 @@ web:
     enabled: true
     minReplicas: 3
     maxReplicas: 20
-    targetCPUUtilizationPercentage: 70
-    targetMemoryUtilizationPercentage: 80
 
-  # Pod Disruption Budget
+  # Pod Disruption Budget for high availability
   pdb:
     enabled: true
     minAvailable: 2
 
-# Worker configuration
+# Queue workers - scalable with Laravel Horizon
 worker:
-  enabled: true
   replicaCount: 3
+
+  # Override to use Laravel Horizon for production (requires Redis)
   command: ["php", "artisan", "horizon"]
+  args: []
 
   resources:
     limits:
       cpu: 1000m
-      memory: 768Mi
+      memory: 1Gi
     requests:
-      cpu: 200m
+      cpu: 250m
       memory: 512Mi
+
+  livenessProbe:
+    enabled: true
+    exec:
+      command: ["healthcheck-horizon"]
+    initialDelaySeconds: 30
+    periodSeconds: 60
+    timeoutSeconds: 5
+    failureThreshold: 3
 
   autoscaling:
     enabled: true
     minReplicas: 3
     maxReplicas: 15
-    targetCPUUtilizationPercentage: 70
 
-# Scheduler
+  pdb:
+    enabled: true
+    minAvailable: 2
+
+# Scheduler - increased resources for production
 scheduler:
-  enabled: true
-  schedule: "* * * * *"
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
 
-# Migration Job
+# Database migrations - increased resources
 migration:
-  enabled: true
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
 
-# Laravel configuration
-laravel:
-  env:
-    APP_NAME: "Laravel Production"
-    APP_ENV: "production"
-    APP_DEBUG: "false"
-    APP_URL: "https://app.example.com"
-
-    LOG_CHANNEL: "stderr"
-    LOG_LEVEL: "warning"
-
-    DB_CONNECTION: "mysql"
-    DB_HOST: "mysql.databases.svc.cluster.local"
-    DB_PORT: "3306"
-    DB_DATABASE: "laravel"
-
-    CACHE_DRIVER: "redis"
-    QUEUE_CONNECTION: "redis"
-    SESSION_DRIVER: "redis"
-    REDIS_HOST: "redis.databases.svc.cluster.local"
-    REDIS_PORT: "6379"
-
-  secrets:
-    APP_KEY: ""  # Set via sealed secrets
-    DB_USERNAME: "laravel"
-    DB_PASSWORD: ""
-    REDIS_PASSWORD: ""
-
-# PHP Configuration - Production Optimized
-php:
-  env:
-    # General Settings
-    HEALTHCHECK_PATH: "/healthcheck"
-    LOG_OUTPUT_LEVEL: "warn"
-    SHOW_WELCOME_MESSAGE: "false"
-
-    # PHP Runtime
-    PHP_DISPLAY_ERRORS: "Off"
-    PHP_DISPLAY_STARTUP_ERRORS: "Off"
-    PHP_ERROR_REPORTING: "22527"
-    PHP_MAX_EXECUTION_TIME: "120"
-    PHP_MEMORY_LIMIT: "512M"
-    PHP_UPLOAD_MAX_FILE_SIZE: "100M"
-    PHP_POST_MAX_SIZE: "100M"
-
-    # OPcache - Maximum Performance
-    PHP_OPCACHE_ENABLE: "1"
-    PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"  # Never check files
-    PHP_OPCACHE_MEMORY_CONSUMPTION: "256"
-    PHP_OPCACHE_MAX_ACCELERATED_FILES: "20000"
-    PHP_OPCACHE_JIT: "tracing"
-    PHP_OPCACHE_JIT_BUFFER_SIZE: "100"
-
-    # PHP-FPM
-    PHP_FPM_PM_CONTROL: "dynamic"
-    PHP_FPM_PM_MAX_CHILDREN: "50"
-    PHP_FPM_PM_START_SERVERS: "10"
-    PHP_FPM_PM_MIN_SPARE_SERVERS: "5"
-    PHP_FPM_PM_MAX_SPARE_SERVERS: "15"
-    PHP_FPM_PM_MAX_REQUESTS: "1000"
-
-# Traefik IngressRoute
+# Traefik IngressRoute - production domains and TLS
 ingressRoute:
   enabled: true
   entryPoints:
     - websecure
+
+  # Apply all security middlewares
   middlewares:
     - headers
     - compress
     - ratelimit
+
   routes:
-    - match: "Host(`app.example.com`)"
+    - match: "Host(`app.example.com`)"  # TODO: Change to your domain
       kind: Rule
+      priority: 10
+      # Sticky sessions for stateful behavior
+      sticky:
+        cookieName: laravel_session
+        secure: true
+        httpOnly: true
+        sameSite: lax
+
+  # TLS configuration with cert-manager
   tls:
-    certResolver: letsencrypt-prod
+    certResolver: letsencrypt-prod  # TODO: Configure cert-resolver in Traefik
+    domains:
+      - main: app.example.com  # TODO: Change to your domain
+        sans:
+          - www.app.example.com  # TODO: Add additional domains if needed
 
-# Middleware
-middleware:
-  enabled: true
-  rateLimit:
-    enabled: true
-    average: 100
-    burst: 200
-  headers:
-    enabled: true
-    forceSTSHeader: true
-    stsSeconds: 31536000
-  compress:
-    enabled: true
-  redirectScheme:
-    enabled: true
-    scheme: https
+# Laravel application configuration - production settings
+laravel:
+  env:
+    APP_NAME: "Laravel"  # TODO: Change to your app name
+    APP_ENV: "production"
+    APP_DEBUG: "false"
+    APP_URL: "https://app.example.com"  # TODO: Change to your domain
 
-# Persistence
+    LOG_LEVEL: "warning"
+
+    # PostgreSQL recommended for production (or MySQL)
+    DB_CONNECTION: "pgsql"  # TODO: Or "mysql" if preferred
+    DB_PORT: "5432"  # TODO: 3306 for MySQL
+    DB_DATABASE: "laravel"  # TODO: Change to your database name
+
+    # Redis for production caching and queues
+    BROADCAST_DRIVER: "redis"
+    CACHE_DRIVER: "redis"
+    FILESYSTEM_DISK: "s3"  # TODO: Or "local" if not using S3
+    QUEUE_CONNECTION: "redis"
+    SESSION_DRIVER: "redis"
+
+    REDIS_CLIENT: "phpredis"
+    REDIS_SCHEME: "tls"  # Use TLS for production Redis
+    REDIS_PORT: "6379"
+
+    MAIL_MAILER: "smtp"  # TODO: Configure your mail service
+    MAIL_HOST: "smtp.example.com"
+    MAIL_PORT: "587"
+    MAIL_ENCRYPTION: "tls"
+    MAIL_FROM_ADDRESS: "noreply@example.com"
+    MAIL_FROM_NAME: "Laravel App"
+
+    AWS_DEFAULT_REGION: "us-east-1"  # TODO: Change to your region
+    AWS_BUCKET: "your-bucket-name"  # TODO: If using S3
+
+  # Secrets should be provided via Kubernetes secrets or external secrets operator
+  # DO NOT commit these values to version control
+  secrets:
+    APP_KEY: ""  # TODO: Generate with: php artisan key:generate --show
+    DB_HOST: ""  # TODO: Your production database host
+    DB_USERNAME: ""  # TODO: Your database username
+    DB_PASSWORD: ""  # TODO: Your database password
+    REDIS_HOST: ""  # TODO: Your Redis host (managed service recommended)
+    REDIS_PASSWORD: ""  # TODO: Your Redis password
+    AWS_ACCESS_KEY_ID: ""  # TODO: If using S3
+    AWS_SECRET_ACCESS_KEY: ""  # TODO: If using S3
+    MAIL_USERNAME: ""  # TODO: Your SMTP username
+    MAIL_PASSWORD: ""  # TODO: Your SMTP password
+    PUSHER_APP_ID: ""  # TODO: If using Pusher
+    PUSHER_APP_KEY: ""
+    PUSHER_APP_SECRET: ""
+
+# PHP configuration - production optimizations
+php:
+  env:
+    LOG_OUTPUT_LEVEL: "warn"
+    PHP_MEMORY_LIMIT: "512M"
+    PHP_MAX_EXECUTION_TIME: "120"
+
+    # OPcache - maximum performance
+    PHP_OPCACHE_ENABLE: "1"
+    PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"  # No file checks in production
+    PHP_OPCACHE_MEMORY_CONSUMPTION: "256"
+    PHP_OPCACHE_INTERNED_STRINGS_BUFFER: "16"
+    PHP_OPCACHE_MAX_ACCELERATED_FILES: "20000"
+    PHP_OPCACHE_JIT: "tracing"
+    PHP_OPCACHE_JIT_BUFFER_SIZE: "100"
+
+    # PHP-FPM - production tuning
+    PHP_FPM_PM_MAX_CHILDREN: "50"
+    PHP_FPM_PM_START_SERVERS: "5"
+    PHP_FPM_PM_MIN_SPARE_SERVERS: "5"
+    PHP_FPM_PM_MAX_SPARE_SERVERS: "10"
+    PHP_FPM_PM_MAX_REQUESTS: "1000"
+
+# Persistent storage for uploads and logs
 persistence:
   enabled: true
-  storageClass: "fast-ssd"
-  size: 50Gi
-
-# Init containers
-initContainers:
-  cacheConfig:
-    enabled: true
-  cacheRoute:
-    enabled: true
-  cacheView:
-    enabled: true
-  storageLink:
-    enabled: true
+  storageClass: "fast-ssd"  # TODO: Change to your storage class
+  size: 50Gi  # TODO: Adjust based on your needs

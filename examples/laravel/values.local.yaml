@@ -1,0 +1,263 @@
+# ============================================================================
+# Local Development Values for Laravel Chart
+# ============================================================================
+# Optimized for local development with hot reload
+# - Bun sidecar for Vite HMR (Hot Module Replacement)
+# - HostPath volumes for real-time code changes
+# - Debug mode enabled
+# - Local service dependencies
+# - No external dependencies
+#
+# Prerequisites:
+#   1. Update podSecurityContext.runAsUser and fsGroup to match your host user
+#      Run: id -u && id -g
+#   2. Update hostPath.path to point to your Laravel project directory
+# ============================================================================
+
+# Use development image (includes Xdebug)
+image:
+  repository: ghcr.io/5ergiu/laravel
+  tag: dev
+  pullPolicy: IfNotPresent
+
+# Single replica for development
+web:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+
+  # IMPORTANT: Set to your host user IDs to avoid permission issues
+  # Run: id -u && id -g
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000  # TODO: Change to your user ID (id -u)
+    fsGroup: 1000    # TODO: Change to your group ID (id -g)
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+
+  # Disable probes for faster iteration
+  livenessProbe:
+    enabled: false
+  readinessProbe:
+    enabled: false
+  startupProbe:
+    enabled: false
+
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8080
+
+  pdb:
+    enabled: false
+
+worker:
+  enabled: true
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000  # TODO: Change to match web.podSecurityContext.runAsUser
+    fsGroup: 1000    # TODO: Change to match web.podSecurityContext.fsGroup
+    seccompProfile:
+      type: RuntimeDefault
+
+  # Basic queue worker for local development (no Redis needed with sync driver)
+  command: ["php", "artisan", "queue:work"]
+  args:
+    - "--verbose"
+    - "--tries=3"
+
+  # For production with Redis, use Laravel Horizon instead:
+  # command: ["php", "artisan", "horizon"]
+  # args: []
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  pdb:
+    enabled: false
+
+scheduler:
+  enabled: true
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000  # TODO: Change to match web.podSecurityContext.runAsUser
+
+migration:
+  enabled: true
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000  # TODO: Change to match web.podSecurityContext.runAsUser
+
+# Ingress for local development (HTTP only)
+ingress:
+  enabled: false
+
+ingressRoute:
+  enabled: true
+  entryPoints:
+    - web  # HTTP only for local development
+  middlewares: []
+  routes:
+    - match: "Host(`laravel.local`)"
+      kind: Rule
+      priority: 10
+  tls: {}  # No TLS for local development
+
+middleware:
+  enabled: false
+
+# Laravel configuration for local development
+laravel:
+  env:
+    APP_NAME: "Laravel Local"
+    APP_ENV: "local"
+    APP_DEBUG: "true"
+    APP_URL: "http://laravel.local"
+
+    LOG_CHANNEL: "stderr"
+    LOG_LEVEL: "debug"
+
+    # SQLite for local development (no external database needed)
+    # For production, use PostgreSQL or MySQL
+    DB_CONNECTION: "sqlite"
+    DB_DATABASE: "/tmp/database.sqlite"
+
+    # File-based drivers for local development (no Redis needed)
+    # For production with high traffic, use Redis and Laravel Horizon
+    BROADCAST_DRIVER: "log"
+    CACHE_DRIVER: "file"
+    FILESYSTEM_DISK: "local"
+    QUEUE_CONNECTION: "database"  # or "sync" for instant processing
+    SESSION_DRIVER: "file"
+    SESSION_LIFETIME: "120"
+
+    MAIL_MAILER: "log"  # Log emails to storage/logs
+    MAIL_FROM_ADDRESS: "dev@laravel.local"
+    MAIL_FROM_NAME: "Laravel Dev"
+
+    # Vite configuration for HMR
+    VITE_APP_NAME: "Laravel"
+
+  # Secrets should be provided via secrets.local.yaml
+  secrets:
+    APP_KEY: ""  # Will be loaded from secrets.local.yaml
+    # No database/Redis secrets needed for SQLite + file drivers
+    AWS_ACCESS_KEY_ID: ""
+    AWS_SECRET_ACCESS_KEY: ""
+    PUSHER_APP_ID: ""
+    PUSHER_APP_KEY: ""
+    PUSHER_APP_SECRET: ""
+
+# PHP configuration for local development
+php:
+  env:
+    DISABLE_DEFAULT_CONFIG: "true"
+    LOG_OUTPUT_LEVEL: "debug"
+    SHOW_WELCOME_MESSAGE: "true"
+    PHP_DISPLAY_ERRORS: "On"
+    PHP_DISPLAY_STARTUP_ERRORS: "On"
+    PHP_ERROR_REPORTING: "32767"  # E_ALL
+    PHP_OPCACHE_ENABLE: "0"  # Disable OPcache for hot reload
+    PHP_MEMORY_LIMIT: "512M"
+
+# Bun sidecar for Vite HMR
+sidecars:
+  - name: vite
+    image: oven/bun:latest
+    imagePullPolicy: IfNotPresent
+    command: ["bun", "run", "dev", "--host", "0.0.0.0"]
+    workingDir: /var/www/html
+    ports:
+      - name: vite
+        containerPort: 5173
+        protocol: TCP
+    env:
+      - name: NODE_ENV
+        value: "development"
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 1000  # TODO: Change to match web.podSecurityContext.runAsUser
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+    volumeMounts:
+      - name: app-code
+        mountPath: /var/www/html
+      - name: tmp
+        mountPath: /tmp
+      - name: bun-cache
+        mountPath: /.bun
+
+# Tmpfs volumes for read-only filesystem
+tmpfsVolumes:
+  enabled: true
+  mounts:
+    - name: cache
+      mountPath: /var/www/html/storage/framework/cache
+    - name: sessions
+      mountPath: /var/www/html/storage/framework/sessions
+    - name: views
+      mountPath: /var/www/html/storage/framework/views
+    - name: bootstrap-cache
+      mountPath: /var/www/html/bootstrap/cache
+    - name: tmp
+      mountPath: /tmp
+    - name: bun-cache
+      mountPath: /.bun
+
+# HostPath volume for hot reload
+# IMPORTANT: Update the path to your Laravel project directory
+extraVolumes:
+  - name: app-code
+    hostPath:
+      path: /path/to/your/laravel/project  # TODO: Change this to your project path
+      type: Directory
+
+# Mount the hostPath volume
+extraVolumeMounts:
+  - name: app-code
+    mountPath: /var/www/html
+
+# No persistence needed (using hostPath)
+persistence:
+  enabled: false
+
+# Extra environment for Xdebug
+extraEnv:
+  - name: XDEBUG_MODE
+    value: "debug,coverage"
+  - name: XDEBUG_CONFIG
+    value: "client_host=host.docker.internal client_port=9003"
