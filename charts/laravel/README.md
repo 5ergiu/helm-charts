@@ -119,21 +119,24 @@ laravel:
     APP_ENV: "production"
     APP_DEBUG: "false"
     APP_URL: "https://myapp.example.com"
-    DB_CONNECTION: "mysql"
-    DB_HOST: "mysql.databases.svc.cluster.local"
-    DB_PORT: "3306"
+    # PostgreSQL recommended (or use "mysql" if preferred)
+    DB_CONNECTION: "pgsql"
+    DB_PORT: "5432"  # Use 3306 for MySQL
     DB_DATABASE: "laravel"
+    # Redis recommended for production caching and queues
     CACHE_DRIVER: "redis"
     QUEUE_CONNECTION: "redis"
     SESSION_DRIVER: "redis"
 
   secrets:
     APP_KEY: "base64:your-secure-app-key-here"
+    # Database credentials (managed PostgreSQL/MySQL recommended)
+    DB_HOST: "postgres.databases.svc.cluster.local"  # Or your managed DB endpoint
     DB_USERNAME: "laravel"
     DB_PASSWORD: "your-secure-password"
-    # Redis URL with credentials and TLS
-    # Format: rediss://[username]:[password]@[host]:[port]
-    REDIS_URL: "rediss://default:your-redis-password@redis.databases.svc.cluster.local:6379"
+    # Redis credentials (managed Redis recommended)
+    REDIS_HOST: "redis.databases.svc.cluster.local"  # Or your managed Redis endpoint
+    REDIS_PASSWORD: "your-redis-password"
 ```
 
 Then install:
@@ -149,7 +152,6 @@ helm install myapp ./charts/laravel -f values.yaml -n production --create-namesp
 - **Production-Ready Deployment** - Optimized for Laravel applications with security best practices
 - **Multi-Component Architecture** - Separate deployments for web, workers, scheduler, and migrations
 - **Auto-Scaling** - Horizontal Pod Autoscaler (HPA) based on CPU/Memory for web and workers
-- **Laravel Horizon** - Built-in support for queue management with dashboard and metrics
 - **Automated Migrations** - Database migrations run automatically via Helm hooks
 - **Health Checks** - Comprehensive liveness, readiness, and startup probes
 - **Security Hardened** - Non-root user, read-only filesystem, dropped capabilities
@@ -190,82 +192,43 @@ This chart supports full local development using Kubernetes (Docker Desktop, Min
 
 ### Quick Start (Local Development)
 
-**1. Prerequisites:**
-```bash
-# Start local Kubernetes (Docker Desktop, Minikube, or Kind)
-# Docker Desktop: Enable Kubernetes in settings
-# Minikube: minikube start
-# Kind: kind create cluster
+**Zero External Dependencies!** Uses SQLite and file-based drivers - no PostgreSQL or Redis needed for local development.
 
-# Install Traefik ingress controller
-helm repo add traefik https://traefik.github.io/charts
-helm repo update
+**See the [examples/laravel](../../examples/laravel) directory for complete deployment guides including:**
+- **values.local.yaml** - Full development with Vite HMR and hot reload
+- **values.test.yaml** - Local testing with Kind/K3d/Minikube
+- **values.ci.yaml** - CI/CD optimized configuration
+- **README.md** - Detailed setup instructions and deployment guide
+
+**Quick Local Setup:**
+```bash
+# 1. Install Traefik (if not already installed)
 helm install traefik traefik/traefik -n traefik --create-namespace
 
-# Install MySQL
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm install mysql bitnami/mysql \
-  --set auth.rootPassword=password \
-  --set auth.database=laravel \
-  -n development --create-namespace
-
-# Install Redis
-helm install redis bitnami/redis \
-  --set auth.enabled=false \
-  -n development
-
-# (Optional) Install Mailpit for email testing
-kubectl create deployment mailpit --image=axllent/mailpit -n development
-kubectl expose deployment mailpit --port=1025 --target-port=1025 -n development
-kubectl expose deployment mailpit --port=8025 --target-port=8025 --name=mailpit-web -n development
-```
-
-**2. Build Development Image:**
-```bash
-cd examples/laravel-app
-docker build --target development -t laravel-app:dev .
-```
-
-**3. Update values.dev.yaml:**
-```yaml
-# Set your host user IDs to avoid permission issues
-web:
-  podSecurityContext:
-    runAsUser: 501  # Run: id -u
-    fsGroup: 20     # Run: id -g
-
-worker:
-  podSecurityContext:
-    runAsUser: 501  # Run: id -u
-    fsGroup: 20     # Run: id -g
-
-# Update image
-image:
-  repository: laravel-app
-  tag: dev
-
-# Update database credentials (match MySQL helm install)
-laravel:
-  secrets:
-    DB_PASSWORD: "password"
-```
-
-**4. Add to /etc/hosts:**
-```bash
+# 2. Add to /etc/hosts
 echo "127.0.0.1 laravel.local" | sudo tee -a /etc/hosts
+
+# 3. Copy and configure secrets
+cd examples/laravel
+cp secrets.local.yaml.example secrets.local.yaml
+# Generate APP_KEY: docker run --rm ghcr.io/5ergiu/laravel:latest php artisan key:generate --show
+# Edit secrets.local.yaml with your APP_KEY
+
+# 4. Deploy with local development values (includes Bun sidecar for Vite HMR)
+helm install myapp-dev ../../charts/laravel \
+  -f values.local.yaml \
+  -f secrets.local.yaml \
+  -n development \
+  --create-namespace
+
+# 5. (Optional) Port forward for Vite HMR
+kubectl port-forward -n development svc/myapp-dev-laravel 5173:5173
 ```
 
-**5. Deploy to local Kubernetes:**
-```bash
-helm install myapp-dev ./charts/laravel \
-  -f charts/laravel/values.dev.yaml \
-  -n development
-```
-
-**6. Access your application:**
+**Access your application:**
 - **Laravel App**: http://laravel.local
-- **Laravel Horizon**: http://laravel.local/horizon
-- **Mailpit Web UI**: http://localhost:8025 (if installed)
+
+For hot reload with hostPath volumes, see the detailed guide in [examples/laravel/README.md](../../examples/laravel/README.md).
 
 **7. Development workflow:**
 ```bash
@@ -404,6 +367,67 @@ kubectl logs -l app.kubernetes.io/name=laravel -n development --tail=100
 - **MySQL/PostgreSQL** database server
 - **Redis** server (for cache, sessions, and queues)
 
+## 🔒 Security & Read-Only Filesystem
+
+This chart is designed for **maximum security** with `readOnlyRootFilesystem: true` enabled by default. This requires specific Docker image configuration:
+
+### Image Requirements
+
+Your Laravel Docker image must be compatible with read-only filesystems. If using the [ServersideUp PHP](https://serversideup.net/open-source/docker-php/) base images, you need to:
+
+**1. Provide a Static Nginx Configuration:**
+- The default ServersideUp image uses `.template` files processed at runtime with `envsubst`
+- Template processing requires write access to `/etc/nginx/`, incompatible with read-only filesystems
+- Solution: Copy a pre-configured `nginx.conf` during image build (see example below)
+
+**2. Disable Default Entrypoint Scripts:**
+```dockerfile
+# In your Dockerfile
+ENV DISABLE_DEFAULT_CONFIG=true
+```
+
+**3. Configure Nginx for Read-Only Filesystem:**
+```nginx
+# In your nginx.conf
+client_body_temp_path /tmp/nginx 1 2;
+proxy_temp_path /tmp/nginx-proxy;
+fastcgi_temp_path /tmp/nginx-fastcgi;
+uwsgi_temp_path /tmp/nginx-uwsgi;
+scgi_temp_path /tmp/nginx-scgi;
+```
+
+### Reference Implementation
+
+See the complete working example in [`examples/laravel/`](../../examples/laravel/):
+- [`Dockerfile`](../../examples/laravel/Dockerfile) - Shows image build configuration
+- [`nginx/nginx.conf`](../../examples/laravel/nginx/nginx.conf) - Static nginx config for read-only filesystem
+- [`entrypoint.d/`](../../examples/laravel/entrypoint.d/) - Custom minimal entrypoint scripts
+- [`README.md`](../../examples/laravel/README.md) - Full technical details and explanation
+
+### Alternative: Disable Read-Only Filesystem
+
+If you cannot modify your image, you can disable the read-only filesystem constraint:
+
+```yaml
+web:
+  securityContext:
+    readOnlyRootFilesystem: false  # Not recommended for production
+
+worker:
+  securityContext:
+    readOnlyRootFilesystem: false
+
+scheduler:
+  securityContext:
+    readOnlyRootFilesystem: false
+
+migration:
+  securityContext:
+    readOnlyRootFilesystem: false
+```
+
+⚠️ **Warning:** Disabling read-only filesystem reduces security posture and may not comply with strict Pod Security Standards.
+
 ## ⚙️ Configuration
 
 ### Image Configuration
@@ -440,14 +464,14 @@ web:
   livenessProbe:
     enabled: true
     httpGet:
-      path: /health
+      path: /up
       port: 8080
     initialDelaySeconds: 30
   
   readinessProbe:
     enabled: true
     httpGet:
-      path: /ready
+      path: /up
       port: 8080
     initialDelaySeconds: 10
 ```
@@ -830,17 +854,6 @@ php:
     PHP_FPM_PM_MAX_REQUESTS: "0"
     PHP_FPM_PM_STATUS_PATH: ""
     PHP_FPM_PROCESS_CONTROL_TIMEOUT: "10"
-    NGINX_WEBROOT: "/var/www/html/public"
-    NGINX_ACCESS_LOG: "/dev/stdout"
-    NGINX_ERROR_LOG: "/dev/stderr"
-    NGINX_FASTCGI_BUFFERS: "8 8k"
-    NGINX_FASTCGI_BUFFER_SIZE: "8k"
-    NGINX_LISTEN_IP_PROTOCOL: "all"
-    NGINX_SERVER_TOKENS: "off"
-    NGINX_CLIENT_MAX_BODY_SIZE: "100M"
-    SSL_MODE: "off"
-    SSL_CERTIFICATE_FILE: "/etc/ssl/private/self-signed-web.crt"
-    SSL_PRIVATE_KEY_FILE: "/etc/ssl/private/self-signed-web.key"
     COMPOSER_ALLOW_SUPERUSER: "1"
     COMPOSER_HOME: "/composer"
     COMPOSER_MAX_PARALLEL_HTTP: "24"
@@ -956,48 +969,6 @@ initContainers:
 
 See [values.yaml](values.yaml) for all available configuration options.
 
-## 🩺 Health Check Endpoints
-
-Create health check routes for Kubernetes probes:
-
-### routes/web.php
-
-```php
-<?php
-
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\DB;
-
-// Liveness probe - checks if the application is running
-Route::get('/health', function () {
-    return response()->json(['status' => 'ok'], 200);
-});
-
-// Readiness probe - checks if app can serve traffic
-Route::get('/ready', function () {
-    try {
-        // Check database connection
-        DB::connection()->getPdo();
-        
-        // Check Redis connection (if using Redis)
-        if (config('cache.default') === 'redis') {
-            \Illuminate\Support\Facades\Cache::get('health-check');
-        }
-        
-        return response()->json([
-            'status' => 'ready',
-            'database' => 'connected',
-            'cache' => 'connected'
-        ], 200);
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => 'not ready',
-            'error' => $e->getMessage()
-        ], 503);
-    }
-});
-```
-
 ## 🧪 Testing
 
 ### Testing the Chart Locally
@@ -1043,12 +1014,6 @@ kubectl logs -n production -l app.kubernetes.io/component=worker -f
 # Port forward for local testing
 kubectl port-forward -n production svc/my-laravel-app-web 8080:80
 
-# Test health endpoint
-curl http://localhost:8080/health
-
-# Test readiness endpoint
-curl http://localhost:8080/ready
-
 # Exec into pod
 kubectl exec -n production -it deployment/my-laravel-app-web -- bash
 
@@ -1074,24 +1039,6 @@ web:
 Import recommended dashboards:
 - **Kubernetes Pods** - Dashboard ID: 6417
 - **PHP-FPM** - Dashboard ID: 12628
-- **MySQL** - Dashboard ID: 7362
-
-### Laravel Horizon Dashboard
-
-Access Horizon dashboard at: `https://your-app.com/horizon`
-
-Configure Horizon authentication in `app/Providers/HorizonServiceProvider.php`:
-
-```php
-protected function gate()
-{
-    Gate::define('viewHorizon', function ($user) {
-        return in_array($user->email, [
-            'admin@example.com',
-        ]);
-    });
-}
-```
 
 ### Key Metrics to Monitor
 
@@ -1169,109 +1116,225 @@ kubectl get svc my-laravel-app-web
 # If using k3d/kind: http://localhost:<nodeport>
 ```
 
-## 🛡️ Nginx Sidecar (Reverse Proxy)
+## 🔧 Troubleshooting
 
-By default, this chart deploys an [nginx:alpine](https://hub.docker.com/_/nginx) sidecar container alongside the main PHP-FPM web container to act as a simple reverse proxy.
+### Pods Not Starting
 
-> **Note:** All security (TLS, headers, etc.) is handled by Traefik or your ingress controller. The nginx sidecar only proxies HTTP traffic to PHP-FPM.
-
-### How it works
-- **nginx** listens on port 80 and proxies requests to the PHP-FPM container on port 8080.
-- No TLS or security headers are set in nginx; these are managed by Traefik.
-- The nginx config is loaded from `charts/laravel/nginx/nginx.conf` for easy editing.
-
-### Configuration
-
-```yaml
-nginx:
-  enabled: true
-  image:
-    repository: nginx
-    tag: alpine
-    pullPolicy: IfNotPresent
-  resources:
-    limits:
-      cpu: 100m
-      memory: 64Mi
-    requests:
-      cpu: 20m
-      memory: 32Mi
-  securityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
-    readOnlyRootFilesystem: true
-    runAsNonRoot: true
-    runAsUser: 101
-  extraVolumeMounts: []
-  env: []
-```
-
-#### Customizing nginx.conf
-Edit `charts/laravel/nginx/nginx.conf` directly to change the nginx reverse proxy behavior.
-
-#### Disabling nginx
-Set `nginx.enabled: false` to disable the sidecar.
-
----
-
-## 🛠️ Troubleshooting Guide
-
-### Pod won't start
 ```bash
-kubectl describe pod -l app.kubernetes.io/name=laravel -n <namespace>
-kubectl logs -l app.kubernetes.io/name=laravel -n <namespace> --tail=100
+# Check pod events
+kubectl describe pod -n production <pod-name>
+
+# Check logs
+kubectl logs -n production <pod-name>
+
+# Check if image can be pulled
+kubectl get events -n production --sort-by='.lastTimestamp'
 ```
 
-### Permission issues with volumes
-- Ensure `runAsUser` and `fsGroup` in your values file match your host user (run `id -u` and `id -g`)
+**Common causes**: 
+- Image pull errors (check imagePullSecrets)
+- CrashLoopBackOff (check logs for Laravel errors)
+- Resource limits too low
+- Migration failures blocking deployment
 
-### Can't access your app via Ingress
-- Verify `/etc/hosts` entry (for local): `cat /etc/hosts | grep <your-app-host>`
-- Check service: `kubectl get svc -n <namespace>`
-- Check ingress: `kubectl get ingress -n <namespace>`
-- If using Traefik, check Traefik logs and dashboard for route status
+### Database Connection Issues
 
-### Database connection fails
-- Verify MySQL/PostgreSQL is running: `kubectl get pods -n <namespace>`
-- Check credentials match between DB install and values.yaml
-- Test connection:
-  ```bash
-  kubectl exec -it deployment/<your-app>-web -n <namespace> -- php artisan db:show
-  ```
+```bash
+# Get a web pod
+POD=$(kubectl get pods -n production -l app.kubernetes.io/component=web -o jsonpath='{.items[0].metadata.name}')
 
-### Changes not reflected
-- If using image: rebuild and `kubectl rollout restart deployment/<your-app>-web -n <namespace>`
-- If using volume mounts: check OPcache is disabled (`PHP_OPCACHE_ENABLE=0`)
-- Clear Laravel caches:
-  ```bash
-  kubectl exec -it deployment/<your-app>-web -n <namespace> -- php artisan optimize:clear
-  ```
+# Test database connection
+kubectl exec -it $POD -n production -- php artisan tinker
+# Then run: DB::connection()->getPdo();
 
-### Nginx sidecar issues
-- Check nginx logs:
-  ```bash
-  kubectl logs deployment/<your-app>-web -c nginx -n <namespace>
-  ```
-- Edit `charts/laravel/nginx/nginx.conf` and redeploy to adjust proxying
-- Remember: TLS and security headers are handled by Traefik, not nginx
+# Verify database environment variables
+kubectl exec -it $POD -n production -- env | grep DB_
 
-### Health/readiness probe failures
-- Ensure your Laravel app exposes `/health` and `/ready` endpoints
-- Check probe configuration in `values.yaml` matches your app
+# Check database service
+kubectl get svc -n production | grep mysql
+```
 
-### General debugging
-- Use `kubectl exec` to get a shell in the web pod:
-  ```bash
-  kubectl exec -it deployment/<your-app>-web -n <namespace> -- sh
-  ```
-- Check environment variables:
-  ```bash
-  env | grep -i laravel
-  ```
-- Check PHP-FPM status:
-  ```bash
-  curl http://localhost:8080/status
-  ```
+### Migration Job Failed
 
+```bash
+# Check migration job logs
+kubectl logs -n production -l app.kubernetes.io/component=migration
+
+# Check job status
+kubectl get jobs -n production -l app.kubernetes.io/component=migration
+
+# Delete failed job to retry on next upgrade
+kubectl delete job -n production -l app.kubernetes.io/component=migration
+
+# Trigger upgrade again
+helm upgrade my-laravel-app ./charts/laravel -f values.yaml -n production
+```
+
+### Queue Workers Not Processing Jobs
+
+```bash
+# Check worker pod status
+kubectl get pods -n production -l app.kubernetes.io/component=worker
+
+# View worker logs
+kubectl logs -f -n production -l app.kubernetes.io/component=worker
+
+# Check Horizon status
+kubectl exec -it $POD -n production -- php artisan horizon:status
+
+# Restart Horizon
+kubectl exec -it $POD -n production -- php artisan horizon:terminate
+
+# Check Redis connection
+kubectl exec -it $POD -n production -- redis-cli -h redis ping
+```
+
+### Health Check Failures
+
+```bash
+# Exec into pod
+kubectl exec -n production -it <pod-name> -- bash
+
+# Test health endpoint locally
+curl http://localhost:8080/up
+
+# Verify environment
+env | grep APP_
+```
+
+### Permission Issues
+
+```bash
+# Check security context
+kubectl get pod -n production <pod-name> -o jsonpath='{.spec.securityContext}'
+
+# Check file permissions inside pod
+kubectl exec -n production -it <pod-name> -- ls -la /var/www/html/storage
+
+# Check writable directories
+kubectl exec -n production -it <pod-name> -- ls -la /var/www/html/storage/framework/cache
+```
+
+### HPA Not Scaling
+
+```bash
+# Check if metrics server is installed
+kubectl top nodes
+kubectl top pods -n production
+
+# If not installed, install metrics server
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+# Check HPA status
+kubectl get hpa -n production
+kubectl describe hpa -n production my-laravel-app-web
+
+# View HPA events
+kubectl get events -n production --field-selector involvedObject.kind=HorizontalPodAutoscaler
+```
+
+### Scheduler Not Running
+
+```bash
+# Check CronJob
+kubectl get cronjobs -n production
+
+# View recent jobs
+kubectl get jobs -n production -l app.kubernetes.io/component=scheduler
+
+# Check logs of latest job
+kubectl logs -n production -l app.kubernetes.io/component=scheduler --tail=100
+
+# Manually trigger scheduler
+kubectl create job --from=cronjob/my-laravel-app-scheduler manual-run -n production
+```
+
+## 🛠️ Common Laravel Operations
+
+### Database Migrations
+
+Migrations run automatically via Helm hooks. To run manually:
+
+```bash
+# Get web pod
+POD=$(kubectl get pods -n production -l app.kubernetes.io/component=web -o jsonpath='{.items[0].metadata.name}')
+
+# Run migrations
+kubectl exec -it $POD -n production -- php artisan migrate --force
+
+# Rollback migration
+kubectl exec -it $POD -n production -- php artisan migrate:rollback
+
+# Check migration status
+kubectl exec -it $POD -n production -- php artisan migrate:status
+```
+
+### Laravel Horizon (Queue Management)
+
+```bash
+# Check Horizon status
+kubectl exec -it $POD -n production -- php artisan horizon:status
+
+# Restart Horizon gracefully
+kubectl exec -it $POD -n production -- php artisan horizon:terminate
+
+# Pause queue processing
+kubectl exec -it $POD -n production -- php artisan horizon:pause
+
+# Resume queue processing
+kubectl exec -it $POD -n production -- php artisan horizon:continue
+
+# Retry all failed jobs
+kubectl exec -it $POD -n production -- php artisan queue:retry all
+
+# Clear failed jobs
+kubectl exec -it $POD -n production -- php artisan horizon:clear
+```
+
+### Cache Management
+
+```bash
+# Clear all caches
+kubectl exec -it $POD -n production -- php artisan cache:clear
+kubectl exec -it $POD -n production -- php artisan config:clear
+kubectl exec -it $POD -n production -- php artisan route:clear
+kubectl exec -it $POD -n production -- php artisan view:clear
+
+# Warm caches
+kubectl exec -it $POD -n production -- php artisan config:cache
+kubectl exec -it $POD -n production -- php artisan route:cache
+kubectl exec -it $POD -n production -- php artisan view:cache
+
+# Optimize
+kubectl exec -it $POD -n production -- php artisan optimize
+```
+
+### Artisan Commands
+
+```bash
+# Run any artisan command
+kubectl exec -it $POD -n production -- php artisan <command>
+
+# Laravel Tinker (interactive shell)
+kubectl exec -it $POD -n production -- php artisan tinker
+
+# List all artisan commands
+kubectl exec -it $POD -n production -- php artisan list
+
+# View routes
+kubectl exec -it $POD -n production -- php artisan route:list
+```
+
+### Scaling
+
+```bash
+# Manual scaling (when HPA disabled)
+kubectl scale deployment my-laravel-app-web -n production --replicas=5
+kubectl scale deployment my-laravel-app-worker -n production --replicas=3
+
+# Check HPA status
+kubectl get hpa -n production
+
+# View current replicas
+kubectl get deployments -n production
+```

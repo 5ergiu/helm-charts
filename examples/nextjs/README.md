@@ -59,26 +59,26 @@ This image is designed to work with the Next.js Helm chart located in `../../cha
 
 ### 🏠 Local Development Deployment
 
-Deploy to your local Kubernetes cluster:
+**Zero External Dependencies!** Next.js runs standalone - no database or cache needed.
 
 ```bash
-# Install Traefik (if not already installed)
+# 1. Install Traefik (if not already installed)
 helm install traefik traefik/traefik -n traefik --create-namespace
 
-# Install optional dependencies
-helm install postgres bitnami/postgresql -n development --create-namespace
-helm install redis bitnami/redis -n development --create-namespace
-
-# Add to /etc/hosts
+# 2. Add to /etc/hosts
 echo "127.0.0.1 nextjs.local" | sudo tee -a /etc/hosts
 
-# Deploy Next.js with development values
+# 3. Copy and configure secrets (optional - only if you need external services)
+cp secrets.local.yaml.example secrets.local.yaml
+# Edit secrets.local.yaml with your credentials (if needed)
+
+# 4. Deploy with local development values
 helm install myapp-dev ../../charts/nextjs \
-  -f values.dev.yaml \
+  -f values.local.yaml \
   -n development \
   --create-namespace
 
-# Access the application
+# 5. Access the application
 open http://nextjs.local
 ```
 
@@ -98,16 +98,33 @@ helm install myapp ../../charts/nextjs \
 
 ## ⚙️ Configuration
 
-### 🛠️ Development Configuration ([values.dev.yaml](values.dev.yaml))
+### 🧪 CI Configuration ([values.ci.yaml](values.ci.yaml))
+
+Key features:
+- 1️⃣ Single replica for fast testing
+- 🚫 Disabled autoscaling and health probes
+- 📦 Minimal resources for CI runners
+- ⚡ Test environment optimized
+- 🎯 In-memory mode for fast tests
+
+### 🔬 Test Configuration ([values.test.yaml](values.test.yaml))
+
+Key features:
+- 1️⃣ Single replica for local testing
+- 🏠 HTTP-only ingress (no TLS)
+- 📉 Minimal resources for laptop/desktop
+- 🐛 Debug logging enabled
+- 🎯 Suitable for Kind/K3d/Minikube
+
+### 🛠️ Local Development Configuration ([values.local.yaml](values.local.yaml))
 
 Key features:
 - 1️⃣ Single replica for faster iteration
-- 🔌 LoadBalancer service for local access
 - 🚫 Disabled health probes for faster startup
 - 🐛 Development mode enabled
 - 📢 Debug logging
-- 🏠 Local service dependencies (PostgreSQL, Redis, Mailpit)
 - 📉 Minimal resource requests
+- 🎯 Optimized for local Kubernetes (Kind/K3d)
 
 ### 🚀 Production Configuration ([values.prod.yaml](values.prod.yaml))
 
@@ -119,7 +136,7 @@ Key features:
 - 🚦 Rate limiting and security headers
 - 🏭 Production environment variables
 - ⚡ Optimized resource allocation
-- 💾 Persistent storage for uploads
+- 💾 Persistent storage for uploads (optional)
 
 ## 🔧 Environment Variables
 
@@ -144,30 +161,32 @@ These are NOT exposed to the browser:
 - `HOSTNAME`: Server hostname (default: `0.0.0.0`)
 - `NEXT_TELEMETRY_DISABLED`: Disable telemetry collection
 
-**🗄️ Database:**
+**🗄️ Database (Optional):**
 - `DATABASE_URL`: PostgreSQL connection string
 - `DATABASE_PASSWORD`: Database password (secret)
 
-**💾 Cache:**
+**💾 Cache (Optional):**
 - `REDIS_URL`: Redis connection string
 - `REDIS_PASSWORD`: Redis password (secret)
 
-**📧 Email/SMTP:**
+**📧 Email/SMTP (Optional):**
 - `SMTP_HOST`: SMTP server hostname
 - `SMTP_PORT`: SMTP server port
 - `SMTP_USER`: SMTP username (secret)
 - `SMTP_PASSWORD`: SMTP password (secret)
 - `SMTP_FROM`: From email address
 
-**☁️ Storage:**
+**☁️ Storage (Optional):**
 - `AWS_REGION`: AWS region
 - `AWS_S3_BUCKET`: S3 bucket name
 - `AWS_ACCESS_KEY_ID`: AWS access key (secret)
 - `AWS_SECRET_ACCESS_KEY`: AWS secret key (secret)
 
-**🔑 Authentication:**
+**🔑 Authentication (Optional):**
 - `NEXTAUTH_SECRET`: NextAuth.js secret (secret)
 - `NEXTAUTH_URL`: NextAuth.js callback URL
+
+> **Note:** All external service variables (database, cache, email, storage) are optional. Next.js runs standalone without external dependencies for basic functionality.
 
 ## 💚 Health Checks
 

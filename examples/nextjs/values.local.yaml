@@ -1,0 +1,116 @@
+# ============================================================================
+# Local Development Values for Next.js Chart
+# ============================================================================
+# Optimized for local development with hot reload
+# - HostPath volumes for real-time code changes
+# - Debug mode enabled
+# - No external dependencies
+#
+# Prerequisites:
+#   1. Update podSecurityContext.runAsUser and fsGroup to match your host user
+#      Run: id -u && id -g
+#   2. Update hostPath.path to point to your Next.js project directory
+# ============================================================================
+
+image:
+  repository: ghcr.io/5ergiu/nextjs
+  tag: latest
+  pullPolicy: Always
+
+# Single replica for development
+web:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+
+  # IMPORTANT: Set to your host user IDs to avoid permission issues
+  # Run: id -u && id -g
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000  # TODO: Change to your user ID (id -u)
+    fsGroup: 1000    # TODO: Change to your group ID (id -g)
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+
+  # Disable probes for faster iteration
+  livenessProbe:
+    enabled: false
+  readinessProbe:
+    enabled: false
+  startupProbe:
+    enabled: false
+
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 3000
+
+  pdb:
+    enabled: false
+
+# Ingress for local development (HTTP only)
+ingress:
+  enabled: false
+
+ingressRoute:
+  enabled: true
+  entryPoints:
+    - web  # HTTP only for local development
+  middlewares: []
+  routes:
+    - match: "Host(`nextjs.local`)"
+      kind: Rule
+      priority: 10
+  tls: {}
+
+middleware:
+  enabled: false
+
+# Next.js configuration for local development
+nextjs:
+  env:
+    NODE_ENV: "development"
+    # Add any development environment variables
+
+  secrets: {}
+
+# Tmpfs volumes for read-only filesystem
+tmpfsVolumes:
+  enabled: true
+  mounts:
+    - name: nextjs-cache
+      mountPath: /app/.next/cache
+    - name: tmp
+      mountPath: /tmp
+
+# HostPath volume for hot reload
+# IMPORTANT: Update the path to your Next.js project directory
+extraVolumes:
+  - name: app-code
+    hostPath:
+      path: /path/to/your/nextjs/project  # TODO: Change this to your project path
+      type: Directory
+
+# Mount the hostPath volume
+extraVolumeMounts:
+  - name: app-code
+    mountPath: /app
+
+# No persistence needed (using hostPath)
+persistence:
+  enabled: false

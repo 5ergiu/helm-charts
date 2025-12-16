@@ -8,11 +8,10 @@
 # - Suitable for integration testing
 # ============================================================================
 
-# Use the demo image
 image:
   repository: ghcr.io/5ergiu/laravel
   tag: latest
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 # Minimal replicas for local testing
 web:

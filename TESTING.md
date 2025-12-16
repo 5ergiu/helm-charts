@@ -397,23 +397,6 @@ tests:
           value: production
 ```
 
-### CI Values Files
-
-Create example configurations in the `ci/` directory for integration testing:
-
-```yaml
-# ci/default.yaml
-replicaCount: 1
-image:
-  pullPolicy: IfNotPresent
-resources:
-  limits:
-    cpu: 100m
-    memory: 128Mi
-```
-
-These files are automatically used during integration tests.
-
 ### Disabling Unit Tests
 
 If a chart doesn't need unit tests (rare), create a `.disable-unittest` file:

@@ -135,16 +135,20 @@ EOF
 # ============================================================================
 
 get_local_secrets_args() {
+    local chart_path="$1"
+    local chart_name=$(basename "$chart_path")
+
     # Never load secrets in CI
     if [[ "$CI" == "true" ]]; then
         return 0
     fi
 
-    local secrets_file="${SCRIPT_DIR}/ci/local.secrets.yaml"
-
-    if [[ -f "$secrets_file" ]]; then
-        print_info "Using local secrets file: ci/local.secrets.yaml"
-        echo "-f $secrets_file"
+    # Try chart-specific secrets in examples/<chart>/secrets.local.yaml
+    local example_secrets="${SCRIPT_DIR}/examples/${chart_name}/secrets.local.yaml"
+    if [[ -f "$example_secrets" ]]; then
+        print_info "Using local secrets file: examples/${chart_name}/secrets.local.yaml"
+        echo "-f $example_secrets"
+        return 0
     fi
 }
 
@@ -382,26 +386,37 @@ run_template_tests() {
 
     print_section "Testing Template Rendering"
 
-    # Check for CI values files
-    local ci_values_args=""
-    if [[ -d "$chart_path/ci" ]] && [[ -n "$(ls -A "$chart_path/ci"/*.yaml 2>/dev/null)" ]]; then
-        print_info "Using CI values files"
-        for values_file in "$chart_path/ci"/*.yaml; do
-            # Skip .example files
-            if [[ ! "$values_file" =~ \.example$ ]]; then
-                ci_values_args="$ci_values_args -f $values_file"
-            fi
-        done
-    fi
+    # Determine which values file to use based on environment
+    local test_values_args=""
 
-    ci_values_args+=" $(get_local_secrets_args)"
+    if [[ "$CI" == "true" ]]; then
+        # CI environment: use values.ci.yaml from examples
+        local ci_values="${SCRIPT_DIR}/examples/${chart_name}/values.ci.yaml"
+        if [[ -f "$ci_values" ]]; then
+            print_info "Using CI values: examples/${chart_name}/values.ci.yaml"
+            test_values_args="-f $ci_values"
+        fi
+    else
+        # Local environment: use values.test.yaml from examples
+        local test_values="${SCRIPT_DIR}/examples/${chart_name}/values.test.yaml"
+        if [[ -f "$test_values" ]]; then
+            print_info "Using test values: examples/${chart_name}/values.test.yaml"
+            test_values_args="-f $test_values"
+        fi
+
+        # Add secrets for local testing only
+        test_values_args+=" $(get_local_secrets_args "$chart_path")"
+    fi
 
     # Test template rendering
     print_step "Rendering templates..."
     local temp_file=$(mktemp)
 
+    # Use consistent release name with integration tests
+    local release_name="test-${chart_name}"
+
     # Run helm template with debug output, filtering out the noisy JSON schema debug line
-    if helm template test-release "$chart_path" $ci_values_args --debug 2>&1 > "$temp_file" | grep -v 'msg="unmarshalled JSON schema"'; then
+    if helm template "$release_name" "$chart_path" $test_values_args --debug 2>&1 > "$temp_file" | grep -v 'msg="unmarshalled JSON schema"'; then
         print_success "Templates rendered successfully"
     else
         print_error "Template rendering failed"
@@ -559,19 +574,27 @@ run_integration_tests() {
     local release_name="test-${chart_name}"
     local namespace="test-${chart_name}"
 
-    # Check for CI values files
-    local ci_values_args=""
-    if [[ -d "$chart_path/ci" ]] && [[ -n "$(ls -A "$chart_path/ci"/*.yaml 2>/dev/null)" ]]; then
-        print_info "Using CI values files for installation"
-        for values_file in "$chart_path/ci"/*.yaml; do
-            # Skip .example files
-            if [[ ! "$values_file" =~ \.example$ ]]; then
-                ci_values_args="$ci_values_args -f $values_file"
-            fi
-        done
-    fi
+    # Determine which values file to use based on environment
+    local test_values_args=""
 
-    ci_values_args+=" $(get_local_secrets_args)"
+    if [[ "$CI" == "true" ]]; then
+        # CI environment: use values.ci.yaml from examples
+        local ci_values="${SCRIPT_DIR}/examples/${chart_name}/values.ci.yaml"
+        if [[ -f "$ci_values" ]]; then
+            print_info "Using CI values: examples/${chart_name}/values.ci.yaml"
+            test_values_args="-f $ci_values"
+        fi
+    else
+        # Local environment: use values.test.yaml from examples
+        local test_values="${SCRIPT_DIR}/examples/${chart_name}/values.test.yaml"
+        if [[ -f "$test_values" ]]; then
+            print_info "Using test values: examples/${chart_name}/values.test.yaml"
+            test_values_args="-f $test_values"
+        fi
+
+        # Add secrets for local testing only
+        test_values_args+=" $(get_local_secrets_args "$chart_path")"
+    fi
 
     # Install chart
     print_step "Installing chart: $chart_name"
@@ -583,7 +606,7 @@ run_integration_tests() {
     # Run helm install with debug output, filtering out noisy JSON schema lines
     local helm_exit_code=0
     helm install "$release_name" "$chart_path" \
-        $ci_values_args \
+        $test_values_args \
         --create-namespace \
         --namespace "$namespace" \
         --wait \
@@ -647,7 +670,7 @@ run_integration_tests() {
     echo ""
 
     local upgrade_exit_code=0
-    helm upgrade "$release_name" "$chart_path" $ci_values_args -n "$namespace" --wait --timeout=300s --debug 2>&1 | grep -v 'msg="unmarshalled JSON schema"' || upgrade_exit_code=$?
+    helm upgrade "$release_name" "$chart_path" $test_values_args -n "$namespace" --wait --timeout=300s --debug 2>&1 | grep -v 'msg="unmarshalled JSON schema"' || upgrade_exit_code=$?
 
     echo ""
 

@@ -125,36 +125,6 @@ helm install myapp ../../charts/laravel \
   --create-namespace
 ```
 
-## 📊 Database & Caching Strategy
-
-### Local Development (SQLite + File Drivers)
-- **Database**: SQLite (`/tmp/database.sqlite`) - zero setup required
-- **Cache**: File-based (`storage/framework/cache`)
-- **Queue**: Database driver or sync (instant processing)
-- **Session**: File-based (`storage/framework/sessions`)
-- **Benefits**: No external dependencies, instant start, perfect for testing
-
-### Production Recommendations
-
-**Database** - Use managed services for reliability:
-- **✅ PostgreSQL** (Recommended) - Robust, feature-rich, excellent for complex queries
-  - AWS RDS PostgreSQL, Azure Database for PostgreSQL, Google Cloud SQL
-- **✅ MySQL** - Widely supported, good performance
-  - AWS RDS MySQL, PlanetScale, Vitess
-
-**Caching & Queues** - Use Redis for high performance:
-- **✅ Redis** (Highly Recommended) - In-memory data store
-  - AWS ElastiCache, Azure Cache for Redis, Upstash, Redis Cloud
-  - Use with **Laravel Horizon** for beautiful queue dashboard
-- **Alternative**: Database driver works but slower at scale
-
-**Why not SQLite in production?**
-- No concurrent writes (single-file locking)
-- Not suitable for horizontal scaling (multiple pods)
-- File-based, not ideal for distributed systems
-
-**See** [values.prod.yaml](values.prod.yaml) for production configuration example
-
 ## ⚙️ Configuration
 
 ### 🧪 CI Configuration ([values.ci.yaml](values.ci.yaml))

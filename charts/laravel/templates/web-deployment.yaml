@@ -77,29 +77,6 @@ spec:
           volumeMounts:
             {{- include "laravel.volumeMounts" . | nindent 12 }}
           {{- end }}
-
-        - name: nginx
-          image: {{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.tag }}
-          imagePullPolicy: {{ .Values.nginx.image.pullPolicy }}
-          ports:
-            - name: nginx
-              containerPort: 443
-              protocol: TCP
-          volumeMounts:
-            - name: nginx-config
-              mountPath: /etc/nginx/nginx.conf
-              subPath: nginx.conf
-          resources:
-            {{- toYaml .Values.nginx.resources | nindent 12 }}
-          securityContext:
-            {{- toYaml .Values.nginx.securityContext | nindent 12 }}
-          {{- with .Values.nginx.extraVolumeMounts }}
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.nginx.env }}
-          env:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
         {{- with .Values.sidecars }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -107,9 +84,6 @@ spec:
         {{- if or .Values.tmpfsVolumes.enabled .Values.persistence.enabled .Values.extraVolumes }}
         {{- include "laravel.volumes" . | nindent 8 }}
         {{- end }}
-        - name: nginx-config
-          configMap:
-            name: {{ include "laravel.fullname" . }}-nginx
       {{- with .Values.web.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

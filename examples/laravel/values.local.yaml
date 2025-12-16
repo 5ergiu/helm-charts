@@ -18,7 +18,7 @@
 image:
   repository: ghcr.io/5ergiu/laravel
   tag: dev
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 # Single replica for development
 web:
@@ -233,6 +233,10 @@ tmpfsVolumes:
       mountPath: /var/www/html/storage/framework/views
     - name: bootstrap-cache
       mountPath: /var/www/html/bootstrap/cache
+    - name: nginx-logs
+      mountPath: /var/log/nginx
+    - name: run
+      mountPath: /run
     - name: tmp
       mountPath: /tmp
     - name: bun-cache

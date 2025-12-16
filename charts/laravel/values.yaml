@@ -1,6 +1,21 @@
-# Default values for Laravel Helm chart
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
+# ============================================================================
+# Default Values for Laravel Helm Chart
+# ============================================================================
+# Production-ready secure defaults for Laravel applications
+# - High availability with autoscaling
+# - PostgreSQL/MySQL database support
+# - Basic queue worker (no Redis required by default)
+# - Security hardened (read-only filesystem, non-root user)
+# - Traefik ingress with TLS support
+#
+# For different deployment scenarios, see the examples directory:
+#   - examples/laravel/values.ci.yaml    - CI/CD optimized (zero dependencies)
+#   - examples/laravel/values.test.yaml  - Local testing (SQLite + file drivers)
+#   - examples/laravel/values.local.yaml - Development with hot reload (Bun sidecar)
+#   - examples/laravel/values.prod.yaml  - Production overrides (Horizon, higher resources)
+#
+# Chart Documentation: https://github.com/5ergiu/helm-charts/tree/main/charts/laravel
+# ============================================================================
 
 # Global settings
 global:
@@ -72,7 +87,7 @@ web:
   livenessProbe:
     enabled: true
     httpGet:
-      path: /health
+      path: /up
       port: 8080
     initialDelaySeconds: 30
     periodSeconds: 10
@@ -83,7 +98,7 @@ web:
   readinessProbe:
     enabled: true
     httpGet:
-      path: /ready
+      path: /up
       port: 8080
     initialDelaySeconds: 10
     periodSeconds: 5
@@ -94,7 +109,7 @@ web:
   startupProbe:
     enabled: true
     httpGet:
-      path: /health
+      path: /up
       port: 8080
     initialDelaySeconds: 0
     periodSeconds: 5
@@ -181,22 +196,15 @@ worker:
       - ALL
     readOnlyRootFilesystem: true
   
-  # Worker command - Laravel Horizon (recommended) or basic queue worker
-  # Horizon: Provides dashboard, auto-balancing, metrics at /horizon
-  command: ["php", "artisan", "horizon"]
-
-  # Horizon manages its own worker configuration via config/horizon.php
-  # No args needed when using Horizon
-  args: []
-
-  # Alternative: Basic queue worker (without Horizon)
-  # command: ["php", "artisan", "queue:work"]
-  # args:
-  #   - "--verbose"
-  #   - "--tries=3"
-  #   - "--max-time=3600"
-  #   - "--sleep=3"
-  #   - "--timeout=300"
+  # Worker command - Basic queue worker (no Redis dependency required)
+  # For production with Redis, consider using Laravel Horizon (see examples/laravel/values.prod.yaml)
+  command: ["php", "artisan", "queue:work"]
+  args:
+    - "--verbose"
+    - "--tries=3"
+    - "--max-time=3600"
+    - "--sleep=3"
+    - "--timeout=300"
   
   resources:
     limits:
@@ -206,13 +214,11 @@ worker:
       cpu: 100m
       memory: 256Mi
   
+  # Liveness probe for basic queue worker (checks if process is alive)
   livenessProbe:
     enabled: true
     exec:
-      command:
-      - php
-      - artisan
-      - horizon:status
+      command: ["healthcheck-queue"]
     initialDelaySeconds: 30
     periodSeconds: 60
     timeoutSeconds: 5
@@ -498,21 +504,23 @@ laravel:
     APP_URL: "https://app.example.com"
 
     LOG_CHANNEL: "stderr"
-    LOG_LEVEL: "info"
+    LOG_LEVEL: "warning"
 
-    DB_CONNECTION: "mysql"
-    DB_PORT: "3306"
+    # PostgreSQL recommended for production (or use "mysql" if preferred)
+    DB_CONNECTION: "pgsql"
+    DB_PORT: "5432"  # Use 3306 for MySQL
     DB_DATABASE: "laravel"
 
+    # Redis recommended for production caching and queues
     BROADCAST_DRIVER: "redis"
     CACHE_DRIVER: "redis"
-    FILESYSTEM_DISK: "local"
+    FILESYSTEM_DISK: "local"  # Or "s3" for cloud storage
     QUEUE_CONNECTION: "redis"
     SESSION_DRIVER: "redis"
     SESSION_LIFETIME: "120"
 
     REDIS_CLIENT: "phpredis"
-    REDIS_SCHEME: "tcp"
+    REDIS_SCHEME: "tls"  # Use TLS in production
     REDIS_PORT: "6379"
 
     MAIL_MAILER: "smtp"
@@ -551,6 +559,7 @@ php:
   # These are passed directly to the container using their exact names
   env:
     # General Settings
+    S6_READ_ONLY_ROOT: 1
     APP_BASE_DIR: "/var/www/html"
     HEALTHCHECK_PATH: "/healthcheck"
     LOG_OUTPUT_LEVEL: "warn"  # Options: warn, info, debug
@@ -598,50 +607,10 @@ php:
     PHP_FPM_PM_STATUS_PATH: ""  # e.g., "/fpm-status"
     PHP_FPM_PROCESS_CONTROL_TIMEOUT: "10"  # seconds
 
-    # Nginx Settings
-    NGINX_WEBROOT: "/var/www/html/public"
-    NGINX_ACCESS_LOG: "/dev/stdout"
-    NGINX_ERROR_LOG: "/dev/stderr"
-    NGINX_FASTCGI_BUFFERS: "8 8k"  # count size
-    NGINX_FASTCGI_BUFFER_SIZE: "8k"
-    NGINX_LISTEN_IP_PROTOCOL: "all"  # Options: all, ipv4, ipv6
-    NGINX_SERVER_TOKENS: "off"
-    NGINX_CLIENT_MAX_BODY_SIZE: "100M"
-
-    # SSL Settings
-    SSL_MODE: "off"  # Options: off, mixed, full
-    SSL_CERTIFICATE_FILE: "/etc/ssl/private/self-signed-web.crt"
-    SSL_PRIVATE_KEY_FILE: "/etc/ssl/private/self-signed-web.key"
-
     # Composer Settings
     COMPOSER_ALLOW_SUPERUSER: "1"
     COMPOSER_HOME: "/composer"
     COMPOSER_MAX_PARALLEL_HTTP: "24"
-
-# Nginx sidecar configuration
-nginx:
-  enabled: true
-  image:
-    repository: nginx
-    tag: alpine
-    pullPolicy: IfNotPresent
-  resources:
-    limits:
-      cpu: 100m
-      memory: 64Mi
-    requests:
-      cpu: 20m
-      memory: 32Mi
-  securityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
-    readOnlyRootFilesystem: true
-    runAsNonRoot: true
-    runAsUser: 101
-  extraVolumeMounts: []
-  env: []
 
 # Temporary filesystem volumes for Laravel writable directories
 # These are required when readOnlyRootFilesystem is enabled
@@ -656,6 +625,10 @@ tmpfsVolumes:
       mountPath: /var/www/html/storage/framework/views
     - name: bootstrap-cache
       mountPath: /var/www/html/bootstrap/cache
+    - name: nginx-logs
+      mountPath: /var/log/nginx
+    - name: run
+      mountPath: /run
     - name: tmp
       mountPath: /tmp
 

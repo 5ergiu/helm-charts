@@ -22,7 +22,7 @@ tests:
           value: "artisan"
       - equal:
           path: spec.template.spec.containers[0].command[2]
-          value: "horizon"
+          value: "queue:work"
 
   - it: should scale workers independently when autoscaling disabled
     set:
@@ -37,16 +37,8 @@ tests:
     set:
       worker.autoscaling.enabled: true
     asserts:
-      - isNull:
+      - notExists:
           path: spec.replicas
-
-  - it: should use custom horizon command
-    set:
-      worker.command: ["php", "artisan", "queue:work"]
-    asserts:
-      - equal:
-          path: spec.template.spec.containers[0].command
-          value: ["php", "artisan", "queue:work"]
 
   - it: should disable worker deployment
     set:

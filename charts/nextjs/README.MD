@@ -116,14 +116,17 @@ nextjs:
   publicEnv:
     NEXT_PUBLIC_APP_NAME: "My App"
     NEXT_PUBLIC_API_URL: "https://api.myapp.example.com"
-  
+
   env:
     NODE_ENV: "production"
-    DATABASE_URL: "postgresql://user@postgres:5432/myapp"
-  
+    # Add any custom environment variables as needed
+    # External services (database, Redis, etc.) are optional
+
   secrets:
-    DATABASE_PASSWORD: "your-secure-password"
-    NEXTAUTH_SECRET: "your-nextauth-secret"
+    # Only add secrets if you need external services
+    # DATABASE_PASSWORD: "your-secure-password"  # Optional
+    # REDIS_PASSWORD: "your-redis-password"      # Optional
+    NEXTAUTH_SECRET: "your-nextauth-secret"     # If using NextAuth.js
 ```
 
 Then install:
@@ -177,6 +180,8 @@ helm install myapp ./charts/nextjs -f values.yaml -n production --create-namespa
 - **Helm 3.8+**
 - **Ingress controller** (Traefik, NGINX, etc.) for external access
 - **cert-manager** (optional, for automatic TLS certificates)
+
+**Note:** Next.js runs standalone without external dependencies. Database, cache, and other services are optional and only needed if your application requires them.
 
 ## ⚙️ Configuration
 
@@ -444,20 +449,22 @@ nextjs:
   env:
     NODE_ENV: "production"
     PORT: "3000"
-    DATABASE_URL: "postgresql://user@postgres:5432/myapp"
-    REDIS_URL: "redis://redis:6379"
-    SMTP_HOST: "smtp.sendgrid.net"
-    SMTP_PORT: "587"
-  
+    # Add external service URLs only if your application needs them
+    # DATABASE_URL: "postgresql://user@postgres:5432/myapp"  # Optional
+    # REDIS_URL: "redis://redis:6379"                        # Optional
+    # SMTP_HOST: "smtp.sendgrid.net"                         # Optional
+    # SMTP_PORT: "587"                                       # Optional
+
   # Sensitive data (stored in Kubernetes Secret)
+  # Only add secrets for services your application actually uses
   secrets:
-    DATABASE_PASSWORD: "your-password"
-    REDIS_PASSWORD: "your-redis-password"
-    API_SECRET_KEY: "your-api-secret"
-    NEXTAUTH_SECRET: "your-nextauth-secret"
-    NEXTAUTH_URL: "https://myapp.example.com"
-    GITHUB_CLIENT_ID: "your-github-oauth-id"
-    GITHUB_CLIENT_SECRET: "your-github-oauth-secret"
+    # DATABASE_PASSWORD: "your-password"           # Optional - only if using database
+    # REDIS_PASSWORD: "your-redis-password"        # Optional - only if using Redis
+    # API_SECRET_KEY: "your-api-secret"            # Optional - for your API
+    NEXTAUTH_SECRET: "your-nextauth-secret"        # If using NextAuth.js
+    # NEXTAUTH_URL: "https://myapp.example.com"    # If using NextAuth.js
+    # GITHUB_CLIENT_ID: "your-github-oauth-id"     # If using GitHub OAuth
+    # GITHUB_CLIENT_SECRET: "your-github-oauth-secret"  # If using GitHub OAuth
 ```
 
 ### Persistent Storage
@@ -612,132 +619,61 @@ This chart supports full local development using Kubernetes (Docker Desktop, Min
 
 ### Quick Start (Local Development)
 
-**1. Prerequisites:**
-```bash
-# Start local Kubernetes (Docker Desktop, Minikube, or Kind)
-# Docker Desktop: Enable Kubernetes in settings
-# Minikube: minikube start
-# Kind: kind create cluster
+**Zero External Dependencies!** Next.js runs standalone - no database or cache needed for local development.
 
-# Install Traefik ingress controller
-helm repo add traefik https://traefik.github.io/charts
+**See the [examples/nextjs](../../examples/nextjs) directory for complete deployment guides including:**
+- **values.local.yaml** - Full local development configuration
+- **values.test.yaml** - Local testing with Kind/K3d/Minikube
+- **values.ci.yaml** - CI/CD optimized configuration
+- **README.md** - Detailed setup instructions and deployment guide
+
+**Quick Local Setup:**
+```bash
+# 1. Install Traefik (if not already installed)
 helm install traefik traefik/traefik -n traefik --create-namespace
 
-# Install dependencies (optional but recommended)
-helm repo add bitnami https://charts.bitnami.com/bitnami
-
-# PostgreSQL (if needed)
-helm install postgres bitnami/postgresql -n development --create-namespace \
-  --set auth.postgresPassword=password \
-  --set auth.database=nextjs
-
-# Redis (if needed)
-helm install redis bitnami/redis -n development \
-  --set auth.enabled=false
-
-# Mailpit for email testing (optional)
-kubectl create namespace development
-kubectl apply -n development -f - <<EOF
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: mailpit
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: mailpit
-  template:
-    metadata:
-      labels:
-        app: mailpit
-    spec:
-      containers:
-      - name: mailpit
-        image: axllent/mailpit:latest
-        ports:
-        - containerPort: 1025
-        - containerPort: 8025
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: mailpit
-spec:
-  selector:
-    app: mailpit
-  ports:
-  - name: smtp
-    port: 1025
-  - name: web
-    port: 8025
-EOF
-
-# Add to /etc/hosts (or C:\Windows\System32\drivers\etc\hosts on Windows)
+# 2. Add to /etc/hosts
 echo "127.0.0.1 nextjs.local" | sudo tee -a /etc/hosts
-```
 
-**2. Build Development Docker Image:**
-```bash
-# Clone the helm-charts repository
-git clone https://github.com/5ergiu/helm-charts.git
-cd helm-charts
+# 3. (Optional) Copy and configure secrets - only if you need external services
+cd examples/nextjs
+cp secrets.local.yaml.example secrets.local.yaml
+# Edit secrets.local.yaml with your credentials (if needed)
 
-# Build development image (includes hot reload, debug tools)
-cd examples/nextjs-app
-docker build --target development -t ghcr.io/5ergiu/nextjs:dev .
-
-# Or build your own Next.js app
-# Replace the nextjs-builder stage with your actual app code
-```
-
-**3. Deploy with Development Values:**
-```bash
-cd ../..
-
-# Deploy using values.dev.yaml
-helm install myapp-dev ./charts/nextjs \
-  -f charts/nextjs/values.dev.yaml \
+# 4. Deploy with local development values
+helm install myapp-dev ../../charts/nextjs \
+  -f values.local.yaml \
   -n development \
   --create-namespace
 
-# Watch deployment
-kubectl get pods -n development -w
-```
-
-**4. Access Your Application:**
-```bash
-# Via Ingress (after adding to /etc/hosts)
+# 5. Access the application
 open http://nextjs.local
-
-# Or via port-forward
-kubectl port-forward -n development svc/myapp-dev-nextjs-app 3000:80
-open http://localhost:3000
-
-# Access Mailpit web UI (if installed)
-kubectl port-forward -n development svc/mailpit 8025:8025
-open http://localhost:8025
 ```
+
+**Access your application:**
+- **Next.js App**: http://nextjs.local
+
+For production deployment with PostgreSQL/Redis, see [examples/nextjs/values.prod.yaml](../../examples/nextjs/values.prod.yaml).
 
 ### Development Configuration
 
-The `values.dev.yaml` file provides optimized settings for local development:
+The local development values files provide optimized settings for different scenarios:
 
+**values.local.yaml** - Full local development:
 ```yaml
-# Key development settings
 global:
   environment: development
 
 image:
   tag: "dev"  # Development build target
 
-app:
+web:
   replicaCount: 1  # Single replica
 
   # Minimal resources
   resources:
     limits:
-      cpu: 1000m
+      cpu: 500m
       memory: 512Mi
     requests:
       cpu: 100m
@@ -751,38 +687,27 @@ app:
   startupProbe:
     enabled: false
 
-  # LoadBalancer for easy local access
-  service:
-    type: LoadBalancer
-
 nextjs:
   env:
     NODE_ENV: "development"
-    LOG_LEVEL: "debug"  # Verbose logging
-
-    # Local database connections
-    DATABASE_URL: "postgresql://postgres:password@postgres.development.svc.cluster.local:5432/nextjs"
-    REDIS_URL: "redis://redis-master.development.svc.cluster.local:6379"
-
-  # Non-production secrets (already in values.dev.yaml)
-  secrets:
-    DATABASE_PASSWORD: "password"
-    NEXTAUTH_SECRET: "dev-nextauth-secret-not-for-production"
+    # Add any custom environment variables as needed
+    # External services (database, Redis) are optional
 
 # HTTP only (no TLS)
-ingress:
+ingressRoute:
   enabled: true
-  hosts:
-    - host: nextjs.local
-  tls: []
+  entryPoints:
+    - web
+  routes:
+    - match: "Host(`nextjs.local`)"
+  tls: {}
 
-# No rate limiting in dev
+# No middlewares in dev for simplicity
 middleware:
-  rateLimit:
-    enabled: false
-  redirectScheme:
-    enabled: false  # No HTTPS redirect
+  enabled: false
 ```
+
+For production deployment with external services, see [examples/nextjs/values.prod.yaml](../../examples/nextjs/values.prod.yaml).
 
 ### Customizing for Your User ID
 
@@ -913,9 +838,11 @@ Before deploying to production, ensure you have:
 - Kubernetes cluster (EKS, GKE, AKS, or self-hosted)
 - Traefik or NGINX ingress controller
 - cert-manager for automatic TLS certificates
-- PostgreSQL/MySQL database (or managed service)
-- Redis for caching/sessions (or managed service)
 - Container registry (ghcr.io, ECR, GCR, ACR)
+
+**Optional (only if your application needs them):**
+- PostgreSQL/MySQL database (or managed service like AWS RDS, Google Cloud SQL)
+- Redis for caching/sessions (or managed service like AWS ElastiCache, Upstash)
 
 ### Deploy to Production
 
@@ -1003,29 +930,33 @@ nextjs:
   env:
     NODE_ENV: "production"
     LOG_LEVEL: "warn"
-    DATABASE_URL: "postgresql://user@postgres.databases.svc.cluster.local:5432/nextjs"
-    REDIS_URL: "redis://redis.databases.svc.cluster.local:6379"
+    # Add external service URLs only if your application needs them
+    # DATABASE_URL: "postgresql://user@postgres.databases.svc.cluster.local:5432/nextjs"
+    # REDIS_URL: "redis://redis.databases.svc.cluster.local:6379"
 
   secrets:
-    DATABASE_PASSWORD: ""  # Set via sealed secrets
-    NEXTAUTH_SECRET: ""    # Generate: openssl rand -base64 32
+    # Only add secrets for services your application actually uses
+    # DATABASE_PASSWORD: ""  # Set via sealed secrets (if using database)
+    NEXTAUTH_SECRET: ""      # Generate: openssl rand -base64 32 (if using NextAuth.js)
 ```
 
 ### Secrets Management
 
 **Option 1: Kubernetes Secrets (Basic)**
 ```bash
-# Create secret manually
+# Create secret manually (only include secrets your application needs)
 kubectl create secret generic nextjs-secrets \
   -n production \
-  --from-literal=DATABASE_PASSWORD='your-password' \
   --from-literal=NEXTAUTH_SECRET='your-secret'
+  # --from-literal=DATABASE_PASSWORD='your-password'  # Optional
+  # --from-literal=REDIS_PASSWORD='your-redis-password'  # Optional
 
 # Reference in values.yaml
 nextjs:
   secrets:
-    DATABASE_PASSWORD: "your-password"
     NEXTAUTH_SECRET: "your-secret"
+    # DATABASE_PASSWORD: "your-password"  # Optional
+    # REDIS_PASSWORD: "your-redis-password"  # Optional
 ```
 
 **Option 2: Sealed Secrets (Recommended)**
@@ -1033,15 +964,22 @@ nextjs:
 # Install sealed-secrets controller
 helm install sealed-secrets sealed-secrets/sealed-secrets -n kube-system
 
-# Create sealed secret
-echo -n 'your-password' | kubectl create secret generic nextjs-secrets \
+# Create sealed secret (example with NextAuth secret)
+echo -n 'your-nextauth-secret' | kubectl create secret generic nextjs-secrets \
   --dry-run=client \
-  --from-file=DATABASE_PASSWORD=/dev/stdin \
+  --from-file=NEXTAUTH_SECRET=/dev/stdin \
   -o yaml | \
   kubeseal -o yaml > sealed-secret.yaml
 
 # Apply sealed secret
 kubectl apply -f sealed-secret.yaml -n production
+
+# For database password (optional):
+# echo -n 'your-db-password' | kubectl create secret generic nextjs-db-secrets \
+#   --dry-run=client \
+#   --from-file=DATABASE_PASSWORD=/dev/stdin \
+#   -o yaml | \
+#   kubeseal -o yaml > sealed-db-secret.yaml
 ```
 
 **Option 3: External Secrets Operator**
@@ -1052,10 +990,13 @@ externalSecrets:
   backendType: secretsManager  # or vault, gcpSecretsManager
   region: us-east-1
   data:
-    - key: prod/nextjs/db-password
-      name: DATABASE_PASSWORD
+    # Only add secrets your application needs
     - key: prod/nextjs/nextauth-secret
       name: NEXTAUTH_SECRET
+    # - key: prod/nextjs/db-password      # Optional
+    #   name: DATABASE_PASSWORD
+    # - key: prod/nextjs/redis-password   # Optional
+    #   name: REDIS_PASSWORD
 ```
 
 ## 🔧 Troubleshooting

@@ -1,6 +1,22 @@
-# Default values for Next.js Helm chart
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
+# ============================================================================
+# Default Values for Next.js Helm Chart
+# ============================================================================
+# Production-grade configuration for Next.js applications
+# - High availability with autoscaling
+# - Standalone mode (no external dependencies required)
+# - Optional PostgreSQL/Redis support
+# - Security hardened (read-only filesystem, non-root user)
+# - Traefik ingress with TLS support
+# - SSR/SSG fully supported
+#
+# For different deployment scenarios, see the examples directory:
+#   - examples/nextjs/values.ci.yaml    - CI/CD optimized (zero dependencies)
+#   - examples/nextjs/values.test.yaml  - Local testing (minimal resources)
+#   - examples/nextjs/values.local.yaml - Development configuration
+#   - examples/nextjs/values.prod.yaml  - Enterprise production template
+#
+# Chart Documentation: https://github.com/5ergiu/helm-charts/tree/main/charts/nextjs
+# ============================================================================
 
 # Global settings
 global:

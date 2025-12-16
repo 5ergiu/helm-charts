@@ -1,0 +1,70 @@
+# ============================================================================
+# Local Test Values for Next.js Chart
+# ============================================================================
+# Optimized for local testing with Kind/K3d/Minikube
+# - Minimal resources for laptop/desktop
+# - No external dependencies
+# - No TLS (test with HTTP)
+# - Suitable for integration testing
+# ============================================================================
+
+image:
+  repository: ghcr.io/5ergiu/nextjs
+  tag: latest
+  pullPolicy: Always
+
+# Minimal replicas for local testing
+web:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 3000
+
+  pdb:
+    enabled: false
+
+# Ingress for local testing (no TLS)
+ingress:
+  enabled: false
+
+ingressRoute:
+  enabled: true
+  entryPoints:
+    - web  # HTTP only
+  middlewares: []
+  routes:
+    - match: "Host(`nextjs.local`)"
+      kind: Rule
+      priority: 10
+  tls: {}
+
+middleware:
+  enabled: false
+
+# Next.js configuration for local testing
+nextjs:
+  env:
+    NODE_ENV: "development"
+    # Add any development environment variables
+
+  secrets: {}
+
+# Tmpfs for testing
+tmpfsVolumes:
+  enabled: true
+
+# No persistence for testing
+persistence:
+  enabled: false
