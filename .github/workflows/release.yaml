@@ -100,12 +100,12 @@ jobs:
 
             # Generate changelog
             echo "📝 Generating changelog for $chart_name..."
-            git-cliff --verbose --bump --config cliff.toml --output "$chart/CHANGELOG.md" --include-path "$chart/*"
+            git-cliff --bump --config cliff.toml --output "$chart/CHANGELOG.md" --include-path "$chart/*"
 
             # Generate ArtifactHub annotations
             echo "📝 Generating ArtifactHub annotations for $chart_name..."
             git-cliff --config cliff-artifacthub.toml --output changes.json --include-path "$chart/*"
-            yq eval '.annotations."artifacthub.io/changes" += load("changes.json")' -i "$chart/Chart.yaml"
+            yq eval -i ".annotations.\"artifacthub.io/changes\" = load_str(\"changes.json\")" "$chart/Chart.yaml"
             rm -f changes.json
 
             # Bump chart version
