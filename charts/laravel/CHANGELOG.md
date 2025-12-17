@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. See [conven
 - fixed workflows ([4dc5827](https://github.com/5ergiu/helm-charts/commit/4dc5827c2546666e266df672138e7cfc51a2d755)) by @5ergiu
 ### 🔧 Chores
 
+- update chart artifacts ([39d173c](https://github.com/5ergiu/helm-charts/commit/39d173ca804298e58acf02e01de8ed949844df94)) by @github-actions[bot]
 - update chart artifacts ([2783026](https://github.com/5ergiu/helm-charts/commit/27830268b5235b10e222ad7b08e9c8182cf3fed6)) by @github-actions[bot]
 - ff ([3bc9315](https://github.com/5ergiu/helm-charts/commit/3bc93151faa1a3c6e2fc2b85cdbce29a465978ea)) by @5ergiu
 ## [0.1.0](https://github.com/5ergiu/helm-charts/compare/nextjs/v0.1.0..nextjs-0.1.0) - 2025-12-12
