@@ -51,7 +51,6 @@ worker:
   pdb:
     enabled: false
 
-# Laravel Horizon for advanced queue management (requires Redis)
 horizon:
   enabled: true
   replicaCount: 1

@@ -394,6 +394,14 @@ run_template_tests() {
         if [[ -f "$ci_values" ]]; then
             print_info "Using CI values: examples/${chart_name}/values.ci.yaml"
             test_values_args="-f $ci_values"
+
+            # Override secrets from environment variables if provided
+            if [[ -n "${POSTGRES_URL:-}" ]]; then
+                test_values_args+=" --set laravel.secrets.DATABASE_URL=${POSTGRES_URL}"
+            fi
+            if [[ -n "${REDIS_URL:-}" ]]; then
+                test_values_args+=" --set laravel.secrets.REDIS_URL=${REDIS_URL}"
+            fi
         fi
     else
         # Local environment: use values.test.yaml from examples
@@ -582,6 +590,14 @@ run_integration_tests() {
         if [[ -f "$ci_values" ]]; then
             print_info "Using CI values: examples/${chart_name}/values.ci.yaml"
             test_values_args="-f $ci_values"
+
+            # Override secrets from environment variables if provided
+            if [[ -n "${POSTGRES_URL:-}" ]]; then
+                test_values_args+=" --set laravel.secrets.DATABASE_URL=${POSTGRES_URL}"
+            fi
+            if [[ -n "${REDIS_URL:-}" ]]; then
+                test_values_args+=" --set laravel.secrets.REDIS_URL=${REDIS_URL}"
+            fi
         fi
     else
         # Local environment: use values.test.yaml from examples

@@ -55,6 +55,23 @@ worker:
   pdb:
     enabled: false
 
+horizon:
+  enabled: true
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+  pdb:
+    enabled: false
+
 scheduler:
   enabled: true
   resources:
@@ -97,14 +114,11 @@ laravel:
     LOG_CHANNEL: "stderr"
     LOG_LEVEL: "debug"
 
-    DB_CONNECTION: "sqlite"
-    DB_DATABASE: ":memory:"
-
     BROADCAST_DRIVER: "log"
-    CACHE_DRIVER: "array"
+    CACHE_DRIVER: "redis"
     FILESYSTEM_DISK: "local"
-    QUEUE_CONNECTION: "sync"
-    SESSION_DRIVER: "array"
+    QUEUE_CONNECTION: "redis"
+    SESSION_DRIVER: "redis"
 
     MAIL_MAILER: "log"
     MAIL_HOST: "localhost"
@@ -115,11 +129,8 @@ laravel:
   # Secrets will be provided by CI environment variables
   secrets:
     APP_KEY: "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-    DB_HOST: ""
-    DB_USERNAME: ""
-    DB_PASSWORD: ""
-    REDIS_HOST: ""
-    REDIS_PASSWORD: ""
+    DATABASE_URL: ""  # Will be set via POSTGRES_URL env var
+    REDIS_URL: ""     # Will be set via REDIS_URL env var
     AWS_ACCESS_KEY_ID: ""
     AWS_SECRET_ACCESS_KEY: ""
     MAIL_USERNAME: ""
