@@ -55,10 +55,6 @@ FROM oven/bun:1.3.4-alpine AS production
 
 WORKDIR /app
 
-# Create non-root user for running the application
-RUN groupadd -g 1001 nodejs && \
-    useradd -u 1001 -g nodejs --system --create-home nextjs
-
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -67,11 +63,11 @@ ENV NODE_ENV=production \
     HOSTNAME="0.0.0.0"
 
 COPY --from=nextjs-builder /app/public ./public
-COPY --from=nextjs-builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=nextjs-builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=nextjs-builder --chown=bun:bun /app/.next/standalone ./
+COPY --from=nextjs-builder --chown=bun:bun /app/.next/static ./.next/static
 
 # Switch to non-root user
-USER nextjs
+USER bun
 
 # Expose port
 EXPOSE 3000
