@@ -143,6 +143,11 @@ jobs:
           fetch-depth: 0
           ref: main
 
+      - name: 🔧 Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: 📦 Update chart dependencies
         run: |
           set -euo pipefail
