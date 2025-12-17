@@ -94,7 +94,7 @@ This image is specifically configured for production Kubernetes environments wit
 - Uses `serversideup/php:8.5-fpm-alpine` base image (not `fpm-nginx-alpine`)
 - PHP-FPM listens on port 9000 for FastCGI connections
 - Nginx runs as a separate sidecar container managed by the Helm chart
-- Nginx configuration stored in ConfigMap (see `../../charts/laravel/templates/nginx-configmap.yaml`)
+- Nginx configuration stored in ConfigMap (see `../../charts/laravel/templates/configmap.yaml`)
 
 **Minimal Entrypoint Scripts:**
 - The ServersideUp PHP image's default entrypoint scripts are disabled via `DISABLE_DEFAULT_CONFIG=true`
@@ -179,9 +179,10 @@ Key features:
 - 🏠 HTTP-only ingress (no TLS)
 - 📉 Minimal resources for laptop/desktop
 - 🐛 Debug logging enabled
-- 💾 SQLite with file-based drivers
-- 🎯 Suitable for Kind/K3d/Minikube
-- 🚫 No external dependencies
+- 💾 SQLite for database
+- 🚀 Redis for cache/sessions/queues (Upstash)
+- 🎯 Tests both basic queue worker and Laravel Horizon
+- ⚡ Suitable for Kind/K3d/Minikube
 
 ### 🛠️ Local Development Configuration ([values.local.yaml](values.local.yaml))
 
@@ -206,7 +207,8 @@ Key features:
 - 🚦 Rate limiting and security headers
 - 💾 Cached routes, views, and config
 - 🏭 Production-grade PHP-FPM settings
-- 🗄️ PostgreSQL/MySQL + Redis recommended
+- 🗄️ PostgreSQL/MySQL + Redis required
+- 🚀 Laravel Horizon enabled for queue management (basic worker disabled)
 
 ## 🔧 Environment Variables
 
@@ -230,7 +232,9 @@ The image supports configuration via environment variables. See the [ServersideU
 The main web server running PHP-FPM and Nginx, serving the Laravel application.
 
 ### 👷 Queue Workers
-Background job processing using Laravel Horizon for queue management and monitoring.
+Background job processing with support for both:
+- **Basic Queue Worker**: Simple `queue:work` command for lightweight setups
+- **Laravel Horizon**: Advanced queue management with dashboard and monitoring (requires Redis)
 
 ### ⏰ Scheduler
 Laravel's task scheduler running via Kubernetes CronJob (every minute).
@@ -286,7 +290,7 @@ This setup uses the **sidecar pattern** where nginx and PHP-FPM run as separate 
 
 The nginx configuration is **not included in this image**. Instead, it's managed by the Helm chart:
 
-- **Location**: `../../charts/laravel/templates/nginx-configmap.yaml`
+- **Location**: `../../charts/laravel/templates/configmap.yaml`
 - **Deployment**: Mounted as ConfigMap into the nginx sidecar container
 - **Benefits**: Can be updated via `helm upgrade` without rebuilding images
 

@@ -57,10 +57,10 @@ app:
   
   podSecurityContext:
     runAsNonRoot: true
-    # For local development, set to your host user IDs (run: id -u && id -g) to avoid permission issues
-    # For production, use a dedicated non-root user ID (e.g., 1000)
-    runAsUser: 1000 # Replace with: id -u
-    fsGroup: 1000   # Replace with: id -g
+    # For local development with hostPath volumes, set to your host user IDs (run: id -u && id -g) to avoid permission issues
+    # For production/testing, use 1000:1000 (oven/bun image's default 'bun' user)
+    runAsUser: 1000  # Bun user in oven/bun:alpine image
+    fsGroup: 1000    # Bun group in oven/bun:alpine image
     seccompProfile:
       type: RuntimeDefault
   
@@ -361,7 +361,7 @@ nextjs:
     NEXT_PUBLIC_ENABLE_ANALYTICS: "false"
 
   # Sensitive environment variables from Secret
-  # All secrets should be provided via secrets.local.yaml (gitignored) or external secrets
+  # All secrets should be provided via secrets.yaml (gitignored) or external secrets
   secrets:
     # Database credentials (connection string)
     DATABASE_URL: ""

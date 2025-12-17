@@ -99,17 +99,32 @@ tests:
             name: tmp
             mountPath: /tmp
 
-  - it: should run as non-root user
+  - it: should run as non-root user with default values
     asserts:
       - equal:
           path: spec.template.spec.securityContext.runAsNonRoot
           value: true
       - equal:
           path: spec.template.spec.securityContext.runAsUser
-          value: 1000
+          value: 82
       - equal:
           path: spec.template.spec.securityContext.fsGroup
-          value: 1000
+          value: 82
+
+  - it: should use custom user and group IDs when specified
+    set:
+      web.podSecurityContext.runAsUser: 501
+      web.podSecurityContext.fsGroup: 20
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 501
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 20
 
   - it: should use environment from configmap and secret
     asserts:

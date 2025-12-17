@@ -30,8 +30,8 @@ web:
   # Run: id -u && id -g
   podSecurityContext:
     runAsNonRoot: true
-    runAsUser: 1000  # TODO: Change to your user ID (id -u)
-    fsGroup: 1000    # TODO: Change to your group ID (id -g)
+    runAsUser: 82    # TODO: Change to your user ID (id -u) for hostPath volumes
+    fsGroup: 82      # TODO: Change to your group ID (id -g) for hostPath volumes
     seccompProfile:
       type: RuntimeDefault
 
@@ -74,8 +74,8 @@ worker:
 
   podSecurityContext:
     runAsNonRoot: true
-    runAsUser: 1000  # TODO: Change to match web.podSecurityContext.runAsUser
-    fsGroup: 1000    # TODO: Change to match web.podSecurityContext.fsGroup
+    runAsUser: 82    # TODO: Change to match web.podSecurityContext.runAsUser
+    fsGroup: 82      # TODO: Change to match web.podSecurityContext.fsGroup
     seccompProfile:
       type: RuntimeDefault
 
@@ -104,13 +104,13 @@ scheduler:
   enabled: true
   podSecurityContext:
     runAsNonRoot: true
-    runAsUser: 1000  # TODO: Change to match web.podSecurityContext.runAsUser
+    runAsUser: 82    # TODO: Change to match web.podSecurityContext.runAsUser
 
 migration:
   enabled: true
   podSecurityContext:
     runAsNonRoot: true
-    runAsUser: 1000  # TODO: Change to match web.podSecurityContext.runAsUser
+    runAsUser: 82    # TODO: Change to match web.podSecurityContext.runAsUser
 
 # Ingress for local development (HTTP only)
 ingress:
@@ -181,7 +181,7 @@ php:
 # Bun sidecar for Vite HMR
 sidecars:
   - name: vite
-    image: oven/bun:latest
+    image: oven/bun:1.3.4-alpine
     imagePullPolicy: IfNotPresent
     command: ["bun", "run", "dev", "--host", "0.0.0.0"]
     workingDir: /var/www/html
@@ -199,7 +199,7 @@ sidecars:
           - ALL
       readOnlyRootFilesystem: true
       runAsNonRoot: true
-      runAsUser: 1000  # TODO: Change to match web.podSecurityContext.runAsUser
+      runAsUser: 82    # TODO: Change to match web.podSecurityContext.runAsUser
     resources:
       limits:
         cpu: 500m

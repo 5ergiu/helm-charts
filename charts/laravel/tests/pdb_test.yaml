@@ -1,0 +1,106 @@
+suite: test pdb
+templates:
+  - pdb.yaml
+tests:
+  - it: should not create PDB when all disabled
+    set:
+      web.pdb.enabled: false
+      worker.pdb.enabled: false
+      horizon.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should create PDB for web when enabled
+    set:
+      web.pdb.enabled: true
+      worker.pdb.enabled: false
+      horizon.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: PodDisruptionBudget
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-laravel-web
+      - equal:
+          path: spec.minAvailable
+          value: 1
+
+  - it: should create PDB for both web and worker
+    set:
+      web.pdb.enabled: true
+      worker.pdb.enabled: true
+      horizon.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 2
+
+  - it: should create PDB for horizon when enabled
+    set:
+      web.pdb.enabled: false
+      worker.pdb.enabled: false
+      horizon.enabled: true
+      horizon.pdb.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: PodDisruptionBudget
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-laravel-horizon
+      - equal:
+          path: spec.minAvailable
+          value: 1
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: horizon
+
+  - it: should create PDB for all components when enabled
+    set:
+      web.pdb.enabled: true
+      worker.pdb.enabled: true
+      horizon.enabled: true
+      horizon.pdb.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 3
+
+  - it: should set custom minAvailable for web
+    set:
+      web.pdb.enabled: true
+      web.pdb.minAvailable: 2
+      worker.pdb.enabled: false
+      horizon.enabled: false
+    asserts:
+      - equal:
+          path: spec.minAvailable
+          value: 2
+
+  - it: should set maxUnavailable for worker
+    set:
+      web.pdb.enabled: false
+      worker.pdb.enabled: true
+      worker.pdb.maxUnavailable: 1
+      worker.pdb.minAvailable: null
+      horizon.enabled: false
+    asserts:
+      - equal:
+          path: spec.maxUnavailable
+          value: 1
+      - notExists:
+          path: spec.minAvailable
+
+  - it: should configure horizon PDB with custom minAvailable
+    set:
+      web.pdb.enabled: false
+      worker.pdb.enabled: false
+      horizon.enabled: true
+      horizon.pdb.enabled: true
+      horizon.pdb.minAvailable: 2
+    asserts:
+      - equal:
+          path: spec.minAvailable
+          value: 2

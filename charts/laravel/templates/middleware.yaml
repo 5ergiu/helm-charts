@@ -307,4 +307,31 @@ spec:
         {{- end }}
       {{- end }}
 {{- end }}
+---
+# Buffering middleware (for request body size limits)
+{{- if .Values.middleware.buffering.enabled }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "laravel.fullname" . }}-buffering
+  labels:
+    {{- include "laravel.labels" . | nindent 4 }}
+spec:
+  buffering:
+    {{- if .Values.middleware.buffering.maxRequestBodyBytes }}
+    maxRequestBodyBytes: {{ .Values.middleware.buffering.maxRequestBodyBytes }}
+    {{- end }}
+    {{- if .Values.middleware.buffering.memRequestBodyBytes }}
+    memRequestBodyBytes: {{ .Values.middleware.buffering.memRequestBodyBytes }}
+    {{- end }}
+    {{- if .Values.middleware.buffering.maxResponseBodyBytes }}
+    maxResponseBodyBytes: {{ .Values.middleware.buffering.maxResponseBodyBytes }}
+    {{- end }}
+    {{- if .Values.middleware.buffering.memResponseBodyBytes }}
+    memResponseBodyBytes: {{ .Values.middleware.buffering.memResponseBodyBytes }}
+    {{- end }}
+    {{- if .Values.middleware.buffering.retryExpression }}
+    retryExpression: {{ .Values.middleware.buffering.retryExpression }}
+    {{- end }}
+{{- end }}
 {{- end }}

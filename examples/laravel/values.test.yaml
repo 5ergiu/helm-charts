@@ -51,6 +51,24 @@ worker:
   pdb:
     enabled: false
 
+# Laravel Horizon for advanced queue management (requires Redis)
+horizon:
+  enabled: true
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  pdb:
+    enabled: false
+
 scheduler:
   enabled: true
 
@@ -90,11 +108,13 @@ laravel:
     DB_DATABASE: ":memory:"
 
     BROADCAST_DRIVER: "log"
-    CACHE_DRIVER: "file"
+    CACHE_DRIVER: "redis"
     FILESYSTEM_DISK: "local"
-    QUEUE_CONNECTION: "sync"  # Synchronous for testing
-    SESSION_DRIVER: "file"
+    QUEUE_CONNECTION: "redis"  # Redis queue for testing
+    SESSION_DRIVER: "redis"
     SESSION_LIFETIME: "120"
+
+    REDIS_CLIENT: "phpredis"
 
     MAIL_MAILER: "log"  # Log emails instead of sending
     MAIL_FROM_ADDRESS: "test@laravel.local"
@@ -103,7 +123,7 @@ laravel:
   # Secrets should be provided via secrets.yaml
   secrets:
     APP_KEY: ""  # Will be loaded from secrets.yaml
-    # Database/Redis not needed for SQLite + file drivers
+    REDIS_URL: ""  # Will be loaded from secrets.yaml
     AWS_ACCESS_KEY_ID: ""
     AWS_SECRET_ACCESS_KEY: ""
     PUSHER_APP_ID: ""

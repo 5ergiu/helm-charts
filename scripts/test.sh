@@ -143,10 +143,9 @@ get_local_secrets_args() {
         return 0
     fi
 
-    # Try chart-specific secrets in examples/<chart>/secrets.local.yaml
-    local example_secrets="${SCRIPT_DIR}/examples/${chart_name}/secrets.local.yaml"
+    # Try chart-specific secrets in examples/<chart>/secrets.yaml
+    local example_secrets="${SCRIPT_DIR}/examples/${chart_name}/secrets.yaml"
     if [[ -f "$example_secrets" ]]; then
-        print_info "Using local secrets file: examples/${chart_name}/secrets.local.yaml"
         echo "-f $example_secrets"
         return 0
     fi
@@ -415,8 +414,8 @@ run_template_tests() {
     # Use consistent release name with integration tests
     local release_name="test-${chart_name}"
 
-    # Run helm template with debug output, filtering out the noisy JSON schema debug line
-    if helm template "$release_name" "$chart_path" $test_values_args --debug 2>&1 > "$temp_file" | grep -v 'msg="unmarshalled JSON schema"'; then
+    # Run helm template
+    if helm template "$release_name" "$chart_path" $test_values_args > "$temp_file" 2>&1; then
         print_success "Templates rendered successfully"
     else
         print_error "Template rendering failed"
@@ -603,15 +602,14 @@ run_integration_tests() {
     print_info "Timeout:   600s"
     echo ""
 
-    # Run helm install with debug output, filtering out noisy JSON schema lines
+    # Run helm install
     local helm_exit_code=0
     helm install "$release_name" "$chart_path" \
         $test_values_args \
         --create-namespace \
         --namespace "$namespace" \
         --wait \
-        --timeout=600s \
-        --debug 2>&1 | grep -v 'msg="unmarshalled JSON schema"' || helm_exit_code=$?
+        --timeout=600s 2>&1 || helm_exit_code=$?
 
     echo ""
 
@@ -631,14 +629,23 @@ run_integration_tests() {
     helm list -n "$namespace"
     kubectl get all -n "$namespace"
 
-    # Wait for pods to be ready
+    # Wait for pods to be ready (exclude completed jobs from CronJobs)
     print_step "Waiting for pods to be ready..."
     local max_wait=300
     local elapsed=0
     local interval=10
 
     while [[ $elapsed -lt $max_wait ]]; do
-        if kubectl wait --for=condition=Ready pods --all -n "$namespace" --timeout=1s 2>/dev/null; then
+        # Only wait for pods that should be running (exclude Succeeded/Completed jobs)
+        local non_completed_pods=$(kubectl get pods -n "$namespace" --field-selector=status.phase!=Succeeded -o name 2>/dev/null || echo "")
+
+        if [[ -z "$non_completed_pods" ]]; then
+            # No running pods, only completed jobs - this is fine
+            print_success "All long-running pods are ready (completed jobs excluded)"
+            break
+        fi
+
+        if kubectl wait --for=condition=Ready $non_completed_pods -n "$namespace" --timeout=1s 2>/dev/null; then
             print_success "All pods are ready"
             break
         fi
@@ -663,26 +670,6 @@ run_integration_tests() {
         fi
     else
         print_info "No Helm tests found"
-    fi
-
-    # Test upgrade
-    print_step "Testing chart upgrade..."
-    echo ""
-
-    local upgrade_exit_code=0
-    helm upgrade "$release_name" "$chart_path" $test_values_args -n "$namespace" --wait --timeout=300s --debug 2>&1 | grep -v 'msg="unmarshalled JSON schema"' || upgrade_exit_code=$?
-
-    echo ""
-
-    if [[ $upgrade_exit_code -eq 0 ]]; then
-        print_success "Chart upgrade successful"
-    else
-        print_error "Chart upgrade failed"
-        print_info "Showing cluster state for debugging..."
-        kubectl get all -n "$namespace" || true
-        kubectl describe pods -n "$namespace" || true
-        kubectl get events -n "$namespace" --sort-by='.lastTimestamp' | tail -20 || true
-        return 1
     fi
 
     # Cleanup

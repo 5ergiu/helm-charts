@@ -35,14 +35,25 @@ tests:
           path: spec.schedule
           value: "*/5 * * * *"
 
-  - it: should have security context
+  - it: should have security context with default values
     asserts:
       - equal:
           path: spec.jobTemplate.spec.template.spec.securityContext.runAsNonRoot
           value: true
       - equal:
           path: spec.jobTemplate.spec.template.spec.securityContext.runAsUser
-          value: 1000
+          value: 82
+
+  - it: should use custom user ID when specified
+    set:
+      scheduler.podSecurityContext.runAsUser: 501
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.securityContext.runAsUser
+          value: 501
 
   - it: should mount storage when enabled
     set:

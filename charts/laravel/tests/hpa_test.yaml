@@ -2,10 +2,11 @@ suite: test hpa
 templates:
   - hpa.yaml
 tests:
-  - it: should not create HPA when disabled
+  - it: should not create HPA when all disabled
     set:
       web.autoscaling.enabled: false
       worker.autoscaling.enabled: false
+      horizon.enabled: false
     asserts:
       - hasDocuments:
           count: 0
@@ -85,3 +86,73 @@ tests:
               target:
                 type: Utilization
                 averageUtilization: 80
+
+  - it: should create HPA for horizon when enabled
+    set:
+      web.autoscaling.enabled: false
+      worker.autoscaling.enabled: false
+      horizon.enabled: true
+      horizon.autoscaling.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: HorizontalPodAutoscaler
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-laravel-horizon
+      - equal:
+          path: spec.scaleTargetRef.name
+          value: RELEASE-NAME-laravel-horizon
+      - equal:
+          path: spec.minReplicas
+          value: 2
+      - equal:
+          path: spec.maxReplicas
+          value: 10
+
+  - it: should create HPA for all components when enabled
+    set:
+      web.autoscaling.enabled: true
+      worker.autoscaling.enabled: true
+      horizon.enabled: true
+      horizon.autoscaling.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 3
+
+  - it: should configure horizon HPA with custom settings
+    set:
+      web.autoscaling.enabled: false
+      worker.autoscaling.enabled: false
+      horizon.enabled: true
+      horizon.autoscaling.enabled: true
+      horizon.autoscaling.minReplicas: 3
+      horizon.autoscaling.maxReplicas: 15
+      horizon.autoscaling.targetCPUUtilizationPercentage: 75
+      horizon.autoscaling.targetMemoryUtilizationPercentage: 85
+    asserts:
+      - equal:
+          path: spec.minReplicas
+          value: 3
+      - equal:
+          path: spec.maxReplicas
+          value: 15
+      - contains:
+          path: spec.metrics
+          content:
+            type: Resource
+            resource:
+              name: cpu
+              target:
+                type: Utilization
+                averageUtilization: 75
+      - contains:
+          path: spec.metrics
+          content:
+            type: Resource
+            resource:
+              name: memory
+              target:
+                type: Utilization
+                averageUtilization: 85

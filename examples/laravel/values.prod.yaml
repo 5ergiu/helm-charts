@@ -50,13 +50,22 @@ web:
     enabled: true
     minAvailable: 2
 
-# Queue workers - scalable with Laravel Horizon
+# Basic queue workers (can run alongside Horizon for specialized queues)
 worker:
+  enabled: false  # Disabled in favor of Horizon for production
   replicaCount: 3
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 15
+  pdb:
+    enabled: true
+    minAvailable: 2
 
-  # Override to use Laravel Horizon for production (requires Redis)
-  command: ["php", "artisan", "horizon"]
-  args: []
+# Laravel Horizon for production queue management (requires Redis)
+horizon:
+  enabled: true
+  replicaCount: 3
 
   resources:
     limits:
@@ -178,6 +187,10 @@ laravel:
     DB_HOST: ""  # TODO: Your production database host
     DB_USERNAME: ""  # TODO: Your database username
     DB_PASSWORD: ""  # TODO: Your database password
+    # Redis Configuration (choose one approach)
+    # Option 1: REDIS_URL for managed services like Upstash (includes auth and TLS)
+    REDIS_URL: ""  # TODO: e.g., rediss://default:password@host:6379
+    # Option 2: Individual Redis settings (if not using REDIS_URL)
     REDIS_HOST: ""  # TODO: Your Redis host (managed service recommended)
     REDIS_PASSWORD: ""  # TODO: Your Redis password
     AWS_ACCESS_KEY_ID: ""  # TODO: If using S3

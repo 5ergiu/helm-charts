@@ -40,14 +40,14 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
-        - name: web
+        - name: php-fpm
           securityContext:
             {{- toYaml .Values.web.securityContext | nindent 12 }}
           image: {{ include "laravel.image" . }}
           imagePullPolicy: {{ include "laravel.imagePullPolicy" . }}
           ports:
-            - name: http
-              containerPort: {{ .Values.web.service.targetPort }}
+            - name: php-fpm
+              containerPort: 9000
               protocol: TCP
           envFrom:
             {{- include "laravel.envConfigMap" . | nindent 12 }}
@@ -77,10 +77,41 @@ spec:
           volumeMounts:
             {{- include "laravel.volumeMounts" . | nindent 12 }}
           {{- end }}
+        {{- if .Values.nginx.enabled }}
+        - name: nginx
+          securityContext:
+            {{- toYaml .Values.nginx.securityContext | nindent 12 }}
+          image: {{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.tag }}
+          imagePullPolicy: {{ .Values.nginx.image.pullPolicy }}
+          command: ["nginx", "-g", "daemon off;"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.nginx.port }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.nginx.resources | nindent 12 }}
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+            - name: nginx-logs
+              mountPath: /var/log/nginx
+            {{- if or .Values.tmpfsVolumes.enabled .Values.persistence.enabled .Values.extraVolumeMounts }}
+            {{- include "laravel.volumeMounts" . | nindent 12 }}
+            {{- end }}
+        {{- end }}
         {{- with .Values.sidecars }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
       volumes:
+        {{- if .Values.nginx.enabled }}
+        - name: nginx-config
+          configMap:
+            name: {{ include "laravel.fullname" . }}-nginx
+        - name: nginx-logs
+          emptyDir: {}
+        {{- end }}
         {{- if or .Values.tmpfsVolumes.enabled .Values.persistence.enabled .Values.extraVolumes }}
         {{- include "laravel.volumes" . | nindent 8 }}
         {{- end }}

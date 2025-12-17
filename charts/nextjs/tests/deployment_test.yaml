@@ -97,7 +97,7 @@ tests:
           path: spec.template.spec.containers[0].ports[0].containerPort
           value: 3000
 
-  - it: should run as non-root
+  - it: should run as non-root with default values
     asserts:
       - equal:
           path: spec.template.spec.securityContext.runAsNonRoot
@@ -105,6 +105,24 @@ tests:
       - equal:
           path: spec.template.spec.securityContext.runAsUser
           value: 1000
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 1000
+
+  - it: should use custom user and group IDs when specified
+    set:
+      app.podSecurityContext.runAsUser: 501
+      app.podSecurityContext.fsGroup: 20
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 501
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 20
 
   - it: should use read-only root filesystem
     asserts:

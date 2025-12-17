@@ -210,14 +210,14 @@ echo "127.0.0.1 laravel.local" | sudo tee -a /etc/hosts
 
 # 3. Copy and configure secrets
 cd examples/laravel
-cp secrets.local.yaml.example secrets.local.yaml
+cp secrets.yaml.example secrets.yaml
 # Generate APP_KEY: docker run --rm ghcr.io/5ergiu/laravel:latest php artisan key:generate --show
-# Edit secrets.local.yaml with your APP_KEY
+# Edit secrets.yaml with your APP_KEY
 
 # 4. Deploy with local development values (includes Bun sidecar for Vite HMR)
 helm install myapp-dev ../../charts/laravel \
   -f values.local.yaml \
-  -f secrets.local.yaml \
+  -f secrets.yaml \
   -n development \
   --create-namespace
 
@@ -341,7 +341,8 @@ kubectl logs -l app.kubernetes.io/name=laravel -n development --tail=100
 ```
 
 **Permission issues with volumes:**
-- Ensure `runAsUser` and `fsGroup` in values.dev.yaml match your host user (run `id -u` and `id -g`)
+- Default values use UID 82:82 (Alpine's www-data)
+- For hostPath volumes, override with: `--set web.podSecurityContext.runAsUser=$(id -u) --set web.podSecurityContext.fsGroup=$(id -g)`
 
 **Can't access laravel.local:**
 - Verify /etc/hosts entry: `cat /etc/hosts | grep laravel.local`
@@ -367,51 +368,112 @@ kubectl logs -l app.kubernetes.io/name=laravel -n development --tail=100
 - **MySQL/PostgreSQL** database server
 - **Redis** server (for cache, sessions, and queues)
 
+## 🏗️ Architecture
+
+This chart uses a **sidecar pattern** with separate nginx and PHP-FPM containers for optimal security and flexibility:
+
+### Container Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                         Pod                              │
+│                                                          │
+│  ┌──────────────┐            ┌──────────────────────┐  │
+│  │    Nginx     │  FastCGI   │      PHP-FPM         │  │
+│  │  (Sidecar)   │ ─────────> │  (Laravel App)       │  │
+│  │   Port 8080  │            │     Port 9000        │  │
+│  └──────────────┘            └──────────────────────┘  │
+│         ▲                                                │
+│         │                                                │
+│    HTTP Request                                          │
+└─────────────────────────────────────────────────────────┘
+         ▲
+         │
+    ┌────┴────┐
+    │ Traefik │
+    └─────────┘
+```
+
+**Benefits of Sidecar Pattern:**
+- ✅ **Separation of Concerns**: nginx and PHP-FPM run independently
+- ✅ **Better Resource Management**: Each container has dedicated resources
+- ✅ **Flexibility**: Easy to swap nginx versions or configuration without rebuilding app image
+- ✅ **Standard Kubernetes Pattern**: Follows cloud-native best practices
+- ✅ **Security**: Both containers maintain read-only root filesystems
+
+### Request Flow
+
+1. **Traefik** → Routes to Service port 80
+2. **Service** → Forwards to nginx sidecar on port 8080
+3. **Nginx sidecar** → Acts as reverse proxy, forwards PHP requests via FastCGI to localhost:9000
+4. **PHP-FPM container** → Processes PHP requests and serves the Laravel application
+
+### Nginx Sidecar Configuration
+
+The nginx sidecar is configured via a ConfigMap that's automatically generated from your values:
+
+```yaml
+nginx:
+  enabled: true
+  image:
+    repository: nginx
+    tag: 1.27-alpine
+    pullPolicy: IfNotPresent
+
+  port: 8080
+  # Note: clientMaxBodySize should match Traefik's buffering.maxRequestBodyBytes
+  # Traefik enforces the limit, nginx just needs to not reject valid requests
+  clientMaxBodySize: 100M
+  keepaliveTimeout: 65
+  fastcgiReadTimeout: 120s
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+```
+
+**Important:** Request body size limits are enforced by Traefik's buffering middleware, but nginx's `clientMaxBodySize` must be set to match or exceed Traefik's limit. Otherwise, nginx will reject requests with its default 1MB limit before they reach PHP-FPM.
+
 ## 🔒 Security & Read-Only Filesystem
 
-This chart is designed for **maximum security** with `readOnlyRootFilesystem: true` enabled by default. This requires specific Docker image configuration:
+This chart is designed for **maximum security** with `readOnlyRootFilesystem: true` enabled by default for both containers:
 
 ### Image Requirements
 
-Your Laravel Docker image must be compatible with read-only filesystems. If using the [ServersideUp PHP](https://serversideup.net/open-source/docker-php/) base images, you need to:
+Your Laravel Docker image should use PHP-FPM only (no built-in web server):
 
-**1. Provide a Static Nginx Configuration:**
-- The default ServersideUp image uses `.template` files processed at runtime with `envsubst`
-- Template processing requires write access to `/etc/nginx/`, incompatible with read-only filesystems
-- Solution: Copy a pre-configured `nginx.conf` during image build (see example below)
-
-**2. Disable Default Entrypoint Scripts:**
+**Use PHP-FPM Base Images:**
 ```dockerfile
-# In your Dockerfile
-ENV DISABLE_DEFAULT_CONFIG=true
+FROM serversideup/php:8.5-fpm-alpine AS production
+# Your application code here
 ```
 
-**3. Configure Nginx for Read-Only Filesystem:**
-```nginx
-# In your nginx.conf
-client_body_temp_path /tmp/nginx 1 2;
-proxy_temp_path /tmp/nginx-proxy;
-fastcgi_temp_path /tmp/nginx-fastcgi;
-uwsgi_temp_path /tmp/nginx-uwsgi;
-scgi_temp_path /tmp/nginx-scgi;
-```
+**The chart handles nginx separately** via the sidecar pattern, so your image only needs PHP-FPM.
 
 ### Reference Implementation
 
 See the complete working example in [`examples/laravel/`](../../examples/laravel/):
-- [`Dockerfile`](../../examples/laravel/Dockerfile) - Shows image build configuration
-- [`nginx/nginx.conf`](../../examples/laravel/nginx/nginx.conf) - Static nginx config for read-only filesystem
+- [`Dockerfile`](../../examples/laravel/Dockerfile) - PHP-FPM only image configuration
+- [`templates/configmap.yaml`](templates/configmap.yaml) - Nginx configuration template for the sidecar
 - [`entrypoint.d/`](../../examples/laravel/entrypoint.d/) - Custom minimal entrypoint scripts
 - [`README.md`](../../examples/laravel/README.md) - Full technical details and explanation
 
 ### Alternative: Disable Read-Only Filesystem
 
-If you cannot modify your image, you can disable the read-only filesystem constraint:
+If you need to disable the read-only filesystem constraint:
 
 ```yaml
 web:
   securityContext:
     readOnlyRootFilesystem: false  # Not recommended for production
+
+nginx:
+  securityContext:
+    readOnlyRootFilesystem: false
 
 worker:
   securityContext:
@@ -464,14 +526,14 @@ web:
   livenessProbe:
     enabled: true
     httpGet:
-      path: /up
+      path: /healthcheck  # Nginx proxies to PHP-FPM
       port: 8080
     initialDelaySeconds: 30
-  
+
   readinessProbe:
     enabled: true
     httpGet:
-      path: /up
+      path: /healthcheck  # Nginx proxies to PHP-FPM
       port: 8080
     initialDelaySeconds: 10
 ```
@@ -503,28 +565,75 @@ worker:
 
 ### Queue Workers Configuration
 
+The chart supports both basic queue workers and Laravel Horizon. You can run both simultaneously or choose one.
+
+#### Option 1: Laravel Horizon (Recommended for Production)
+
+Horizon provides a beautiful dashboard and advanced queue management features. Requires Redis.
+
+```yaml
+horizon:
+  enabled: true
+  replicaCount: 2
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+
+# Optionally disable basic worker if using only Horizon
+worker:
+  enabled: false
+```
+
+#### Option 2: Basic Queue Worker
+
+Use the basic `queue:work` command for simpler setups or when Redis is not available.
+
 ```yaml
 worker:
   enabled: true
   replicaCount: 2
-  
-  # Laravel Horizon (recommended)
-  command: ["php", "artisan", "horizon"]
-  
-  # Alternative: Basic queue worker
-  # command: ["php", "artisan", "queue:work"]
-  # args:
-  #   - "--verbose"
-  #   - "--tries=3"
-  #   - "--max-time=3600"
-  
+  command: ["php", "artisan", "queue:work"]
+  args:
+    - "--verbose"
+    - "--tries=3"
+    - "--max-time=3600"
+
   resources:
     limits:
-      cpu: 1000m
+      cpu: 500m
       memory: 512Mi
     requests:
       cpu: 100m
       memory: 256Mi
+```
+
+#### Running Both Worker Types
+
+You can run both Horizon and basic workers simultaneously for specialized queue configurations:
+
+```yaml
+# Horizon for high-priority queues
+horizon:
+  enabled: true
+  replicaCount: 3
+
+# Basic workers for low-priority or specific queues
+worker:
+  enabled: true
+  replicaCount: 1
+  command: ["php", "artisan", "queue:work"]
+  args:
+    - "--queue=low-priority"
 ```
 
 ### Scheduler (Laravel Cron)
@@ -760,12 +869,25 @@ middleware:
       - headers
       - ratelimit
       - compress
+
+  # Buffering - Request/response body size limits
+  buffering:
+    enabled: true
+    # Maximum request body size (100MB default)
+    maxRequestBodyBytes: 104857600  # 100MB in bytes
+    # Memory buffer for request body (1MB default, rest goes to disk)
+    memRequestBodyBytes: 1048576    # 1MB in bytes
+    # Maximum response body size (optional)
+    # maxResponseBodyBytes: 0  # 0 = unlimited
+    # Memory buffer for response body (optional)
+    # memResponseBodyBytes: 1048576
 ```
 
 **Available Middlewares:**
 - ✅ **Rate Limiting** - Protect against DDoS and abuse
 - ✅ **Security Headers** - HSTS, CSP, XSS protection, CORS
 - ✅ **Compression** - Gzip compression for better performance
+- ✅ **Buffering** - Request/response body size limits
 - ✅ **Redirect Scheme** - HTTP to HTTPS redirection
 - ✅ **Strip Prefix** - Path manipulation for API versioning
 - ✅ **Retry** - Automatic retry on transient failures
@@ -816,8 +938,6 @@ php:
   env:
     APP_BASE_DIR: "/var/www/html"
     HEALTHCHECK_PATH: "/healthcheck"
-    LOG_OUTPUT_LEVEL: "warn"
-    SHOW_WELCOME_MESSAGE: "false"
     PHP_DATE_TIMEZONE: "UTC"
     PHP_DISPLAY_ERRORS: "Off"
     PHP_DISPLAY_STARTUP_ERRORS: "Off"
@@ -929,21 +1049,34 @@ persistence:
 
 ### Security Context
 
+The chart uses **UID 82 and GID 82** by default (Alpine's `www-data` user), which matches the serversideup/php Docker images:
+
 ```yaml
 web:
   podSecurityContext:
     runAsNonRoot: true
-    runAsUser: 1000  # For local dev, set to your host UID (run: id -u)
-    fsGroup: 1000    # For local dev, set to your host GID (run: id -g)
+    runAsUser: 82    # Alpine www-data user
+    fsGroup: 82      # Alpine www-data group
     seccompProfile:
       type: RuntimeDefault
-  
+
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
       - ALL
     readOnlyRootFilesystem: true
+```
+
+**For local development with hostPath volumes**, you need to match your host user:
+
+```bash
+helm install my-app ./charts/laravel \
+  -f examples/laravel/values.local.yaml \
+  --set web.podSecurityContext.runAsUser=$(id -u) \
+  --set web.podSecurityContext.fsGroup=$(id -g) \
+  --set worker.podSecurityContext.runAsUser=$(id -u) \
+  --set worker.podSecurityContext.fsGroup=$(id -g)
 ```
 
 ### Init Containers (Cache Warming)
@@ -985,17 +1118,17 @@ The chart uses `ci/values.test.yaml` for testing, grabbing secrets from the loca
 
 1. Copy the example file:
    ```bash
-   cp charts/laravel/ci/secrets.local.yaml.example charts/laravel/ci/secrets.local.yaml
+   cp charts/laravel/ci/secrets.yaml.example charts/laravel/ci/secrets.yaml
    ```
 
-2. Add your real credentials to `secrets.local.yaml` (this file is gitignored):
+2. Add your real credentials to `secrets.yaml` (this file is gitignored):
    ```yaml
    laravel:
      secrets:
        REDIS_URL: "rediss://default:your-actual-password@redis.example.com:6379"
    ```
 
-3. The test script automatically loads both `values.test.yaml` and `secrets.local.yaml`
+3. The test script automatically loads both `values.test.yaml` and `secrets.yaml`
 
 ### Testing Your Deployment
 
@@ -1196,7 +1329,7 @@ kubectl exec -it $POD -n production -- redis-cli -h redis ping
 kubectl exec -n production -it <pod-name> -- bash
 
 # Test health endpoint locally
-curl http://localhost:8080/up
+curl http://localhost:8080/healthcheck
 
 # Verify environment
 env | grep APP_
@@ -1271,7 +1404,12 @@ kubectl exec -it $POD -n production -- php artisan migrate:status
 
 ### Laravel Horizon (Queue Management)
 
+These commands should be run against Horizon pods when using the Horizon deployment:
+
 ```bash
+# Get a Horizon pod
+POD=$(kubectl get pods -n production -l app.kubernetes.io/component=horizon -o jsonpath='{.items[0].metadata.name}')
+
 # Check Horizon status
 kubectl exec -it $POD -n production -- php artisan horizon:status
 
@@ -1289,6 +1427,9 @@ kubectl exec -it $POD -n production -- php artisan queue:retry all
 
 # Clear failed jobs
 kubectl exec -it $POD -n production -- php artisan horizon:clear
+
+# View Horizon logs
+kubectl logs -n production -l app.kubernetes.io/component=horizon -f
 ```
 
 ### Cache Management

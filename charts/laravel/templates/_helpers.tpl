@@ -97,6 +97,22 @@ app.kubernetes.io/component: scheduler
 {{- end }}
 
 {{/*
+Horizon component labels
+*/}}
+{{- define "laravel.horizon.labels" -}}
+{{ include "laravel.labels" . }}
+app.kubernetes.io/component: horizon
+{{- end }}
+
+{{/*
+Horizon selector labels
+*/}}
+{{- define "laravel.horizon.selectorLabels" -}}
+{{ include "laravel.selectorLabels" . }}
+app.kubernetes.io/component: horizon
+{{- end }}
+
+{{/*
 Create the name of the service account to use
 */}}
 {{- define "laravel.serviceAccountName" -}}

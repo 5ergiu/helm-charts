@@ -37,6 +37,38 @@ serviceAccount:
   annotations: {}
   name: ""
 
+# Nginx sidecar configuration
+nginx:
+  enabled: true
+  image:
+    repository: nginx
+    tag: 1.29.4-alpine
+    pullPolicy: IfNotPresent
+
+  port: 8080
+
+  # Nginx configuration
+  # Note: clientMaxBodySize should match Traefik's buffering.maxRequestBodyBytes
+  # Traefik enforces the limit, nginx just needs to not reject valid requests
+  clientMaxBodySize: 100M
+  keepaliveTimeout: 65
+  fastcgiReadTimeout: 120s
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
 # Web application configuration
 web:
   enabled: true
@@ -56,10 +88,10 @@ web:
   
   podSecurityContext:
     runAsNonRoot: true
-    # For local development, set to your host user IDs (run: id -u && id -g) to avoid permission issues
-    # For production, use a dedicated non-root user ID (e.g., 1000)
-    runAsUser: 1000 # Replace with: id -u
-    fsGroup: 1000   # Replace with: id -g
+    # For local development with hostPath volumes, set to your host user IDs (run: id -u && id -g) to avoid permission issues
+    # For production/testing, use 82:82 (Alpine's www-data) or your image's default non-root user
+    runAsUser: 82  # Alpine www-data user (change to match your image)
+    fsGroup: 82    # Alpine www-data group (change to match your image)
     seccompProfile:
       type: RuntimeDefault
   
@@ -87,29 +119,29 @@ web:
   livenessProbe:
     enabled: true
     httpGet:
-      path: /up
+      path: /healthcheck
       port: 8080
     initialDelaySeconds: 30
     periodSeconds: 10
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-  
+
   readinessProbe:
     enabled: true
     httpGet:
-      path: /up
+      path: /healthcheck
       port: 8080
     initialDelaySeconds: 10
     periodSeconds: 5
     timeoutSeconds: 3
     successThreshold: 1
     failureThreshold: 3
-  
+
   startupProbe:
     enabled: true
     httpGet:
-      path: /up
+      path: /healthcheck
       port: 8080
     initialDelaySeconds: 0
     periodSeconds: 5
@@ -182,10 +214,10 @@ worker:
   
   podSecurityContext:
     runAsNonRoot: true
-    # For local development, set to your host user IDs (run: id -u && id -g) to avoid permission issues
-    # For production, use a dedicated non-root user ID (e.g., 1000)
-    runAsUser: 1000 # Replace with: id -u
-    fsGroup: 1000   # Replace with: id -g
+    # For local development with hostPath volumes, set to your host user IDs (run: id -u && id -g) to avoid permission issues
+    # For production/testing, use 82:82 (Alpine's www-data) or your image's default non-root user
+    runAsUser: 82  # Alpine www-data user (change to match your image)
+    fsGroup: 82    # Alpine www-data group (change to match your image)
     seccompProfile:
       type: RuntimeDefault
   
@@ -257,6 +289,109 @@ worker:
               - worker
           topologyKey: kubernetes.io/hostname
 
+# Laravel Horizon queue worker (requires Redis)
+# Horizon provides a dashboard and advanced queue management features
+# Enable this instead of (or alongside) the basic queue worker for production
+horizon:
+  enabled: false
+  replicaCount: 2
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+  podAnnotations: {}
+  podLabels: {}
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 82  # Alpine www-data user (change to match your image)
+    fsGroup: 82    # Alpine www-data group (change to match your image)
+    seccompProfile:
+      type: RuntimeDefault
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+
+  # Horizon command - manages all queues configured in config/horizon.php
+  command: ["php", "artisan", "horizon"]
+  args: []
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+
+  # Horizon-specific health check
+  # Uses the horizon:status command to verify Horizon is running
+  livenessProbe:
+    enabled: true
+    exec:
+      command: ["healthcheck-horizon"]
+    initialDelaySeconds: 30
+    periodSeconds: 60
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+
+  # Autoscaling configuration for Horizon workers
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+    behavior:
+      scaleDown:
+        stabilizationWindowSeconds: 300
+        policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+      scaleUp:
+        stabilizationWindowSeconds: 0
+        policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 2
+          periodSeconds: 15
+        selectPolicy: Max
+
+  # Pod Disruption Budget for Horizon
+  pdb:
+    enabled: true
+    minAvailable: 1
+
+  nodeSelector: {}
+  tolerations: []
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+              - laravel
+            - key: app.kubernetes.io/component
+              operator: In
+              values:
+              - horizon
+          topologyKey: kubernetes.io/hostname
+
 # Scheduler (Laravel Cron)
 scheduler:
   enabled: true
@@ -270,7 +405,7 @@ scheduler:
   # Note: scheduler is a short-lived job, fsGroup not needed
   podSecurityContext:
     runAsNonRoot: true
-    runAsUser: 1000 # Replace with: id -u
+    runAsUser: 82  # Alpine www-data user (change to match your image)
   
   securityContext:
     allowPrivilegeEscalation: false
@@ -310,7 +445,7 @@ migration:
   # Note: scheduler is a short-lived job, fsGroup not needed
   podSecurityContext:
     runAsNonRoot: true
-    runAsUser: 1000 # Replace with: id -u
+    runAsUser: 82  # Alpine www-data user (change to match your image)
   
   securityContext:
     allowPrivilegeEscalation: false
@@ -373,6 +508,7 @@ ingressRoute:
     - headers
     - compress
     - ratelimit
+    - buffering
 
   # Routes configuration
   routes:
@@ -494,6 +630,20 @@ middleware:
     # - ratelimit
     # - compress
 
+  # Buffering middleware (request/response body size limits)
+  buffering:
+    enabled: true
+    # Maximum request body size
+    maxRequestBodyBytes: 104857600  # 100MB in bytes
+    # Memory buffer for request body (rest goes to disk)
+    memRequestBodyBytes: 1048576    # 1MB in bytes
+    # Maximum response body size
+    # maxResponseBodyBytes: 0  # 0 = unlimited
+    # Memory buffer for response body
+    # memResponseBodyBytes: 1048576
+    # Retry expression for failed requests
+    # retryExpression: "IsNetworkError() && Attempts() < 2"
+
 # Laravel application configuration
 laravel:
   # Environment variables from ConfigMap
@@ -535,7 +685,7 @@ laravel:
     VITE_APP_NAME: "Laravel"
 
   # Sensitive environment variables from Secret
-  # All secrets should be provided via secrets.local.yaml (gitignored) or external secrets
+  # All secrets should be provided via secrets.yaml (gitignored) or external secrets
   secrets:
     APP_KEY: ""
     DB_HOST: ""
@@ -559,11 +709,8 @@ php:
   # These are passed directly to the container using their exact names
   env:
     # General Settings
-    S6_READ_ONLY_ROOT: 1
     APP_BASE_DIR: "/var/www/html"
     HEALTHCHECK_PATH: "/healthcheck"
-    LOG_OUTPUT_LEVEL: "warn"  # Options: warn, info, debug
-    SHOW_WELCOME_MESSAGE: "false"
 
     # PHP Runtime Settings
     PHP_DATE_TIMEZONE: "UTC"
@@ -625,10 +772,6 @@ tmpfsVolumes:
       mountPath: /var/www/html/storage/framework/views
     - name: bootstrap-cache
       mountPath: /var/www/html/bootstrap/cache
-    - name: nginx-logs
-      mountPath: /var/log/nginx
-    - name: run
-      mountPath: /run
     - name: tmp
       mountPath: /tmp
 

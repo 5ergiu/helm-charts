@@ -35,3 +35,22 @@ spec:
     matchLabels:
       {{- include "laravel.worker.selectorLabels" . | nindent 6 }}
 {{- end }}
+---
+{{- if and .Values.horizon.enabled .Values.horizon.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "laravel.fullname" . }}-horizon
+  labels:
+    {{- include "laravel.horizon.labels" . | nindent 4 }}
+spec:
+  {{- if .Values.horizon.pdb.minAvailable }}
+  minAvailable: {{ .Values.horizon.pdb.minAvailable }}
+  {{- end }}
+  {{- if .Values.horizon.pdb.maxUnavailable }}
+  maxUnavailable: {{ .Values.horizon.pdb.maxUnavailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "laravel.horizon.selectorLabels" . | nindent 6 }}
+{{- end }}

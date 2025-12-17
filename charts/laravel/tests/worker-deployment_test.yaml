@@ -69,3 +69,30 @@ tests:
             name: tmp
             emptyDir:
               medium: Memory
+
+  - it: should run as non-root user with default values
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 82
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 82
+
+  - it: should use custom user and group IDs when specified
+    set:
+      worker.podSecurityContext.runAsUser: 501
+      worker.podSecurityContext.fsGroup: 20
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 501
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 20

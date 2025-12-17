@@ -29,14 +29,25 @@ tests:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
           value: "before-hook-creation"
 
-  - it: should have security context
+  - it: should have security context with default values
     asserts:
       - equal:
           path: spec.template.spec.securityContext.runAsNonRoot
           value: true
       - equal:
           path: spec.template.spec.securityContext.runAsUser
-          value: 1000
+          value: 82
+
+  - it: should use custom user ID when specified
+    set:
+      migration.podSecurityContext.runAsUser: 501
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 501
 
   - it: should use readOnlyRootFilesystem
     asserts:
