@@ -35,9 +35,9 @@ spec:
       serviceAccountName: {{ include "nextjs.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.app.podSecurityContext | nindent 8 }}
-      {{- if or .Values.initContainers.verifyBuild.enabled .Values.extraInitContainers }}
+      {{- with .Values.initContainers }}
       initContainers:
-        {{- include "nextjs.initContainers" . | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
         - name: app

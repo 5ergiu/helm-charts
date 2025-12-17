@@ -424,15 +424,8 @@ externalSecrets:
   region: us-east-1
   data: []
 
-# Init containers (for setup tasks)
-initContainers:
-  # Verify build output exists
-  verifyBuild:
-    enabled: true
-    command: ["sh", "-c", "ls -la /app/.next && echo 'Build verified'"]
-
-# Additional init containers
-extraInitContainers: []
+# Init containers
+initContainers: []
 
 # Sidecar containers (e.g., for log shipping, metrics)
 sidecars: []

@@ -150,20 +150,3 @@ Common volumes
 {{- toYaml . }}
 {{- end }}
 {{- end }}
-
-{{/*
-Init containers for setup tasks
-*/}}
-{{- define "nextjs.initContainers" -}}
-{{- if .Values.initContainers.verifyBuild.enabled }}
-- name: verify-build
-  image: {{ include "nextjs.image" . }}
-  imagePullPolicy: {{ include "nextjs.imagePullPolicy" . }}
-  command: {{ toYaml .Values.initContainers.verifyBuild.command | nindent 4 }}
-  securityContext:
-    {{- toYaml .Values.app.securityContext | nindent 4 }}
-{{- end }}
-{{- with .Values.extraInitContainers }}
-{{- toYaml . }}
-{{- end }}
-{{- end }}
