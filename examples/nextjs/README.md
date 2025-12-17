@@ -69,8 +69,8 @@ helm install traefik traefik/traefik -n traefik --create-namespace
 echo "127.0.0.1 nextjs.local" | sudo tee -a /etc/hosts
 
 # 3. Copy and configure secrets (optional - only if you need external services)
-cp secrets.local.yaml.example secrets.local.yaml
-# Edit secrets.local.yaml with your credentials (if needed)
+cp secrets.yaml.example secrets.yaml
+# Edit secrets.yaml with your credentials (if needed)
 
 # 4. Deploy with local development values
 helm install myapp-dev ../../charts/nextjs \

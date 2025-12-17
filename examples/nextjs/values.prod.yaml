@@ -39,8 +39,8 @@ web:
 
   podSecurityContext:
     runAsNonRoot: true
-    runAsUser: 1000
-    fsGroup: 1000
+    runAsUser: 1000  # Bun user in oven/bun:alpine image
+    fsGroup: 1000    # Bun group in oven/bun:alpine image
     seccompProfile:
       type: RuntimeDefault
 

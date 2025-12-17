@@ -23,12 +23,12 @@ web:
   autoscaling:
     enabled: false
 
-  # IMPORTANT: Set to your host user IDs to avoid permission issues
+  # IMPORTANT: Set to your host user IDs to avoid permission issues with hostPath volumes
   # Run: id -u && id -g
   podSecurityContext:
     runAsNonRoot: true
-    runAsUser: 1000  # TODO: Change to your user ID (id -u)
-    fsGroup: 1000    # TODO: Change to your group ID (id -g)
+    runAsUser: 1000  # TODO: Change to your user ID (id -u) for hostPath volumes
+    fsGroup: 1000    # TODO: Change to your group ID (id -g) for hostPath volumes
     seccompProfile:
       type: RuntimeDefault
 

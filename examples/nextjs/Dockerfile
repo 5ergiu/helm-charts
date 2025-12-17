@@ -12,7 +12,7 @@
 ###############################
 # Next.js App Builder: Create fresh Next.js application
 ###############################
-FROM oven/bun:1 AS nextjs-builder
+FROM oven/bun:1.3.4-alpine AS nextjs-builder
 
 WORKDIR /app
 
@@ -51,7 +51,7 @@ CMD ["bun", "run", "dev"]
 ###############################
 # Production Stage: Optimized runtime image
 ###############################
-FROM oven/bun:1 AS production
+FROM oven/bun:1.3.4-alpine AS production
 
 WORKDIR /app
 
