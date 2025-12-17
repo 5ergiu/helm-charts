@@ -16,8 +16,8 @@
 
 # Use development image (includes Xdebug)
 image:
-  repository: ghcr.io/5ergiu/laravel
-  tag: dev
+  repository: ghcr.io/5ergiu/laravel  # TODO: Change to your development registry
+  tag: dev  # TODO: Or use 'latest' for development
   pullPolicy: Always
 
 # Single replica for development
@@ -122,7 +122,7 @@ ingressRoute:
     - web  # HTTP only for local development
   middlewares: []
   routes:
-    - match: "Host(`laravel.local`)"
+    - match: "Host(`laravel.local`)"  # TODO: Change to your local hostname
       kind: Rule
       priority: 10
   tls: {}  # No TLS for local development
@@ -133,21 +133,17 @@ middleware:
 # Laravel configuration for local development
 laravel:
   env:
-    APP_NAME: "Laravel Local"
+    APP_NAME: "Laravel Local"  # TODO: Change to your app name
     APP_ENV: "local"
     APP_DEBUG: "true"
-    APP_URL: "http://laravel.local"
+    APP_URL: "http://laravel.local"  # TODO: Match your local hostname
 
     LOG_CHANNEL: "stderr"
     LOG_LEVEL: "debug"
 
-    # SQLite for local development (no external database needed)
-    # For production, use PostgreSQL or MySQL
     DB_CONNECTION: "sqlite"
-    DB_DATABASE: "/tmp/database.sqlite"
+    DB_DATABASE: ":memory:"
 
-    # File-based drivers for local development (no Redis needed)
-    # For production with high traffic, use Redis and Laravel Horizon
     BROADCAST_DRIVER: "log"
     CACHE_DRIVER: "file"
     FILESYSTEM_DISK: "local"
@@ -160,15 +156,15 @@ laravel:
     MAIL_FROM_NAME: "Laravel Dev"
 
     # Vite configuration for HMR
-    VITE_APP_NAME: "Laravel"
+    VITE_APP_NAME: "Laravel"  # TODO: Change to match APP_NAME
 
   # Secrets should be provided via secrets.local.yaml
   secrets:
-    APP_KEY: ""  # Will be loaded from secrets.local.yaml
+    APP_KEY: ""  # TODO: Generate with: php artisan key:generate --show
     # No database/Redis secrets needed for SQLite + file drivers
-    AWS_ACCESS_KEY_ID: ""
-    AWS_SECRET_ACCESS_KEY: ""
-    PUSHER_APP_ID: ""
+    AWS_ACCESS_KEY_ID: ""  # TODO: If testing S3 locally
+    AWS_SECRET_ACCESS_KEY: ""  # TODO: If testing S3 locally
+    PUSHER_APP_ID: ""  # TODO: If testing Pusher locally
     PUSHER_APP_KEY: ""
     PUSHER_APP_SECRET: ""
 
@@ -233,10 +229,6 @@ tmpfsVolumes:
       mountPath: /var/www/html/storage/framework/views
     - name: bootstrap-cache
       mountPath: /var/www/html/bootstrap/cache
-    - name: nginx-logs
-      mountPath: /var/log/nginx
-    - name: run
-      mountPath: /run
     - name: tmp
       mountPath: /tmp
     - name: bun-cache
@@ -247,7 +239,7 @@ tmpfsVolumes:
 extraVolumes:
   - name: app-code
     hostPath:
-      path: /path/to/your/laravel/project  # TODO: Change this to your project path
+      path: /path/to/your/laravel/project  # TODO: REQUIRED - Change this to your absolute project path
       type: Directory
 
 # Mount the hostPath volume
@@ -262,6 +254,6 @@ persistence:
 # Extra environment for Xdebug
 extraEnv:
   - name: XDEBUG_MODE
-    value: "debug,coverage"
+    value: "debug,coverage"  # TODO: Adjust based on your needs (debug, coverage, profile)
   - name: XDEBUG_CONFIG
-    value: "client_host=host.docker.internal client_port=9003"
+    value: "client_host=host.docker.internal client_port=9003"  # TODO: Update client_host if needed

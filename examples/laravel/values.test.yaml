@@ -86,11 +86,9 @@ laravel:
     LOG_CHANNEL: "stderr"
     LOG_LEVEL: "debug"
 
-    # SQLite for testing (no external database needed)
     DB_CONNECTION: "sqlite"
-    DB_DATABASE: "/tmp/database.sqlite"
+    DB_DATABASE: ":memory:"
 
-    # File/sync drivers for testing (no Redis needed)
     BROADCAST_DRIVER: "log"
     CACHE_DRIVER: "file"
     FILESYSTEM_DISK: "local"

@@ -9,10 +9,10 @@ This is a demonstration Docker image that creates a fresh Laravel 12.x applicati
 ## ✨ Features
 
 - 🚀 Fresh Laravel 12.x installation
-- ⚡ PHP 8.5 with FPM and Nginx
+- ⚡ PHP 8.5 with FPM (nginx runs as sidecar in Kubernetes)
 - 🏗️ Multi-stage build for development and production
 - 🎯 Vite-powered frontend with Bun
-- ☸️ Optimized for Kubernetes deployment
+- ☸️ Optimized for Kubernetes deployment with sidecar pattern
 - 💚 Health check endpoints built-in
 - 🔒 Non-root user execution (UID 1000)
 
@@ -46,6 +46,8 @@ docker build --target production -t ghcr.io/5ergiu/laravel:latest .
 
 ## 🏗️ Architecture
 
+### Multi-Stage Build Process
+
 The Dockerfile uses a multi-stage build process:
 
 1. **laravel-builder**: Creates a fresh Laravel application using Composer
@@ -53,27 +55,59 @@ The Dockerfile uses a multi-stage build process:
 3. **development**: Development-ready image with debugging tools
 4. **production**: Optimized runtime image with compiled assets
 
+### Kubernetes Sidecar Pattern
+
+This image is designed to work with the **nginx sidecar pattern** in Kubernetes:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                         Pod                              │
+│                                                          │
+│  ┌──────────────┐            ┌──────────────────────┐  │
+│  │    Nginx     │  FastCGI   │      PHP-FPM         │  │
+│  │  (Sidecar)   │ ─────────> │  (This Image)        │  │
+│  │   Port 8080  │            │     Port 9000        │  │
+│  └──────────────┘            └──────────────────────┘  │
+│         ▲                                                │
+│         │                                                │
+│    HTTP Request                                          │
+└─────────────────────────────────────────────────────────┘
+         ▲
+         │
+    ┌────┴────┐
+    │ Traefik │
+    └─────────┘
+```
+
+**Why Sidecar Pattern?**
+- ✅ **Separation of Concerns**: This image only contains PHP-FPM and Laravel app
+- ✅ **Flexibility**: Nginx configuration managed by Helm chart, not baked into image
+- ✅ **Better Security**: Each container has minimal responsibilities and read-only filesystems
+- ✅ **Standard Pattern**: Follows Kubernetes best practices for cloud-native apps
+- ✅ **Easy Updates**: Update nginx independently without rebuilding application image
+
 ### 🔒 Kubernetes-Optimized Configuration
 
 This image is specifically configured for production Kubernetes environments with enhanced security:
 
-**Read-Only Filesystem Support:**
-- Custom static `nginx.conf` with all temp paths pointing to `/tmp`
-- No template processing required at runtime
-- Pre-configured for port 8080 (non-privileged)
-- All configuration baked into the image
+**PHP-FPM Only (No Built-in Web Server):**
+- Uses `serversideup/php:8.5-fpm-alpine` base image (not `fpm-nginx-alpine`)
+- PHP-FPM listens on port 9000 for FastCGI connections
+- Nginx runs as a separate sidecar container managed by the Helm chart
+- Nginx configuration stored in ConfigMap (see `../../charts/laravel/templates/nginx-configmap.yaml`)
 
-**Disabled Default Entrypoint Scripts:**
+**Minimal Entrypoint Scripts:**
 - The ServersideUp PHP image's default entrypoint scripts are disabled via `DISABLE_DEFAULT_CONFIG=true`
-- Default scripts require writable filesystem for nginx template processing
 - Custom entrypoint scripts in `entrypoint.d/` provide minimal runtime initialization
 - Only essential container info display script is included
+- No nginx template processing needed (handled by sidecar)
 
 **Security Benefits:**
 - ✅ Compatible with `readOnlyRootFilesystem: true`
 - ✅ Works with restrictive Pod Security Standards
 - ✅ No runtime file modifications needed
 - ✅ Tmpfs volumes only for application cache/sessions
+- ✅ Smaller attack surface (no web server in app container)
 
 ## ☸️ Deployment with Helm
 
@@ -214,39 +248,55 @@ Runs database migrations automatically before deployment using Helm hooks.
 
 ## 🔧 Technical Implementation Details
 
-### Custom Nginx Configuration
+### Sidecar Architecture
 
-The image includes a pre-configured `nginx.conf` (located in `nginx/nginx.conf`) that is copied during the build process. This approach differs from the ServersideUp PHP image defaults:
+This setup uses the **sidecar pattern** where nginx and PHP-FPM run as separate containers in the same pod:
 
-**Why Custom Configuration?**
-- The default ServersideUp image uses template files (`.template`) that are processed at container startup
-- Template processing requires writing to `/etc/nginx/`, which conflicts with `readOnlyRootFilesystem: true`
-- Our custom config is static and requires no runtime modifications
+**Division of Responsibilities:**
 
-**Division of Responsibilities (Traefik + Nginx):**
-
-This setup uses Traefik as the edge load balancer and Nginx solely as a FastCGI proxy to PHP-FPM. Since Traefik doesn't support FastCGI protocol directly, Nginx acts as the bridge.
-
-*Traefik Handles (via Middlewares):*
+*Traefik (Edge Load Balancer):*
 - ✅ Security headers (HSTS, X-Frame-Options, X-Content-Type-Options, CSP, etc.)
 - ✅ Response compression (gzip)
 - ✅ Rate limiting
 - ✅ Real IP detection (X-Forwarded-For parsing)
 - ✅ TLS termination
 - ✅ HTTP to HTTPS redirects
+- ✅ Routes traffic to nginx sidecar
 
-*Nginx Handles (Minimal Config):*
-- ✅ FastCGI proxy to PHP-FPM (port 9000)
+*Nginx Sidecar (FastCGI Proxy):*
+- ✅ FastCGI proxy to PHP-FPM on localhost:9000
 - ✅ Laravel routing and static file serving
 - ✅ Read-only filesystem compatibility (temp paths to `/tmp`)
+- ✅ Configured via ConfigMap in Helm chart
+- ✅ Can be updated independently of application
+
+*This PHP-FPM Image (Application):*
+- ✅ PHP-FPM listening on port 9000
+- ✅ Laravel application code
+- ✅ No web server included
+- ✅ Minimal attack surface
+
+**Key Benefits:**
+- **Separation**: Each container does one thing well
+- **Flexibility**: Update nginx config without rebuilding app image
+- **Security**: Smaller images with fewer components
+- **Standard**: Follows Kubernetes cloud-native patterns
+
+### Nginx Configuration
+
+The nginx configuration is **not included in this image**. Instead, it's managed by the Helm chart:
+
+- **Location**: `../../charts/laravel/templates/nginx-configmap.yaml`
+- **Deployment**: Mounted as ConfigMap into the nginx sidecar container
+- **Benefits**: Can be updated via `helm upgrade` without rebuilding images
 
 **Key Configuration Points:**
 - Listens on port 8080 (non-privileged port)
-- All temporary paths point to `/tmp` (mounted as tmpfs)
+- All temporary paths point to `/tmp` (mounted as tmpfs in sidecar)
 - Error logs to `/dev/stderr`, access logs disabled (use Traefik logs)
-- No duplicate security headers (handled by Traefik)
-- No gzip compression (handled by Traefik)
-- Minimal configuration (~100 lines vs 180+ lines with duplicates)
+- FastCGI proxy to localhost:9000 (PHP-FPM in same pod)
+- `client_max_body_size` set to match Traefik's buffering limit (100MB)
+- Minimal configuration optimized for sidecar pattern
 
 ### Entrypoint Script Customization
 
@@ -261,14 +311,14 @@ The ServersideUp PHP image includes several entrypoint scripts that:
 - Provide minimal custom scripts in `entrypoint.d/`:
   - `10-container-info.sh`: Display container runtime information
 - All configuration is baked into the image during build
+- No nginx configuration needed (handled by sidecar)
 
 **Files in the Build:**
 ```dockerfile
 # Copy custom entrypoint scripts
 COPY --chmod=755 ./entrypoint.d/ /etc/entrypoint.d/
 
-# Copy custom nginx configuration
-COPY --chmod=644 ./nginx/nginx.conf /etc/nginx/nginx.conf
+# Note: No nginx configuration copied - handled by sidecar
 ```
 
 All other PHP and application configuration is handled via environment variables as documented in the [ServersideUp PHP Environment Variables Reference](https://github.com/serversideup/docker-php/blob/main/docs/content/docs/8.reference/1.environment-variable-specification.md).

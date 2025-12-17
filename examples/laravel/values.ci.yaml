@@ -97,11 +97,9 @@ laravel:
     LOG_CHANNEL: "stderr"
     LOG_LEVEL: "debug"
 
-    # Use SQLite for CI (no external DB needed)
     DB_CONNECTION: "sqlite"
     DB_DATABASE: ":memory:"
 
-    # Use array driver (no Redis needed)
     BROADCAST_DRIVER: "log"
     CACHE_DRIVER: "array"
     FILESYSTEM_DISK: "local"
