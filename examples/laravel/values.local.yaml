@@ -158,7 +158,7 @@ laravel:
     # Vite configuration for HMR
     VITE_APP_NAME: "Laravel"  # TODO: Change to match APP_NAME
 
-  # Secrets should be provided via secrets.local.yaml
+  # Secrets should be provided via secrets.yaml
   secrets:
     APP_KEY: ""  # TODO: Generate with: php artisan key:generate --show
     # No database/Redis secrets needed for SQLite + file drivers
@@ -172,8 +172,6 @@ laravel:
 php:
   env:
     DISABLE_DEFAULT_CONFIG: "true"
-    LOG_OUTPUT_LEVEL: "debug"
-    SHOW_WELCOME_MESSAGE: "true"
     PHP_DISPLAY_ERRORS: "On"
     PHP_DISPLAY_STARTUP_ERRORS: "On"
     PHP_ERROR_REPORTING: "32767"  # E_ALL

@@ -125,14 +125,14 @@ helm install traefik traefik/traefik -n traefik --create-namespace
 echo "127.0.0.1 laravel.local" | sudo tee -a /etc/hosts
 
 # 3. Copy and configure secrets
-cp secrets.local.yaml.example secrets.local.yaml
+cp secrets.yaml.example secrets.yaml
 # Generate APP_KEY: docker run --rm ghcr.io/5ergiu/laravel:latest php artisan key:generate --show
-# Edit secrets.local.yaml with your APP_KEY
+# Edit secrets.yaml with your APP_KEY
 
 # 4. Deploy with local development values (includes Bun sidecar for Vite HMR)
 helm install myapp-dev ../../charts/laravel \
   -f values.local.yaml \
-  -f secrets.local.yaml \
+  -f secrets.yaml \
   -n development \
   --create-namespace
 
@@ -309,7 +309,7 @@ The ServersideUp PHP image includes several entrypoint scripts that:
 **Our Approach:**
 - Set `DISABLE_DEFAULT_CONFIG=true` to disable built-in entrypoint scripts
 - Provide minimal custom scripts in `entrypoint.d/`:
-  - `10-container-info.sh`: Display container runtime information
+  - `100-container-info.sh`: Display container runtime information
 - All configuration is baked into the image during build
 - No nginx configuration needed (handled by sidecar)
 

@@ -100,9 +100,9 @@ laravel:
     MAIL_FROM_ADDRESS: "test@laravel.local"
     MAIL_FROM_NAME: "Laravel Test"
 
-  # Secrets should be provided via secrets.local.yaml
+  # Secrets should be provided via secrets.yaml
   secrets:
-    APP_KEY: ""  # Will be loaded from secrets.local.yaml
+    APP_KEY: ""  # Will be loaded from secrets.yaml
     # Database/Redis not needed for SQLite + file drivers
     AWS_ACCESS_KEY_ID: ""
     AWS_SECRET_ACCESS_KEY: ""
@@ -114,8 +114,6 @@ laravel:
 php:
   env:
     DISABLE_DEFAULT_CONFIG: "true"
-    LOG_OUTPUT_LEVEL: "debug"
-    SHOW_WELCOME_MESSAGE: "true"
     PHP_DISPLAY_ERRORS: "On"
     PHP_DISPLAY_STARTUP_ERRORS: "On"
     PHP_ERROR_REPORTING: "32767"  # E_ALL

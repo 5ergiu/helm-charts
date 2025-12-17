@@ -77,6 +77,6 @@ if [ "$PHP_OPCACHE_STATUS" = "0" ]; then
 fi
 
 # Additional recommendations for production
-if [ "$PHP_DISPLAY_ERRORS" = "On" ] && [ "$LOG_OUTPUT_LEVEL" != "debug" ]; then
+if [ "$PHP_DISPLAY_ERRORS" = "On" ]; then
     echo "⚠️  [WARNING]: PHP_DISPLAY_ERRORS is enabled. Disable in production for security."
 fi

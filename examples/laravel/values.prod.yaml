@@ -191,7 +191,6 @@ laravel:
 # PHP configuration - production optimizations
 php:
   env:
-    LOG_OUTPUT_LEVEL: "warn"
     PHP_MEMORY_LIMIT: "512M"
     PHP_MAX_EXECUTION_TIME: "120"
 
