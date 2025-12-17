@@ -2,7 +2,7 @@ apiVersion: v2
 name: nextjs
 description: A production-grade Helm chart for Next.js applications
 type: application
-version: nextjs-0.2.0
+version: 0.2.0
 appVersion: "16.x"
 keywords:
   - nextjs
