@@ -2,7 +2,7 @@ apiVersion: v2
 name: laravel
 description: A production-grade Helm chart for Laravel applications
 type: application
-version: el-0.2.0
+version: laravel-0.2.0
 appVersion: "12.x"
 keywords:
   - laravel
