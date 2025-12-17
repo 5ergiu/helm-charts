@@ -105,7 +105,7 @@ jobs:
             # Generate ArtifactHub annotations
             echo "📝 Generating ArtifactHub annotations for $chart_name..."
             git-cliff --config cliff-artifacthub.toml --output changes.json --include-path "$chart/*"
-            yq eval -i ".annotations.\"artifacthub.io/changes\" = load_str(\"changes.json\")" "$chart/Chart.yaml"
+            yq eval -i ".annotations.\"artifacthub.io/changes\" style=\"literal\" = load_str(\"changes.json\")" "$chart/Chart.yaml"
             rm -f changes.json
 
             # Bump chart version
