@@ -2,7 +2,7 @@ apiVersion: v2
 name: laravel
 description: A production-grade Helm chart for Laravel applications
 type: application
-version: laravel/v0.2.0
+version: nextjs-0.2.0
 appVersion: "12.x"
 keywords:
   - laravel
@@ -22,4 +22,25 @@ annotations:
   category: Web Applications
   displayName: Laravel Helm Chart
   licenses: Apache-2.0
-  artifacthub.io/changes: "[\n\n{ \"kind\": \"changed\", \"description\": \"fixed workflows\" },\n\n{ \"kind\": \"changed\", \"description\": \"ff\" },\n\n{ \"kind\": \"changed\", \"description\": \"ff\" },\n\n{ \"kind\": \"changed\", \"description\": \"ff\" }\n\n][\n\n{ \"kind\": \"changed\", \"description\": \"Initial tagged release\" },\n\n{ \"kind\": \"changed\", \"description\": \"update chart documentation\" },\n\n{ \"kind\": \"changed\", \"description\": \"update Chart.yaml metadata and annotiatinos\" },\n\n{ \"kind\": \"changed\", \"description\": \"Update Charts annotations for artifactionhub.io/changes\" }\n\n]"
+  artifacthub.io/changes: |-
+    [
+
+    { "kind": "changed", "description": "fixed workflows" },
+
+    { "kind": "changed", "description": "ff" },
+
+    { "kind": "changed", "description": "ff" },
+
+    { "kind": "changed", "description": "ff" }
+
+    ][
+
+    { "kind": "changed", "description": "Initial tagged release" },
+
+    { "kind": "changed", "description": "update chart documentation" },
+
+    { "kind": "changed", "description": "update Chart.yaml metadata and annotiatinos" },
+
+    { "kind": "changed", "description": "Update Charts annotations for artifactionhub.io/changes" }
+
+    ]
