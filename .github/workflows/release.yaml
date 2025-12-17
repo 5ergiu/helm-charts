@@ -76,7 +76,7 @@ jobs:
       - name: 🔌 Install helm-schema plugin
         run: |
           if ! helm plugin list | grep -q "schema"; then
-            helm plugin install https://github.com/losisin/helm-values-schema-json.git --version v1.9.2
+            helm plugin install https://github.com/losisin/helm-values-schema-json.git --version v2.3.1 --verify=false
           fi
 
       - name: 🛠️ Generate artifacts for all changed charts
