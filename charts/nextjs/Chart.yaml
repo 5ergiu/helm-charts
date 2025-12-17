@@ -2,7 +2,7 @@ apiVersion: v2
 name: nextjs
 description: A production-grade Helm chart for Next.js applications
 type: application
-version: 0.1.0
+version: laravel/v0.2.0
 appVersion: "16.x"
 keywords:
   - nextjs
@@ -23,4 +23,4 @@ annotations:
   category: Web Applications
   displayName: Next.js Helm Chart
   licenses: Apache-2.0
-  artifacthub.io/changes: ""
+  artifacthub.io/changes: "[\n\n{ \"kind\": \"changed\", \"description\": \"fixed workflows\" },\n\n{ \"kind\": \"changed\", \"description\": \"ff\" },\n\n{ \"kind\": \"changed\", \"description\": \"ff\" },\n\n{ \"kind\": \"changed\", \"description\": \"ff\" },\n\n{ \"kind\": \"changed\", \"description\": \"ff\" }\n\n][\n\n{ \"kind\": \"changed\", \"description\": \"Initial tagged release\" },\n\n{ \"kind\": \"changed\", \"description\": \"update chart documentation\" },\n\n{ \"kind\": \"changed\", \"description\": \"update Chart.yaml metadata and annotations\" },\n\n{ \"kind\": \"changed\", \"description\": \"Update Charts annotations for artifactionhub.io/changes\" }\n\n]"
