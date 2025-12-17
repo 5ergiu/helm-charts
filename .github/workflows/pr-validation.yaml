@@ -18,6 +18,61 @@ permissions:
   pull-requests: write
 
 jobs:
-  validate:
-    name: 🚨 Validate
-    uses: ./.github/workflows/test-charts.yaml
+  resolve-charts:
+    name: 📋 Resolve Charts to Test
+    runs-on: ubuntu-latest
+    outputs:
+      charts: ${{ steps.set-charts.outputs.charts }}
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: 🔧 Set up chart-testing
+        uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
+
+      - name: 🔍 Find changed charts
+        id: set-charts
+        run: |
+          changed=$(ct list-changed --target-branch ${{ github.event.repository.default_branch }})
+          if [ -n "$changed" ]; then
+            json=$(echo "$changed" | jq -R . | jq -s -c .)
+            echo "charts=$json" >> $GITHUB_OUTPUT
+            echo "Detected changed charts: $json"
+          else
+            # No changes detected - return empty array
+            echo "No changes detected, returning empty array"
+            echo "charts=[]" >> $GITHUB_OUTPUT
+          fi
+
+  test:
+    name: 🧪 Test Charts
+    needs: resolve-charts
+    if: needs.resolve-charts.outputs.charts != '[]'
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: ⎈ Set up Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        with:
+          version: v4.0.1
+
+      - name: 🔧 Set up chart-testing
+        uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
+
+      - name: 🐳 Set up kind
+        uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
+
+      - name: 🧪 Run tests
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+        run: ./scripts/test.sh
+

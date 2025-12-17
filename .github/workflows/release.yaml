@@ -48,19 +48,10 @@ jobs:
             echo "charts=$json" >> $GITHUB_OUTPUT
           fi
 
-  validate:
-    name: 🚨 Validate
-    needs: resolve-charts
-    if: needs.resolve-charts.outputs.charts != '[]'
-    uses: ./.github/workflows/test-charts.yaml
-    with:
-      chart: ${{ inputs.chart }}
-
   build:
     name: 🔨 Build Chart Artifacts
     needs:
       - resolve-charts
-      - validate
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Checkout code
