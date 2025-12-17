@@ -112,8 +112,8 @@ jobs:
             echo "🔼 Bumping chart version for $chart_name..."
             bumped=$(git cliff --bumped-version --include-path "$chart/*" --tag-pattern "${chart_name}/*")
             # Extract just the semantic version (remove chart name prefix and 'v' prefix)
-            # Pattern: chart_name/v0.2.0 -> 0.2.0
-            new_version=$(echo "$bumped" | sed "s|^${chart_name}/v||")
+            # Handles: chart_name/v0.2.0 -> 0.2.0, chart_name-0.2.0 -> 0.2.0, or just 0.2.0 -> 0.2.0
+            new_version=$(echo "$bumped" | sed -e "s|^${chart_name}/v||" -e "s|^${chart_name}-||" -e "s|^v||")
             yq -i ".version = \"$new_version\"" "$chart/Chart.yaml"
             echo "✅ New version: $new_version"
           done
