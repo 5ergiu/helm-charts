@@ -172,8 +172,8 @@ jobs:
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
-  upload-to-oci:
-    name: 📤 Upload to OCI Registry
+  oci-upload:
+    name: 📤 OCI upload
     needs:
       - resolve-charts
       - release

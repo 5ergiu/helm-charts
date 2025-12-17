@@ -31,7 +31,7 @@ on:
 
 jobs:
   upload:
-    name: 📤 Upload ${{ inputs.chart }} to OCI
+    name: 📤 Uploading ${{ inputs.chart }}
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Checkout code
@@ -114,7 +114,7 @@ jobs:
           }
 
           echo "🔐 Logging into ${{ inputs.registry }}..."
-          retry_push helm registry login --username ${{ github.actor }} --password ${{ secrets.REGISTRY_TOKEN }} https://${{ inputs.registry }}
+          retry_push helm registry login --username ${{ github.actor }} --password ${{ secrets.REGISTRY_TOKEN }} ${{ inputs.registry }}
 
           echo "📦 Uploading Helm chart $CHART_NAME-$CHART_VERSION.tgz to ${{ inputs.registry }}..."
           if retry_push helm push "$PACKAGE_FILE" "oci://${{ inputs.registry }}/${{ steps.repo-owner.outputs.lowercase }}/helm-charts" 2>&1 | tee push-output.log; then
