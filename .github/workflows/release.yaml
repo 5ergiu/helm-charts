@@ -1,11 +1,6 @@
 name: 🚀 Release Charts
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'charts/**'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -14,9 +9,10 @@ on:
         type: boolean
         default: false
       chart:
-        description: 'Specific chart to release (optional, e.g., charts/my-chart)'
-        required: false
+        description: 'Chart to release: "all" or specific chart path (e.g., charts/laravel)'
+        required: true
         type: string
+        default: 'all'
 
 concurrency:
   group: release
@@ -27,51 +23,45 @@ permissions:
   packages: write
 
 jobs:
-  changed-charts:
-    name: 🔍 Find Changed Charts
-    # Skip if triggered by github-actions bot
-    if: github.actor != 'github-actions[bot]' && github.event.inputs.chart == ''
-    uses: ./.github/workflows/changed-charts.yaml
-
   resolve-charts:
     name: 📋 Resolve Charts to Release
-    needs: 
-      - changed-charts
-    if: always() && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     outputs:
       charts: ${{ steps.set-charts.outputs.charts }}
     steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+
       - name: 📋 Resolve charts to release
         id: set-charts
         run: |
-          if [ -n "${{ github.event.inputs.chart }}" ]; then
-            # Specific chart provided via input
-            echo "Using specified chart: ${{ github.event.inputs.chart }}"
-            json=$(echo '["${{ github.event.inputs.chart }}"]' | jq -c .)
-            echo "charts=$json" >> $GITHUB_OUTPUT
+          if [ "${{ inputs.chart }}" = "all" ]; then
+            echo "Releasing all charts..."
+            all_charts=$(for dir in charts/*/; do echo "${dir%/}"; done | jq -R . | jq -s -c .)
+            echo "charts=$all_charts" >> $GITHUB_OUTPUT
+            echo "Charts to release: $all_charts"
           else
-            # Use detected charts (empty array if no changes)
-            charts='${{ needs.changed-charts.outputs.charts }}'
-            echo "charts=$charts" >> $GITHUB_OUTPUT
-            echo "Charts to release: $charts"
+            echo "Releasing specific chart: ${{ inputs.chart }}"
+            json=$(echo '["${{ inputs.chart }}"]' | jq -c .)
+            echo "charts=$json" >> $GITHUB_OUTPUT
           fi
 
-  test-charts:
-    name: 🧪 Test Charts
+  validate:
+    name: 🚨 Validate
     needs: resolve-charts
     if: needs.resolve-charts.outputs.charts != '[]'
     uses: ./.github/workflows/test-charts.yaml
     with:
-      chart: ${{ github.event.inputs.chart }}
+      chart: ${{ inputs.chart }}
 
   build:
     name: 🔨 Build Chart Artifacts
     needs:
       - resolve-charts
-      - test-charts
+      - validate
     runs-on: ubuntu-latest
-    if: needs.resolve-charts.outputs.charts != '[]'
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -149,11 +139,8 @@ jobs:
   release:
     name: 🚀 Release Charts
     runs-on: ubuntu-latest
-    needs:
-      - resolve-charts
-      - test-charts
-      - build
-    if: github.event.inputs.dry_run != 'true' && needs.resolve-charts.outputs.charts != '[]'
+    needs: build
+    if: inputs.dry_run != 'true'
     outputs:
       changed_charts: ${{ steps.chart-releaser.outputs.changed_charts }}
     steps:

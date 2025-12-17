@@ -28,9 +28,9 @@ jobs:
         id: set-matrix
         run: |
           # Get all app directories in examples/
-          if [ -n "${{ github.event.inputs.apps }}" ]; then
+          if [ -n "${{ inputs.apps }}" ]; then
             # User specified apps
-            all_apps=$(echo "${{ github.event.inputs.apps }}" | tr ',' ' ')
+            all_apps=$(echo "${{ inputs.apps }}" | tr ',' ' ')
             echo "Building specified apps: $all_apps"
           else
             # Build all apps
