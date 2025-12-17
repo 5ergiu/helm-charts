@@ -96,7 +96,7 @@ jobs:
 
             # Generate schema
             echo "⚙️ Generating schema for $chart_name..."
-            helm schema -input "$chart/values.yaml" -output "$chart/values.schema.json" -draft 7
+            helm schema -f "$chart/values.yaml" -o "$chart/values.schema.json" --draft 7
 
             # Generate changelog
             echo "📝 Generating changelog for $chart_name..."
