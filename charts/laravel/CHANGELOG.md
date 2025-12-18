@@ -6,6 +6,9 @@ All notable changes to this project will be documented in this file. See [conven
 ### 🐛 Fixes
 
 - fix chart signing ([289201c](https://github.com/5ergiu/helm-charts/commit/289201c26bc70d371073e4093145f6272b225ed0)) by @5ergiu
+### 🔧 Chores
+
+- update chart artifacts ([f3bd917](https://github.com/5ergiu/helm-charts/commit/f3bd917f90ed3c27a575867dd366bbc5bb3a5c80)) by @github-actions[bot]
 ## [0.2.1](https://github.com/5ergiu/helm-charts/compare/nextjs-0.2.0..nextjs-0.2.1) - 2025-12-17
 ### 🔧 Chores
 
