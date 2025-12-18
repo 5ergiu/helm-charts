@@ -2,8 +2,9 @@
 
 Laravel application deployment with web/worker deployments, queue management, cron jobs, and auto-scaling.
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational) ![Type: application](https://img.shields.io/badge/Type-application-informational) ![AppVersion: v12.x.0](https://img.shields.io/badge/AppVersion-v12.x-informational)
-
+![Dynamic YAML Badge](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2F5ergiu%2Fhelm-charts%2Fmain%2Fcharts%2Flaravel%2FChart.yaml&query=version&label=Version)
+![Dynamic YAML Badge](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2F5ergiu%2Fhelm-charts%2Fmain%2Fcharts%2Flaravel%2FChart.yaml&query=type&label=Type&color=green)
+![Dynamic YAML Badge](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2F5ergiu%2Fhelm-charts%2Fmain%2Fcharts%2Flaravel%2FChart.yaml&query=appVersion&label=AppVersion&color=red)
 
 ## 🚀 Installation
 
