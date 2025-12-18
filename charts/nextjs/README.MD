@@ -2,7 +2,10 @@
 
 High-performance Next.js application deployment with SSR/SSG support, image optimization, and CDN integration.
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational) ![Type: application](https://img.shields.io/badge/Type-application-informational) ![AppVersion: v16.x.0](https://img.shields.io/badge/AppVersion-v16.x-informational)
+![Dynamic YAML Badge](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2F5ergiu%2Fhelm-charts%2Fmain%2Fcharts%2Fnextjs%2FChart.yaml&query=version&label=Version)
+![Dynamic YAML Badge](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2F5ergiu%2Fhelm-charts%2Fmain%2Fcharts%2Fnextjs%2FChart.yaml&query=type&label=Type&color=green)
+![Dynamic YAML Badge](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2F5ergiu%2Fhelm-charts%2Fmain%2Fcharts%2Fnextjs%2FChart.yaml&query=appVersion&label=AppVersion&color=red)
+
 
 ## 🚀 Installation
 
