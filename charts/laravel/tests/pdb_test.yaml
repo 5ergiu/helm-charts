@@ -5,8 +5,7 @@ tests:
   - it: should not create PDB when all disabled
     set:
       web.pdb.enabled: false
-      worker.pdb.enabled: false
-      horizon.enabled: false
+      workers: {}
     asserts:
       - hasDocuments:
           count: 0
@@ -14,8 +13,7 @@ tests:
   - it: should create PDB for web when enabled
     set:
       web.pdb.enabled: true
-      worker.pdb.enabled: false
-      horizon.enabled: false
+      workers: {}
     asserts:
       - hasDocuments:
           count: 1
@@ -28,21 +26,25 @@ tests:
           path: spec.minAvailable
           value: 1
 
-  - it: should create PDB for both web and worker
+  - it: should create PDB for both web and default worker
     set:
       web.pdb.enabled: true
-      worker.pdb.enabled: true
-      horizon.enabled: false
+      workers.default.enabled: true
+      workers.default.pdb.enabled: true
+      workers.default.pdb.minAvailable: 1
     asserts:
       - hasDocuments:
           count: 2
 
-  - it: should create PDB for horizon when enabled
+  - it: should create PDB for horizon worker when enabled
     set:
       web.pdb.enabled: false
-      worker.pdb.enabled: false
-      horizon.enabled: true
-      horizon.pdb.enabled: true
+      workers.horizon.enabled: true
+      workers.horizon.pdb.enabled: true
+      workers.horizon.pdb.minAvailable: 1
+      workers.horizon.image.repository: ghcr.io/5ergiu/images/laravel
+      workers.horizon.image.tag: cli
+      workers.horizon.args: ["php", "artisan", "horizon"]
     asserts:
       - hasDocuments:
           count: 1
@@ -50,20 +52,26 @@ tests:
           of: PodDisruptionBudget
       - equal:
           path: metadata.name
-          value: RELEASE-NAME-laravel-horizon
+          value: RELEASE-NAME-laravel-worker-horizon
       - equal:
           path: spec.minAvailable
           value: 1
       - equal:
           path: spec.selector.matchLabels["app.kubernetes.io/component"]
-          value: horizon
+          value: worker-horizon
 
   - it: should create PDB for all components when enabled
     set:
       web.pdb.enabled: true
-      worker.pdb.enabled: true
-      horizon.enabled: true
-      horizon.pdb.enabled: true
+      workers.default.enabled: true
+      workers.default.pdb.enabled: true
+      workers.default.pdb.minAvailable: 1
+      workers.horizon.enabled: true
+      workers.horizon.pdb.enabled: true
+      workers.horizon.pdb.minAvailable: 1
+      workers.horizon.image.repository: ghcr.io/5ergiu/images/laravel
+      workers.horizon.image.tag: cli
+      workers.horizon.args: ["php", "artisan", "horizon"]
     asserts:
       - hasDocuments:
           count: 3
@@ -72,20 +80,19 @@ tests:
     set:
       web.pdb.enabled: true
       web.pdb.minAvailable: 2
-      worker.pdb.enabled: false
-      horizon.enabled: false
+      workers: {}
     asserts:
       - equal:
           path: spec.minAvailable
           value: 2
 
-  - it: should set maxUnavailable for worker
+  - it: should set maxUnavailable for default worker
     set:
       web.pdb.enabled: false
-      worker.pdb.enabled: true
-      worker.pdb.maxUnavailable: 1
-      worker.pdb.minAvailable: null
-      horizon.enabled: false
+      workers.default.enabled: true
+      workers.default.pdb.enabled: true
+      workers.default.pdb.maxUnavailable: 1
+      workers.default.pdb.minAvailable: null
     asserts:
       - equal:
           path: spec.maxUnavailable
@@ -96,10 +103,12 @@ tests:
   - it: should configure horizon PDB with custom minAvailable
     set:
       web.pdb.enabled: false
-      worker.pdb.enabled: false
-      horizon.enabled: true
-      horizon.pdb.enabled: true
-      horizon.pdb.minAvailable: 2
+      workers.horizon.enabled: true
+      workers.horizon.pdb.enabled: true
+      workers.horizon.pdb.minAvailable: 2
+      workers.horizon.image.repository: ghcr.io/5ergiu/images/laravel
+      workers.horizon.image.tag: cli
+      workers.horizon.args: ["php", "artisan", "horizon"]
     asserts:
       - equal:
           path: spec.minAvailable

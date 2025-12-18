@@ -1,0 +1,172 @@
+suite: test workers deployment
+templates:
+  - workers-deployment.yaml
+tests:
+  - it: should create a default worker deployment with default values
+    set:
+      workers.default.autoscaling.enabled: false
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-laravel-worker-default
+      - equal:
+          path: spec.replicas
+          value: 2
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "ghcr.io/5ergiu/images/laravel:cli"
+      - equal:
+          path: spec.template.spec.containers[0].args[0]
+          value: "php"
+      - equal:
+          path: spec.template.spec.containers[0].args[1]
+          value: "artisan"
+      - equal:
+          path: spec.template.spec.containers[0].args[2]
+          value: "queue:work"
+
+  - it: should scale default worker independently when autoscaling disabled
+    set:
+      workers.default.autoscaling.enabled: false
+      workers.default.replicaCount: 5
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 5
+
+  - it: should not have replicas field when autoscaling enabled
+    set:
+      workers.default.autoscaling.enabled: true
+    asserts:
+      - notExists:
+          path: spec.replicas
+
+  - it: should disable default worker deployment
+    set:
+      workers.default.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should mount storage volumes when enabled
+    set:
+      persistence.enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: storage
+            persistentVolumeClaim:
+              claimName: RELEASE-NAME-laravel-storage
+
+  - it: should have readOnlyRootFilesystem security
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: tmp
+            emptyDir:
+              medium: Memory
+
+  - it: should run as non-root user with default values
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 82
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 82
+
+  - it: should use custom user and group IDs when specified
+    set:
+      workers.default.podSecurityContext.runAsUser: 501
+      workers.default.podSecurityContext.fsGroup: 20
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 501
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 20
+
+  - it: should use cli image tag for workers
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "ghcr.io/5ergiu/images/laravel:cli"
+
+  - it: should have correct component label
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: "worker-default"
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: "worker-default"
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/component"]
+          value: "worker-default"
+
+  - it: should create horizon worker deployment when enabled
+    set:
+      workers.default.enabled: false
+      workers.horizon.enabled: true
+      workers.horizon.autoscaling.enabled: false
+      workers.horizon.replicaCount: 1
+      workers.horizon.image.repository: ghcr.io/5ergiu/images/laravel
+      workers.horizon.image.tag: cli
+      workers.horizon.args: ["php", "artisan", "horizon"]
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-laravel-worker-horizon
+      - equal:
+          path: spec.replicas
+          value: 1
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: "worker-horizon"
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "ghcr.io/5ergiu/images/laravel:cli"
+      - equal:
+          path: spec.template.spec.containers[0].args[0]
+          value: "php"
+      - equal:
+          path: spec.template.spec.containers[0].args[1]
+          value: "artisan"
+      - equal:
+          path: spec.template.spec.containers[0].args[2]
+          value: "horizon"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: "worker-horizon"
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: "worker-horizon"
+
+  - it: should create multiple worker deployments simultaneously
+    set:
+      workers.default.enabled: true
+      workers.default.autoscaling.enabled: false
+      workers.horizon.enabled: true
+      workers.horizon.autoscaling.enabled: false
+      workers.horizon.image.repository: ghcr.io/5ergiu/images/laravel
+      workers.horizon.image.tag: cli
+      workers.horizon.args: ["php", "artisan", "horizon"]
+    asserts:
+      - hasDocuments:
+          count: 2

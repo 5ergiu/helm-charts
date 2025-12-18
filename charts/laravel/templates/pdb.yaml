@@ -17,40 +17,26 @@ spec:
       {{- include "laravel.web.selectorLabels" . | nindent 6 }}
 {{- end }}
 ---
-{{- if and .Values.worker.enabled .Values.worker.pdb.enabled }}
+{{- range $workerName, $workerConfig := .Values.workers }}
+{{- if and $workerConfig.enabled $workerConfig.pdb.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "laravel.fullname" . }}-worker
+  name: {{ include "laravel.fullname" $ }}-worker-{{ $workerName }}
   labels:
-    {{- include "laravel.worker.labels" . | nindent 4 }}
+    {{- include "laravel.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: worker-{{ $workerName }}
 spec:
-  {{- if .Values.worker.pdb.minAvailable }}
-  minAvailable: {{ .Values.worker.pdb.minAvailable }}
+  {{- if $workerConfig.pdb.minAvailable }}
+  minAvailable: {{ $workerConfig.pdb.minAvailable }}
   {{- end }}
-  {{- if .Values.worker.pdb.maxUnavailable }}
-  maxUnavailable: {{ .Values.worker.pdb.maxUnavailable }}
+  {{- if $workerConfig.pdb.maxUnavailable }}
+  maxUnavailable: {{ $workerConfig.pdb.maxUnavailable }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "laravel.worker.selectorLabels" . | nindent 6 }}
-{{- end }}
+      {{- include "laravel.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: worker-{{ $workerName }}
 ---
-{{- if and .Values.horizon.enabled .Values.horizon.pdb.enabled }}
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: {{ include "laravel.fullname" . }}-horizon
-  labels:
-    {{- include "laravel.horizon.labels" . | nindent 4 }}
-spec:
-  {{- if .Values.horizon.pdb.minAvailable }}
-  minAvailable: {{ .Values.horizon.pdb.minAvailable }}
-  {{- end }}
-  {{- if .Values.horizon.pdb.maxUnavailable }}
-  maxUnavailable: {{ .Values.horizon.pdb.maxUnavailable }}
-  {{- end }}
-  selector:
-    matchLabels:
-      {{- include "laravel.horizon.selectorLabels" . | nindent 6 }}
+{{- end }}
 {{- end }}

@@ -5,9 +5,10 @@
 # This is a DEMO Dockerfile that creates a fresh Laravel application.
 # For your own projects, replace the laravel-builder stage with your app code.
 #
-# This Dockerfile supports both development and production builds:
-# - Build for production: docker build --target production -t app:prod .
-# - Build for development: docker build --target development -t app:dev .
+# This Dockerfile supports both development and production builds with web (FPM) and CLI variants:
+# - Build for CLI (workers): docker build --target cli -t app:cli .
+# - Build for development web (FPM): docker build --target development-web -t app:dev-web .
+# - Build for production web (FPM): docker build --target production-web -t app:prod-web .
 
 ###############################
 # Laravel App Builder: Create fresh Laravel application
@@ -21,19 +22,20 @@ WORKDIR /app
 RUN composer create-project laravel/laravel . --no-interaction --prefer-dist
 
 ###############################
-# Dependencies Builder: Install dependencies
+# CLI Stage: Optimized PHP-CLI image for workers
 ###############################
-FROM serversideup/php:8.5-fpm-alpine AS deps-builder
+FROM serversideup/php:8.5-cli-alpine AS cli
 
 # The base image provides:
-# - PHP-FPM on port 9000
-# - Has health checks configured at $HEALTHCHECK_PATH (default: /healthcheck)
-# - www-data user (UID 1000, GID 1000)
+# - PHP-CLI for running console commands
 # - Environment-based configuration
 # - Proper permissions on /var/www
 #
 # All runtime configuration is done via environment variables
 # See: https://github.com/serversideup/docker-php/blob/main/docs/content/docs/8.reference/1.environment-variable-specification.md
+
+# Copy custom entrypoint scripts
+COPY --chmod=755 ./entrypoint.d/ /etc/entrypoint.d/
 
 # Switch to root to install extensions
 USER root
@@ -41,13 +43,10 @@ USER root
 # Install required PHP extensions
 RUN install-php-extensions pcntl
 
-# Copy custom entrypoint scripts
-COPY --chmod=755 ./entrypoint.d/ /etc/entrypoint.d/
-
 # Switch back to www-data
 USER www-data
 
-WORKDIR /app
+WORKDIR /var/www/html
 
 # Copy fresh Laravel application
 COPY --chown=www-data:www-data --from=laravel-builder /app ./
@@ -59,9 +58,31 @@ RUN composer require laravel/horizon --no-interaction --prefer-dist
 RUN php artisan horizon:install
 
 ###############################
-# Development Stage: For local development with hot reload
+# Dependencies Builder Stage: For development and production
 ###############################
-FROM deps-builder AS development
+FROM serversideup/php:8.5-fpm-alpine AS deps-builder
+
+# The base image provides:
+# - PHP-FPM on port 9000
+# - Has health checks configured at $HEALTHCHECK_PATH (default: /healthcheck)
+# - Environment-based configuration
+# - Proper permissions on /var/www
+#
+# All runtime configuration is done via environment variables
+# See: https://github.com/serversideup/docker-php/blob/main/docs/content/docs/8.reference/1.environment-variable-specification.md
+
+# Copy custom entrypoint scripts
+COPY --chmod=755 ./entrypoint.d/ /etc/entrypoint.d/
+
+WORKDIR /var/www/html
+
+# Copy fresh Laravel application
+COPY --chown=www-data:www-data --from=laravel-builder /app ./
+
+###############################
+# Development Web Stage: For local development with PHP-FPM
+###############################
+FROM deps-builder AS development-web
 
 # Switch to root to install extensions
 USER root
@@ -75,28 +96,14 @@ USER www-data
 WORKDIR /var/www/html
 
 # Copy fresh Laravel application
-COPY --chown=www-data:www-data --from=deps-builder /app ./
-
-# Configure development-specific PHP settings via ENV
-ENV DISABLE_DEFAULT_CONFIG=true \
-    PHP_OPCACHE_ENABLE=0 \
-    PHP_DISPLAY_ERRORS=On \
-    PHP_DISPLAY_STARTUP_ERRORS=On \
-    PHP_ERROR_REPORTING=E_ALL
+COPY --chown=www-data:www-data --from=deps-builder /var/www/html ./
 
 ###############################
-# Production Stage: Optimized runtime image
+# Production Web Stage: Optimized runtime image with PHP-FPM
 ###############################
-FROM deps-builder AS production
+FROM serversideup/php:8.5-fpm-alpine AS production-web
 
 WORKDIR /var/www/html
 
 # Copy fresh Laravel application
-COPY --chown=www-data:www-data --from=deps-builder /app /var/www/html
-
-# Configure production-specific PHP settings via ENV (can be overridden by Helm)
-ENV DISABLE_DEFAULT_CONFIG=true \
-    PHP_OPCACHE_ENABLE=1 \
-    PHP_OPCACHE_VALIDATE_TIMESTAMPS=0 \
-    PHP_DISPLAY_ERRORS=Off \
-    PHP_DISPLAY_STARTUP_ERRORS=Off
+COPY --chown=www-data:www-data --from=deps-builder /var/www/html ./

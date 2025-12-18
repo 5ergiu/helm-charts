@@ -22,10 +22,12 @@ global:
   environment: production
 
 # Image configuration
+# For web deployments, use production-web or development-web tags
+# For workers, use the cli tag
 image:
   repository: ghcr.io/5ergiu/images/laravel
   pullPolicy: Always
-  tag: latest
+  tag: production-web  # Options: production-web, development-web, cli
 
 imagePullSecrets: []
 nameOverride: ""
@@ -37,42 +39,77 @@ serviceAccount:
   annotations: {}
   name: ""
 
-# Nginx sidecar configuration
-nginx:
-  enabled: true
-  image:
-    repository: nginx
-    tag: 1.29.4-alpine
-    pullPolicy: IfNotPresent
-
-  port: 8080
-
-  # Nginx configuration
-  # Note: clientMaxBodySize should match Traefik's buffering.maxRequestBodyBytes
-  # Traefik enforces the limit, nginx just needs to not reject valid requests
-  clientMaxBodySize: 100M
-  keepaliveTimeout: 65
-  fastcgiReadTimeout: 120s
-
-  securityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-      - ALL
-    readOnlyRootFilesystem: true
-
-  resources:
-    limits:
-      cpu: 500m
-      memory: 128Mi
-    requests:
-      cpu: 50m
-      memory: 64Mi
-
 # Web application configuration
 web:
   enabled: true
   replicaCount: 2
+
+  # Reverse proxy configuration for FastCGI forwarding
+  # Set enabled: false if using an image with built-in server (like FrankenPHP)
+  reverseProxy:
+    enabled: true
+
+    # Nginx ConfigMap generation
+    # Set enabled: false to use your own ConfigMap (e.g., for Caddy, custom nginx, etc.)
+    nginx:
+      enabled: true
+
+      # Nginx configuration settings for ConfigMap generation
+      port: 8080
+      # Note: clientMaxBodySize should match Traefik's buffering.maxRequestBodyBytes
+      # Traefik enforces the limit, nginx just needs to not reject valid requests
+      clientMaxBodySize: 100M
+      keepaliveTimeout: 65
+      fastcgiReadTimeout: 120s
+
+    # Container specification
+    # Customize this to use any reverse proxy (nginx, caddy, etc.)
+    container:
+      name: nginx
+
+      image:
+        repository: nginx
+        tag: 1.29.4-alpine
+        pullPolicy: IfNotPresent
+
+      command: ["nginx", "-g", "daemon off;"]
+
+      ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+
+      resources:
+        limits:
+          cpu: 500m
+          memory: 128Mi
+        requests:
+          cpu: 50m
+          memory: 64Mi
+
+      volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+          readOnly: true
+        - name: nginx-logs
+          mountPath: /var/log/nginx
+
+    # Volumes for reverse proxy
+    # Automatically added to web deployment when enabled
+    volumes:
+      - name: nginx-config
+        configMap:
+          name: '{{ include "laravel.fullname" . }}-nginx'
+      - name: nginx-logs
+        emptyDir: {}
   
   strategy:
     type: RollingUpdate
@@ -101,7 +138,12 @@ web:
       drop:
       - ALL
     readOnlyRootFilesystem: true
-  
+
+  ports:
+    - name: php-fpm
+      containerPort: 9000
+      protocol: TCP
+
   service:
     type: ClusterIP
     port: 80
@@ -179,6 +221,15 @@ web:
     enabled: true
     minAvailable: 1
   
+  # Reverse proxy sidecar is automatically added when web.reverseProxy.enabled: true
+  # To disable the reverse proxy (e.g., using FrankenPHP), set web.reverseProxy.enabled: false
+  # You can add additional sidecars here if needed
+  sidecars: []
+
+  # Reverse proxy volumes are automatically added when web.reverseProxy.enabled: true
+  # You can add additional volumes here if needed
+  extraVolumes: []
+
   nodeSelector: {}
   tolerations: []
   affinity:
@@ -198,199 +249,203 @@ web:
               - web
           topologyKey: kubernetes.io/hostname
 
-# Worker configuration (Queue workers, etc.)
-worker:
-  enabled: true
-  replicaCount: 2
-  
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
-  
-  podAnnotations: {}
-  podLabels: {}
-  
-  podSecurityContext:
-    runAsNonRoot: true
-    # For local development with hostPath volumes, set to your host user IDs (run: id -u && id -g) to avoid permission issues
-    # For production/testing, use 82:82 (Alpine's www-data) or your image's default non-root user
-    runAsUser: 82  # Alpine www-data user (change to match your image)
-    fsGroup: 82    # Alpine www-data group (change to match your image)
-    seccompProfile:
-      type: RuntimeDefault
-  
-  securityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-      - ALL
-    readOnlyRootFilesystem: true
-  
-  # Worker command - Basic queue worker (no Redis dependency required)
-  # For production with Redis, consider using Laravel Horizon (see examples/laravel/values.prod.yaml)
-  command: ["php", "artisan", "queue:work"]
-  args:
-    - "--verbose"
-    - "--tries=3"
-    - "--max-time=3600"
-    - "--sleep=3"
-    - "--timeout=300"
-  
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi
-  
-  # Liveness probe for basic queue worker (checks if process is alive)
-  livenessProbe:
-    enabled: true
-    exec:
-      command: ["healthcheck-queue"]
-    initialDelaySeconds: 30
-    periodSeconds: 60
-    timeoutSeconds: 5
-    successThreshold: 1
-    failureThreshold: 3
-  
-  # Autoscaling configuration for workers
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
-    targetMemoryUtilizationPercentage: 80
-  
-  # Pod Disruption Budget for workers
-  pdb:
-    enabled: true
-    minAvailable: 1
-  
-  nodeSelector: {}
-  tolerations: []
-  affinity:
-    podAntiAffinity:
-      preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 100
-        podAffinityTerm:
-          labelSelector:
-            matchExpressions:
-            - key: app.kubernetes.io/name
-              operator: In
-              values:
-              - laravel
-            - key: app.kubernetes.io/component
-              operator: In
-              values:
-              - worker
-          topologyKey: kubernetes.io/hostname
+# Workers configuration
+# Define multiple workers with different commands/queues
+# Each worker gets its own deployment and can be scaled independently
+# Example:
+#   workers:
+#     default:
+#       enabled: true
+#       replicaCount: 2
+#       image:
+#         repository: ghcr.io/5ergiu/images/laravel
+#         tag: cli
+#         pullPolicy: Always
+#       args: ["php", "artisan", "queue:work", "--queue=default"]
+#     emails:
+#       enabled: true
+#       replicaCount: 3
+#       image:
+#         repository: ghcr.io/5ergiu/images/laravel
+#         tag: cli
+#       args: ["php", "artisan", "queue:work", "--queue=emails"]
+#     horizon:
+#       enabled: true
+#       replicaCount: 1
+#       image:
+#         repository: ghcr.io/5ergiu/images/laravel
+#         tag: cli
+#       args: ["php", "artisan", "horizon"]
+workers: {}
+  # Default queue worker (basic, no Redis required)
+  # Uncomment to enable a basic queue worker
+  # default:
+  #   enabled: true
+  #   replicaCount: 2
+  #
+  #   # Use the CLI image for workers
+  #   image:
+  #     repository: ghcr.io/5ergiu/images/laravel
+  #     tag: cli
+  #     pullPolicy: Always
+  #
+  #   strategy:
+  #     type: RollingUpdate
+  #     rollingUpdate:
+  #       maxSurge: 1
+  #       maxUnavailable: 0
+  #
+  #   podAnnotations: {}
+  #   podLabels: {}
+  #
+  #   podSecurityContext:
+  #     runAsNonRoot: true
+  #     runAsUser: 82  # Alpine www-data user (change to match your image)
+  #     fsGroup: 82    # Alpine www-data group (change to match your image)
+  #     seccompProfile:
+  #       type: RuntimeDefault
+  #
+  #   securityContext:
+  #     allowPrivilegeEscalation: false
+  #     capabilities:
+  #       drop:
+  #       - ALL
+  #     readOnlyRootFilesystem: true
+  #
+  #   # Worker command - Basic queue worker
+  #   args:
+  #     - "php"
+  #     - "artisan"
+  #     - "queue:work"
+  #     - "--verbose"
+  #     - "--tries=3"
+  #     - "--max-time=3600"
+  #     - "--sleep=3"
+  #     - "--timeout=300"
+  #
+  #   resources:
+  #     limits:
+  #       cpu: 500m
+  #       memory: 512Mi
+  #     requests:
+  #       cpu: 100m
+  #       memory: 256Mi
+  #
+  #   # Liveness probe for basic queue worker
+  #   livenessProbe:
+  #     enabled: true
+  #     exec:
+  #       command: ["healthcheck-queue"]
+  #     initialDelaySeconds: 30
+  #     periodSeconds: 60
+  #     timeoutSeconds: 5
+  #     successThreshold: 1
+  #     failureThreshold: 3
+  #
+  #   # Autoscaling configuration
+  #   autoscaling:
+  #     enabled: true
+  #     minReplicas: 2
+  #     maxReplicas: 10
+  #     targetCPUUtilizationPercentage: 70
+  #     targetMemoryUtilizationPercentage: 80
+  #
+  #   # Pod Disruption Budget
+  #   pdb:
+  #     enabled: true
+  #     minAvailable: 1
+  #
+  #   nodeSelector: {}
+  #   tolerations: []
+  #   affinity:
+  #     podAntiAffinity:
+  #       preferredDuringSchedulingIgnoredDuringExecution:
+  #       - weight: 100
+  #         podAffinityTerm:
+  #           labelSelector:
+  #             matchExpressions:
+  #             - key: app.kubernetes.io/name
+  #               operator: In
+  #               values:
+  #               - laravel
+  #             - key: app.kubernetes.io/component
+  #               operator: In
+  #               values:
+  #               - worker-default
+  #           topologyKey: kubernetes.io/hostname
 
-# Laravel Horizon queue worker (requires Redis)
-# Horizon provides a dashboard and advanced queue management features
-# Enable this instead of (or alongside) the basic queue worker for production
-horizon:
-  enabled: false
-  replicaCount: 2
-
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
-
-  podAnnotations: {}
-  podLabels: {}
-
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 82  # Alpine www-data user (change to match your image)
-    fsGroup: 82    # Alpine www-data group (change to match your image)
-    seccompProfile:
-      type: RuntimeDefault
-
-  securityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-      - ALL
-    readOnlyRootFilesystem: true
-
-  # Horizon command - manages all queues configured in config/horizon.php
-  command: ["php", "artisan", "horizon"]
-  args: []
-
-  resources:
-    limits:
-      cpu: 1000m
-      memory: 1Gi
-    requests:
-      cpu: 250m
-      memory: 512Mi
-
-  # Horizon-specific health check
-  # Uses the horizon:status command to verify Horizon is running
-  livenessProbe:
-    enabled: true
-    exec:
-      command: ["healthcheck-horizon"]
-    initialDelaySeconds: 30
-    periodSeconds: 60
-    timeoutSeconds: 5
-    successThreshold: 1
-    failureThreshold: 3
-
-  # Autoscaling configuration for Horizon workers
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
-    targetMemoryUtilizationPercentage: 80
-    behavior:
-      scaleDown:
-        stabilizationWindowSeconds: 300
-        policies:
-        - type: Percent
-          value: 50
-          periodSeconds: 60
-      scaleUp:
-        stabilizationWindowSeconds: 0
-        policies:
-        - type: Percent
-          value: 100
-          periodSeconds: 15
-        - type: Pods
-          value: 2
-          periodSeconds: 15
-        selectPolicy: Max
-
-  # Pod Disruption Budget for Horizon
-  pdb:
-    enabled: true
-    minAvailable: 1
-
-  nodeSelector: {}
-  tolerations: []
-  affinity:
-    podAntiAffinity:
-      preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 100
-        podAffinityTerm:
-          labelSelector:
-            matchExpressions:
-            - key: app.kubernetes.io/name
-              operator: In
-              values:
-              - laravel
-            - key: app.kubernetes.io/component
-              operator: In
-              values:
-              - horizon
-          topologyKey: kubernetes.io/hostname
+  # Laravel Horizon worker (requires Redis)
+  # Uncomment to enable Horizon for advanced queue management
+  # horizon:
+  #   enabled: false
+  #   replicaCount: 1
+  #
+  #   strategy:
+  #     type: RollingUpdate
+  #     rollingUpdate:
+  #       maxSurge: 1
+  #       maxUnavailable: 0
+  #
+  #   podAnnotations: {}
+  #   podLabels: {}
+  #
+  #   podSecurityContext:
+  #     runAsNonRoot: true
+  #     runAsUser: 82
+  #     fsGroup: 82
+  #     seccompProfile:
+  #       type: RuntimeDefault
+  #
+  #   securityContext:
+  #     allowPrivilegeEscalation: false
+  #     capabilities:
+  #       drop:
+  #       - ALL
+  #     readOnlyRootFilesystem: true
+  #
+  #   # Use the CLI image for workers
+  #   image:
+  #     repository: ghcr.io/5ergiu/images/laravel
+  #     tag: cli
+  #     pullPolicy: Always
+  #
+  #   # Horizon command
+  #   args: ["php", "artisan", "horizon"]
+  #
+  #   resources:
+  #     limits:
+  #       cpu: 1000m
+  #       memory: 1Gi
+  #     requests:
+  #       cpu: 250m
+  #       memory: 512Mi
+  #
+  #   # Horizon health check
+  #   livenessProbe:
+  #     enabled: true
+  #     exec:
+  #       command: ["healthcheck-horizon"]
+  #     initialDelaySeconds: 30
+  #     periodSeconds: 60
+  #     timeoutSeconds: 5
+  #     successThreshold: 1
+  #     failureThreshold: 3
+  #
+  #   # Autoscaling (typically Horizon runs as 1 instance)
+  #   autoscaling:
+  #     enabled: false
+  #     minReplicas: 1
+  #     maxReplicas: 3
+  #     targetCPUUtilizationPercentage: 70
+  #     targetMemoryUtilizationPercentage: 80
+  #
+  #   pdb:
+  #     enabled: true
+  #     minAvailable: 1
+  #
+  #   nodeSelector: {}
+  #   tolerations: []
+  #   affinity: {}
 
 # Scheduler (Laravel Cron)
 scheduler:
@@ -709,6 +764,7 @@ php:
   # These are passed directly to the container using their exact names
   env:
     # General Settings
+    DISABLE_DEFAULT_CONFIG: "true"
     APP_BASE_DIR: "/var/www/html"
     HEALTHCHECK_PATH: "/healthcheck"
 
@@ -799,9 +855,6 @@ externalSecrets:
 
 # Init containers
 initContainers: []
-
-# Sidecar containers
-sidecars: []
 
 # Extra volumes
 extraVolumes: []

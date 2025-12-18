@@ -50,26 +50,25 @@ jobs:
             dockerfile="examples/$app/Dockerfile"
 
             if [ -f "$dockerfile" ]; then
-              # Check for development and production targets in Dockerfile
-              has_dev=$(grep -i "^FROM .* AS development" "$dockerfile" || echo "")
-              has_prod=$(grep -i "^FROM .* AS production" "$dockerfile" || echo "")
+              # Check for all possible build targets in Dockerfile
+              has_dev_web=$(grep -i "^FROM .* AS development-web" "$dockerfile" || echo "")
+              has_prod_web=$(grep -i "^FROM .* AS production-web" "$dockerfile" || echo "")
+              has_cli=$(grep -i "^FROM .* AS cli" "$dockerfile" || echo "")
 
-              if [ -n "$has_dev" ] || [ -n "$has_prod" ]; then
-                # Build both targets if they exist
-                if [ -n "$has_dev" ]; then
-                  [ "$first" = false ] && matrix_include+=","
-                  matrix_include+="{\"image\":\"$app\",\"target\":\"development\"}"
-                  first=false
-                fi
-                if [ -n "$has_prod" ]; then
-                  [ "$first" = false ] && matrix_include+=","
-                  matrix_include+="{\"image\":\"$app\",\"target\":\"production\"}"
-                  first=false
-                fi
-              else
-                # No specific targets, build default
+              # Build all variants that exist
+              if [ -n "$has_dev_web" ]; then
                 [ "$first" = false ] && matrix_include+=","
-                matrix_include+="{\"image\":\"$app\",\"target\":\"\"}"
+                matrix_include+="{\"image\":\"$app\",\"target\":\"development-web\"}"
+                first=false
+              fi
+              if [ -n "$has_prod_web" ]; then
+                [ "$first" = false ] && matrix_include+=","
+                matrix_include+="{\"image\":\"$app\",\"target\":\"production-web\"}"
+                first=false
+              fi
+              if [ -n "$has_cli" ]; then
+                [ "$first" = false ] && matrix_include+=","
+                matrix_include+="{\"image\":\"$app\",\"target\":\"cli\"}"
                 first=false
               fi
             else
@@ -118,16 +117,24 @@ jobs:
         run: |
           IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/images/${{ matrix.image }}"
 
-          if [ "${{ matrix.target }}" = "development" ]; then
-            # Development: always use 'dev' tag
-            echo "VERSION=dev" >> $GITHUB_OUTPUT
-            echo "TAGS=${IMAGE_NAME}:dev" >> $GITHUB_OUTPUT
-            echo "Development build - using 'dev' tag"
-          else
-            # Production or default: use semantic versioning
+          # Determine build type and set tags
+          if [ "${{ matrix.target }}" = "development-web" ]; then
+            # Development web: use 'dev-web' tag
+            echo "VERSION=dev-web" >> $GITHUB_OUTPUT
+            echo "TAGS=${IMAGE_NAME}:dev-web" >> $GITHUB_OUTPUT
+            echo "Development web build - using 'dev-web' tag"
+          elif [ "${{ matrix.target }}" = "cli" ]; then
+            # CLI: use 'cli' tag (same for dev and prod)
+            echo "VERSION=cli" >> $GITHUB_OUTPUT
+            echo "TAGS=${IMAGE_NAME}:cli" >> $GITHUB_OUTPUT
+            echo "CLI build - using 'cli' tag"
+          elif [ "${{ matrix.target }}" = "production-web" ]; then
+            # Production web: use semantic versioning with -web suffix
+            VARIANT_SUFFIX="-web"
+            echo "Production web build"
 
             # Try to get the latest version from GHCR
-            LATEST_TAG=$(docker manifest inspect ${IMAGE_NAME}:latest 2>/dev/null | \
+            LATEST_TAG=$(docker manifest inspect ${IMAGE_NAME}:latest${VARIANT_SUFFIX} 2>/dev/null | \
               jq -r '.manifests[0].annotations."org.opencontainers.image.version"' 2>/dev/null || echo "")
 
             if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
@@ -194,9 +201,9 @@ jobs:
               fi
             fi
 
-            echo "VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
-            echo "TAGS=${IMAGE_NAME}:${NEW_VERSION},${IMAGE_NAME}:latest" >> $GITHUB_OUTPUT
-            echo "Production build - using version $NEW_VERSION"
+            echo "VERSION=${NEW_VERSION}${VARIANT_SUFFIX}" >> $GITHUB_OUTPUT
+            echo "TAGS=${IMAGE_NAME}:${NEW_VERSION}${VARIANT_SUFFIX},${IMAGE_NAME}:latest${VARIANT_SUFFIX}" >> $GITHUB_OUTPUT
+            echo "Production build - using version ${NEW_VERSION}${VARIANT_SUFFIX}"
           fi
 
       - name: 🏗️ Build and push ${{ matrix.image }} (${{ matrix.target || 'default' }})

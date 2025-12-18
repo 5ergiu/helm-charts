@@ -14,10 +14,10 @@
 #   6. Update all TODOs with your production values
 # ============================================================================
 
-# Use production image with specific version tags
+# Use production-web image with specific version tags
 image:
   repository: ghcr.io/5ergiu/images/laravel  # TODO: Change to your production registry
-  tag: latest  # TODO: Use specific version tags in production (e.g., v1.2.3)
+  tag: production-web  # TODO: Use specific version tags in production (e.g., v1.2.3-web)
   pullPolicy: Always
 
 imagePullSecrets: []  # TODO: Add pull secrets if using private registry
@@ -50,48 +50,64 @@ web:
     enabled: true
     minAvailable: 2
 
-# Basic queue workers (can run alongside Horizon for specialized queues)
-worker:
-  enabled: false  # Disabled in favor of Horizon for production
-  replicaCount: 3
-  autoscaling:
-    enabled: true
-    minReplicas: 3
-    maxReplicas: 15
-  pdb:
-    enabled: true
-    minAvailable: 2
+# Workers configuration - Production setup with multiple worker types
+workers:
+  # Example: High-priority queue worker
+  # high-priority:
+  #   enabled: true
+  #   replicaCount: 3
+  #   image:
+  #     repository: ghcr.io/5ergiu/images/laravel
+  #     tag: cli
+  #   args: ["php", "artisan", "queue:work", "--queue=high-priority", "--tries=3"]
+  #   resources:
+  #     limits: {cpu: 1000m, memory: 1Gi}
+  #     requests: {cpu: 200m, memory: 512Mi}
+  #   autoscaling:
+  #     enabled: true
+  #     minReplicas: 3
+  #     maxReplicas: 20
+  #   pdb:
+  #     enabled: true
+  #     minAvailable: 2
 
-# Laravel Horizon for production queue management (requires Redis)
-horizon:
-  enabled: true
-  replicaCount: 3
-
-  resources:
-    limits:
-      cpu: 1000m
-      memory: 1Gi
-    requests:
-      cpu: 250m
-      memory: 512Mi
-
-  livenessProbe:
+  # Laravel Horizon for production queue management (requires Redis)
+  horizon:
     enabled: true
-    exec:
-      command: ["healthcheck-horizon"]
-    initialDelaySeconds: 30
-    periodSeconds: 60
-    timeoutSeconds: 5
-    failureThreshold: 3
+    replicaCount: 3
 
-  autoscaling:
-    enabled: true
-    minReplicas: 3
-    maxReplicas: 15
+    image:
+      repository: ghcr.io/5ergiu/images/laravel
+      tag: cli
+      pullPolicy: Always
 
-  pdb:
-    enabled: true
-    minAvailable: 2
+    args: ["php", "artisan", "horizon"]
+
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+
+    livenessProbe:
+      enabled: true
+      exec:
+        command: ["healthcheck-horizon"]
+      initialDelaySeconds: 30
+      periodSeconds: 60
+      timeoutSeconds: 5
+      failureThreshold: 3
+
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 15
+
+    pdb:
+      enabled: true
+      minAvailable: 2
 
 # Scheduler - increased resources for production
 scheduler:
@@ -204,6 +220,8 @@ laravel:
 # PHP configuration - production optimizations
 php:
   env:
+    PHP_DISPLAY_ERRORS: "Off"
+    PHP_DISPLAY_STARTUP_ERRORS: "Off"
     PHP_MEMORY_LIMIT: "512M"
     PHP_MAX_EXECUTION_TIME: "120"
 

@@ -35,72 +35,43 @@ spec:
   {{- end }}
 {{- end }}
 ---
-{{- if and .Values.worker.enabled .Values.worker.autoscaling.enabled }}
+{{- range $workerName, $workerConfig := .Values.workers }}
+{{- if and $workerConfig.enabled $workerConfig.autoscaling.enabled }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "laravel.fullname" . }}-worker
+  name: {{ include "laravel.fullname" $ }}-worker-{{ $workerName }}
   labels:
-    {{- include "laravel.worker.labels" . | nindent 4 }}
+    {{- include "laravel.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: worker-{{ $workerName }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "laravel.fullname" . }}-worker
-  minReplicas: {{ .Values.worker.autoscaling.minReplicas }}
-  maxReplicas: {{ .Values.worker.autoscaling.maxReplicas }}
+    name: {{ include "laravel.fullname" $ }}-worker-{{ $workerName }}
+  minReplicas: {{ $workerConfig.autoscaling.minReplicas }}
+  maxReplicas: {{ $workerConfig.autoscaling.maxReplicas }}
   metrics:
-    {{- if .Values.worker.autoscaling.targetCPUUtilizationPercentage }}
+    {{- if $workerConfig.autoscaling.targetCPUUtilizationPercentage }}
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: {{ .Values.worker.autoscaling.targetCPUUtilizationPercentage }}
+          averageUtilization: {{ $workerConfig.autoscaling.targetCPUUtilizationPercentage }}
     {{- end }}
-    {{- if .Values.worker.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- if $workerConfig.autoscaling.targetMemoryUtilizationPercentage }}
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: {{ .Values.worker.autoscaling.targetMemoryUtilizationPercentage }}
+          averageUtilization: {{ $workerConfig.autoscaling.targetMemoryUtilizationPercentage }}
     {{- end }}
-{{- end }}
----
-{{- if and .Values.horizon.enabled .Values.horizon.autoscaling.enabled }}
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: {{ include "laravel.fullname" . }}-horizon
-  labels:
-    {{- include "laravel.horizon.labels" . | nindent 4 }}
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: {{ include "laravel.fullname" . }}-horizon
-  minReplicas: {{ .Values.horizon.autoscaling.minReplicas }}
-  maxReplicas: {{ .Values.horizon.autoscaling.maxReplicas }}
-  metrics:
-    {{- if .Values.horizon.autoscaling.targetCPUUtilizationPercentage }}
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: {{ .Values.horizon.autoscaling.targetCPUUtilizationPercentage }}
-    {{- end }}
-    {{- if .Values.horizon.autoscaling.targetMemoryUtilizationPercentage }}
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: {{ .Values.horizon.autoscaling.targetMemoryUtilizationPercentage }}
-    {{- end }}
-  {{- with .Values.horizon.autoscaling.behavior }}
+  {{- with $workerConfig.autoscaling.behavior }}
   behavior:
     {{- toYaml . | nindent 4 }}
   {{- end }}
+---
+{{- end }}
 {{- end }}

@@ -14,10 +14,10 @@
 #   2. Update hostPath.path to point to your Laravel project directory
 # ============================================================================
 
-# Use development image (includes Xdebug)
+# Use development-web image (includes Xdebug)
 image:
   repository: ghcr.io/5ergiu/images/laravel  # TODO: Change to your development registry
-  tag: dev  # TODO: Or use 'latest' for development
+  tag: development-web
   pullPolicy: Always
 
 # Single replica for development
@@ -66,39 +66,46 @@ web:
   pdb:
     enabled: false
 
-worker:
-  enabled: true
-  replicaCount: 1
-  autoscaling:
-    enabled: false
+workers:
+  default:
+    enabled: true
+    replicaCount: 1
+    autoscaling:
+      enabled: false
 
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 82    # TODO: Change to match web.podSecurityContext.runAsUser
-    fsGroup: 82      # TODO: Change to match web.podSecurityContext.fsGroup
-    seccompProfile:
-      type: RuntimeDefault
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 82    # TODO: Change to match web.podSecurityContext.runAsUser
+      fsGroup: 82      # TODO: Change to match web.podSecurityContext.fsGroup
+      seccompProfile:
+        type: RuntimeDefault
 
-  # Basic queue worker for local development (no Redis needed with sync driver)
-  command: ["php", "artisan", "queue:work"]
-  args:
-    - "--verbose"
-    - "--tries=3"
+    image:
+      repository: ghcr.io/5ergiu/images/laravel
+      tag: cli
+      pullPolicy: Always
 
-  # For production with Redis, use Laravel Horizon instead:
-  # command: ["php", "artisan", "horizon"]
-  # args: []
+    # Basic queue worker for local development (no Redis needed with sync driver)
+    args:
+      - "php"
+      - "artisan"
+      - "queue:work"
+      - "--verbose"
+      - "--tries=3"
 
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 256Mi
+    # For production with Redis, use Laravel Horizon instead:
+    # args: ["php", "artisan", "horizon"]
 
-  pdb:
-    enabled: false
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+    pdb:
+      enabled: false
 
 scheduler:
   enabled: true
@@ -171,7 +178,6 @@ laravel:
 # PHP configuration for local development
 php:
   env:
-    DISABLE_DEFAULT_CONFIG: "true"
     PHP_DISPLAY_ERRORS: "On"
     PHP_DISPLAY_STARTUP_ERRORS: "On"
     PHP_ERROR_REPORTING: "32767"  # E_ALL

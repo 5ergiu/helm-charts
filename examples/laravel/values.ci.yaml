@@ -8,10 +8,10 @@
 # - SQLite for database
 # ============================================================================
 
-# Use the demo image
+# Use the production-web image for CI testing
 image:
   repository: ghcr.io/5ergiu/images/laravel
-  tag: latest
+  tag: production-web
   pullPolicy: Always
 
 # Minimal replicas for CI
@@ -39,38 +39,54 @@ web:
   pdb:
     enabled: false
 
-worker:
-  replicaCount: 1
-  autoscaling:
-    enabled: false
+workers:
+  default:
+    enabled: true
+    replicaCount: 1
+    autoscaling:
+      enabled: false
 
-  resources:
-    limits:
-      cpu: 250m
-      memory: 256Mi
-    requests:
-      cpu: 50m
-      memory: 128Mi
+    image:
+      repository: ghcr.io/5ergiu/images/laravel
+      tag: cli
+      pullPolicy: Always
 
-  pdb:
-    enabled: false
+    args: ["php", "artisan", "queue:work", "--tries=3"]
 
-horizon:
-  enabled: true
-  replicaCount: 1
-  autoscaling:
-    enabled: false
+    resources:
+      limits:
+        cpu: 250m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 128Mi
 
-  resources:
-    limits:
-      cpu: 250m
-      memory: 256Mi
-    requests:
-      cpu: 50m
-      memory: 128Mi
+    pdb:
+      enabled: false
 
-  pdb:
-    enabled: false
+  horizon:
+    enabled: true
+    replicaCount: 1
+    autoscaling:
+      enabled: false
+
+    image:
+      repository: ghcr.io/5ergiu/images/laravel
+      tag: cli
+      pullPolicy: Always
+
+    args: ["php", "artisan", "horizon"]
+
+    resources:
+      limits:
+        cpu: 250m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 128Mi
+
+    pdb:
+      enabled: false
 
 scheduler:
   enabled: true
