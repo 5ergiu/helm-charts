@@ -9,8 +9,8 @@ Production-grade Helm charts for Kubernetes deployments following cloud-native b
 
 | Chart | Description | Version | Docs |
 |-------|-------------|---------|------|
-| <a href="https://laravel.com/docs/12.x" style="display:inline-flex;flex-direction:column;align-items:center;text-decoration:none;"><img src="https://cdn.brandfetch.io/ide68-31CH/w/346/h/346/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761211589926" alt="Laravel" width="48" height="48" style="border-radius:4px;margin-bottom:4px;"/><strong style="margin:0;">Laravel</strong></a> | Laravel application deployment with web/worker deployments, queue management, cron jobs, and auto-scaling | [`0.1.0`](https://github.com/5ergiu/helm-charts/releases/tag/laravel-0.1.0) | [README](./charts/laravel/README.md) |
-| <a href="https://nextjs.org/" style="display:inline-flex;flex-direction:column;align-items:center;text-decoration:none;"><img src="https://cdn.brandfetch.io/id2alue-rx/theme/dark/symbol.svg?c=1bxid64Mup7aczewSAYMX&t=1762498501254" alt="Next.js" width="48" height="48" style="border-radius:4px;margin-bottom:4px;"/><strong style="margin:0;">Next.js</strong></a> | High-performance Next.js application deployment with SSR/SSG support, image optimization, and CDN integration | [`0.1.0`](https://github.com/5ergiu/helm-charts/releases/tag/nextjs-0.1.0) | [README](./charts/nextjs/README.md) |
+| <a href="https://laravel.com/docs/12.x" style="display:inline-flex;flex-direction:column;align-items:center;text-decoration:none;"><img src="https://cdn.brandfetch.io/ide68-31CH/w/346/h/346/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761211589926" alt="Laravel" width="48" height="48" style="border-radius:4px;margin-bottom:4px;"/><strong style="margin:0;">Laravel</strong></a> | Laravel application deployment with web/worker deployments, queue management, cron jobs, and auto-scaling | ![Version](https://img.shields.io/badge/dynamic/yaml?url=https://raw.githubusercontent.com/5ergiu/helm-charts/main/charts/laravel/Chart.yaml&label=&query=version&prefix=v) | [README](./charts/laravel/README.md) |
+| <a href="https://nextjs.org/" style="display:inline-flex;flex-direction:column;align-items:center;text-decoration:none;"><img src="https://cdn.brandfetch.io/id2alue-rx/w/800/h/800/theme/dark/symbol.png?c=1bxid64Mup7aczewSAYMX&t=1762498501254" alt="Next.js" width="48" height="48" style="border-radius:4px;margin-bottom:4px;"/><strong style="margin:0;">Next.js</strong></a> | High-performance Next.js application deployment with SSR/SSG support, image optimization, and CDN integration | ![Version](https://img.shields.io/badge/dynamic/yaml?url=https://raw.githubusercontent.com/5ergiu/helm-charts/main/charts/nextjs/Chart.yaml&label=&query=version&prefix=v) | [README](./charts/nextjs/README.md) |
 
 ## 🚀 Quick Start
 
@@ -18,7 +18,6 @@ Production-grade Helm charts for Kubernetes deployments following cloud-native b
 
 - **Kubernetes 1.24+**
 - **Helm 3.8+**
-- **PV provisioner** support in the underlying infrastructure (if persistence is enabled)
 
 ### Installing Charts
 
@@ -94,6 +93,62 @@ Each chart provides extensive configuration options through `values.yaml`. Key c
 - **Monitoring**: Metrics, service monitors, health checks
 
 Refer to individual chart READMEs for detailed configuration options.
+
+## 🐳 Building Example Images
+
+The [examples/](./examples/) directory contains sample applications (Next.js, Laravel) with multi-stage Dockerfiles for demonstration purposes. These images are built separately and used by the Helm charts for testing.
+
+### Automatic Builds
+
+Docker images are built automatically and pushed to [GitHub Container Registry (GHCR)](https://github.com/orgs/5ergiu/packages?repo_name=helm-charts) using the **Build and Push Images** workflow.
+
+**When to trigger builds:**
+- When you modify Dockerfiles in the `examples/` directory
+- When you want to update example application dependencies
+- When creating new example applications
+
+### Manual Workflow Trigger
+
+Since Dockerfiles change rarely, image builds are **manually triggered** rather than running on every PR:
+
+1. Go to [Actions → Build and Push Images](../../actions/workflows/build-push-images.yaml)
+2. Click **Run workflow**
+3. Optionally specify which apps to build (comma-separated), or leave empty to build all:
+   ```
+   nextjs,laravel
+   ```
+
+### Image Tagging Strategy
+
+Images are tagged based on the build target:
+
+- **Development builds** (`target: development`): Tagged as `appName:dev` (always overwritten)
+- **Production builds** (`target: production`): Semantic versioning with `appName:vX.Y.Z` + `appName:latest`
+  - Version bumping follows [Conventional Commits](https://www.conventionalcommits.org/)
+  - Git tags are created as `appName/vX.Y.Z`
+
+**Example tags:**
+```bash
+# Development
+ghcr.io/5ergiu/nextjs:dev
+ghcr.io/5ergiu/laravel:dev
+
+# Production
+ghcr.io/5ergiu/nextjs:latest
+```
+
+### Local Builds
+
+You can also build images locally for testing:
+
+```bash
+# Build development target
+cd examples/nextjs
+docker build --target development -t nextjs:dev .
+
+# Build production target
+docker build --target production -t nextjs:latest .
+```
 
 ## 🤝 Contributing
 
