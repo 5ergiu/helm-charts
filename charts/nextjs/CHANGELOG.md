@@ -2,9 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.2.2](https://github.com/5ergiu/helm-charts/compare/nextjs-0.2.1..nextjs-0.2.2) - 2025-12-18
+### 🐛 Fixes
+
+- fix chart signing ([289201c](https://github.com/5ergiu/helm-charts/commit/289201c26bc70d371073e4093145f6272b225ed0)) by @5ergiu
 ## [0.2.1](https://github.com/5ergiu/helm-charts/compare/nextjs-0.2.0..nextjs-0.2.1) - 2025-12-17
 ### 🔧 Chores
 
+- update chart artifacts ([5595b16](https://github.com/5ergiu/helm-charts/commit/5595b1689afe78f5a8aa6e338c8164e7bb4113cc)) by @github-actions[bot]
 - update chart artifacts ([aab5a92](https://github.com/5ergiu/helm-charts/commit/aab5a9218889f9b345a463246b5868c6737282c9)) by @github-actions[bot]
 ## [0.2.0](https://github.com/5ergiu/helm-charts/compare/nextjs-0.1.0..nextjs-0.2.0) - 2025-12-17
 ### ✨ Features
