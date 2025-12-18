@@ -98,24 +98,32 @@ jobs:
             echo "⚙️ Generating schema for $chart_name..."
             helm schema -f "$chart/values.yaml" -o "$chart/values.schema.json" --draft 7
 
-            # Generate changelog
-            echo "📝 Generating changelog for $chart_name..."
-            git-cliff --bump --config cliff.toml --output "$chart/CHANGELOG.md" --include-path "$chart/*"
-
-            # Generate ArtifactHub annotations
-            echo "📝 Generating ArtifactHub annotations for $chart_name..."
-            git-cliff --config cliff-artifacthub.toml --output changes.json --include-path "$chart/*"
-            yq eval -i ".annotations.\"artifacthub.io/changes\" style=\"literal\" = load_str(\"changes.json\")" "$chart/Chart.yaml"
-            rm -f changes.json
-
-            # Bump chart version
-            echo "🔼 Bumping chart version for $chart_name..."
-            bumped=$(git cliff --bumped-version --include-path "$chart/*" --tag-pattern "${chart_name}/*")
+            # Check if version bump is needed
+            echo "🔍 Checking if version bump is needed for $chart_name..."
+            current_version=$(yq eval '.version' "$chart/Chart.yaml")
+            bumped=$(git cliff --config cliff.toml --bumped-version --include-path "$chart/*")
             # Extract just the semantic version (remove chart name prefix and 'v' prefix)
             # Handles: chart_name/v0.2.0 -> 0.2.0, chart_name-0.2.0 -> 0.2.0, or just 0.2.0 -> 0.2.0
             new_version=$(echo "$bumped" | sed -e "s|^${chart_name}/v||" -e "s|^${chart_name}-||" -e "s|^v||")
-            yq -i ".version = \"$new_version\"" "$chart/Chart.yaml"
-            echo "✅ New version: $new_version"
+
+            if [ "$new_version" = "$current_version" ]; then
+              echo "⏭️  No version bump needed (current: $current_version), skipping changelog generation"
+            else
+              echo "🔼 Bumping chart version: $current_version → $new_version"
+              yq -i ".version = \"$new_version\"" "$chart/Chart.yaml"
+
+              # Generate changelog with new version
+              echo "📝 Generating changelog for $chart_name..."
+              git-cliff --bump --config cliff.toml --output "$chart/CHANGELOG.md" --include-path "$chart/*"
+
+              # Generate ArtifactHub annotations
+              echo "📝 Generating ArtifactHub annotations for $chart_name..."
+              git-cliff --config cliff-artifacthub.toml --output changes.json --include-path "$chart/*"
+              yq eval -i ".annotations.\"artifacthub.io/changes\" style=\"literal\" = load_str(\"changes.json\")" "$chart/Chart.yaml"
+              rm -f changes.json
+
+              echo "✅ Chart $chart_name updated to version $new_version"
+            fi
           done
 
       - name: 💾 Commit and push changes
