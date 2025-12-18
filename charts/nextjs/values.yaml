@@ -24,7 +24,7 @@ global:
 
 # Image configuration
 image:
-  repository: ghcr.io/5ergiu/nextjs
+  repository: ghcr.io/5ergiu/images/nextjs
   pullPolicy: Always
   tag: latest
 

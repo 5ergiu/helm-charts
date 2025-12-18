@@ -212,7 +212,7 @@ echo "127.0.0.1 laravel.local" | sudo tee -a /etc/hosts
 # 3. Copy and configure secrets
 cd examples/laravel
 cp secrets.yaml.example secrets.yaml
-# Generate APP_KEY: docker run --rm ghcr.io/5ergiu/laravel:latest php artisan key:generate --show
+# Generate APP_KEY: docker run --rm ghcr.io/5ergiu/images/laravel:latest php artisan key:generate --show
 # Edit secrets.yaml with your APP_KEY
 
 # 4. Deploy with local development values (includes Bun sidecar for Vite HMR)

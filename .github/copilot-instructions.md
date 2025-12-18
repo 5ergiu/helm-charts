@@ -13,8 +13,8 @@ This repository provides production-grade Helm charts for deploying Laravel and 
   - From OCI registry: `helm install my-app oci://ghcr.io/5ergiu/helm-charts/<chart> --version <ver> --namespace <ns> --create-namespace --values values.yaml`
   - From local: `helm install my-app ./charts/<chart> --namespace <ns> --create-namespace --values values.yaml`
 - **Build demo images:**
-  - Laravel: `docker build --target development -t ghcr.io/5ergiu/laravel:dev examples/laravel-app`
-  - Next.js: `docker build --target development -t ghcr.io/5ergiu/nextjs:dev examples/nextjs-app`
+  - Laravel: `docker build --target development -t ghcr.io/5ergiu/images/laravel:dev examples/laravel-app`
+  - Next.js: `docker build --target development -t ghcr.io/5ergiu/images/nextjs:dev examples/nextjs-app`
 - **Test charts:**
   - Use `charts/<chart>/tests/` for Helm test manifests. Run with `helm test <release> -n <namespace>`.
   - Use `scripts/test.sh` for custom test automation.

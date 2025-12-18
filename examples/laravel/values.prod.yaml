@@ -16,7 +16,7 @@
 
 # Use production image with specific version tags
 image:
-  repository: ghcr.io/5ergiu/laravel  # TODO: Change to your production registry
+  repository: ghcr.io/5ergiu/images/laravel  # TODO: Change to your production registry
   tag: latest  # TODO: Use specific version tags in production (e.g., v1.2.3)
   pullPolicy: Always
 

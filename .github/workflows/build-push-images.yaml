@@ -7,15 +7,19 @@ on:
         description: 'Comma-separated list of apps to build (e.g., "nextjs,laravel"). Leave empty to build all.'
         required: false
         type: string
-
-permissions:
-  contents: write
-  packages: write
+  workflow_call:
+    inputs:
+      apps:
+        description: 'Comma-separated list of apps to build (e.g., "nextjs,laravel"). Leave empty to build all.'
+        required: false
+        type: string
 
 jobs:
   detect-images:
     name: 🔍 Detect Images to Build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
@@ -83,11 +87,14 @@ jobs:
             echo "Build matrix: {\"include\":$matrix_include}"
           fi
 
-  build-push-images:
+  build-push:
     name: 🏗️ Build ${{ matrix.image }} (${{ matrix.target || 'default' }})
     needs: detect-images
     if: needs.detect-images.outputs.matrix != '{\"include\":[]}'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     strategy:
       matrix: ${{ fromJSON(needs.detect-images.outputs.matrix) }}
     steps:
@@ -109,7 +116,7 @@ jobs:
       - name: 🏷️ Determine version for ${{ matrix.image }}
         id: version
         run: |
-          IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}"
+          IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/images/${{ matrix.image }}"
 
           if [ "${{ matrix.target }}" = "development" ]; then
             # Development: always use 'dev' tag

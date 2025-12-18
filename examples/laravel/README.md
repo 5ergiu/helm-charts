@@ -4,7 +4,7 @@ This is a demonstration Docker image that creates a fresh Laravel 12.x applicati
 
 ## 📦 Image Repository
 
-**GitHub Container Registry:** `ghcr.io/5ergiu/laravel`
+**GitHub Container Registry:** `ghcr.io/5ergiu/images/laravel`
 
 ## ✨ Features
 
@@ -29,7 +29,7 @@ This Dockerfile creates two build targets:
 
 **Build command:**
 ```bash
-docker build --target development -t ghcr.io/5ergiu/laravel:dev .
+docker build --target development -t ghcr.io/5ergiu/images/laravel:dev .
 ```
 
 ### 🚀 Production (`latest` tag)
@@ -41,7 +41,7 @@ docker build --target development -t ghcr.io/5ergiu/laravel:dev .
 
 **Build command:**
 ```bash
-docker build --target production -t ghcr.io/5ergiu/laravel:latest .
+docker build --target production -t ghcr.io/5ergiu/images/laravel:latest .
 ```
 
 ## 🏗️ Architecture
@@ -126,7 +126,7 @@ echo "127.0.0.1 laravel.local" | sudo tee -a /etc/hosts
 
 # 3. Copy and configure secrets
 cp secrets.yaml.example secrets.yaml
-# Generate APP_KEY: docker run --rm ghcr.io/5ergiu/laravel:latest php artisan key:generate --show
+# Generate APP_KEY: docker run --rm ghcr.io/5ergiu/images/laravel:latest php artisan key:generate --show
 # Edit secrets.yaml with your APP_KEY
 
 # 4. Deploy with local development values (includes Bun sidecar for Vite HMR)

@@ -16,7 +16,7 @@
 
 # Use development image (includes Xdebug)
 image:
-  repository: ghcr.io/5ergiu/laravel  # TODO: Change to your development registry
+  repository: ghcr.io/5ergiu/images/laravel  # TODO: Change to your development registry
   tag: dev  # TODO: Or use 'latest' for development
   pullPolicy: Always
 

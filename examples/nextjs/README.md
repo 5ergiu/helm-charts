@@ -4,7 +4,7 @@ This is a demonstration Docker image that creates a fresh Next.js 16.x applicati
 
 ## 📦 Image Repository
 
-**GitHub Container Registry:** `ghcr.io/5ergiu/nextjs`
+**GitHub Container Registry:** `ghcr.io/5ergiu/images/nextjs`
 
 ## ✨ Features
 
@@ -30,7 +30,7 @@ This Dockerfile creates two build targets:
 
 **Build command:**
 ```bash
-docker build --target development -t ghcr.io/5ergiu/nextjs:dev .
+docker build --target development -t ghcr.io/5ergiu/images/nextjs:dev .
 ```
 
 ### 🚀 Production (`latest` tag)
@@ -42,7 +42,7 @@ docker build --target development -t ghcr.io/5ergiu/nextjs:dev .
 
 **Build command:**
 ```bash
-docker build --target production -t ghcr.io/5ergiu/nextjs:latest .
+docker build --target production -t ghcr.io/5ergiu/images/nextjs:latest .
 ```
 
 ## 🏗️ Architecture

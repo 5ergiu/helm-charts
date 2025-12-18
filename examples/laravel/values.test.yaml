@@ -9,7 +9,7 @@
 # ============================================================================
 
 image:
-  repository: ghcr.io/5ergiu/laravel
+  repository: ghcr.io/5ergiu/images/laravel
   tag: latest
   pullPolicy: Always
 

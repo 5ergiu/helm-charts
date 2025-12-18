@@ -130,11 +130,12 @@ Images are tagged based on the build target:
 **Example tags:**
 ```bash
 # Development
-ghcr.io/5ergiu/nextjs:dev
-ghcr.io/5ergiu/laravel:dev
+ghcr.io/5ergiu/images/nextjs:dev
+ghcr.io/5ergiu/images/laravel:dev
 
 # Production
-ghcr.io/5ergiu/nextjs:latest
+ghcr.io/5ergiu/images/nextjs:latest
+ghcr.io/5ergiu/images/laravel:latest
 ```
 
 ### Local Builds

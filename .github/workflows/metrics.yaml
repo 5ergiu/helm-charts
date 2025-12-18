@@ -4,15 +4,14 @@ on:
   schedule:
     - cron: '0 0 * * 0'  # Weekly on Sunday at midnight
 
-permissions:
-  contents: write
-  issues: write
-
 jobs:
   metrics:
     name: Generate Metrics
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write
+      issues: write
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1

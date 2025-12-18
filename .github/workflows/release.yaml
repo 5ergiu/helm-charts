@@ -1,6 +1,9 @@
 name: 🚀 Release Charts
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       dry_run:
@@ -9,7 +12,7 @@ on:
         type: boolean
         default: false
       chart:
-        description: 'Chart to release: "all" or specific chart path (e.g., charts/laravel)'
+        description: 'Chart to release: "all" or specific chart name (e.g., laravel, nextjs)'
         required: true
         type: string
         default: 'all'
@@ -18,14 +21,12 @@ concurrency:
   group: release
   cancel-in-progress: true
 
-permissions:
-  contents: write
-  packages: write
-
 jobs:
   resolve-charts:
     name: 📋 Resolve Charts to Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       charts: ${{ steps.set-charts.outputs.charts }}
     steps:
@@ -37,14 +38,21 @@ jobs:
       - name: 📋 Resolve charts to release
         id: set-charts
         run: |
-          if [ "${{ inputs.chart }}" = "all" ]; then
+          # Default to "all" if no input is provided (e.g., triggered by push)
+          CHART_INPUT="${{ inputs.chart }}"
+          if [ -z "$CHART_INPUT" ]; then
+            CHART_INPUT="all"
+          fi
+
+          if [ "$CHART_INPUT" = "all" ]; then
             echo "Releasing all charts..."
             all_charts=$(for dir in charts/*/; do echo "${dir%/}"; done | jq -R . | jq -s -c .)
             echo "charts=$all_charts" >> $GITHUB_OUTPUT
             echo "Charts to release: $all_charts"
           else
-            echo "Releasing specific chart: ${{ inputs.chart }}"
-            json=$(echo '["${{ inputs.chart }}"]' | jq -c .)
+            CHART_PATH="charts/$CHART_INPUT"
+            echo "Releasing specific chart: $CHART_INPUT"
+            json=$(echo "[\"$CHART_PATH\"]" | jq -c .)
             echo "charts=$json" >> $GITHUB_OUTPUT
           fi
 
@@ -53,6 +61,8 @@ jobs:
     needs:
       - resolve-charts
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -142,6 +152,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     if: inputs.dry_run != 'true'
+    permissions:
+      contents: write
     outputs:
       changed_charts: ${{ steps.chart-releaser.outputs.changed_charts }}
     steps:
@@ -181,18 +193,132 @@ jobs:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
   oci-upload:
-    name: 📤 OCI upload
+    name: 📤 Upload Charts to OCI
     needs:
       - resolve-charts
       - release
     if: needs.release.outputs.changed_charts != ''
-    strategy:
-      matrix:
-        chart: ${{ fromJSON(needs.resolve-charts.outputs.charts) }}
-    uses: ./.github/workflows/oci-upload.yaml
-    with:
-      chart: ${{ matrix.chart }}
-    secrets:
-      COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
-      COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
-      REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: ⎈ Set up Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        with:
+          version: v4.0.1
+
+      - name: 🔐 Install Cosign
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+
+      - name: 🔐 Login to registry
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📤 Push and sign charts
+        env:
+          COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: |
+          charts='${{ needs.resolve-charts.outputs.charts }}'
+          echo "Processing charts: $charts"
+
+          # Get repository owner in lowercase
+          REPO_OWNER=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
+          echo "Repository owner: $REPO_OWNER"
+
+          # Retry function for registry operations
+          retry() {
+            local max_attempts=3
+            local attempt=1
+            local delay=5
+            while [ $attempt -le $max_attempts ]; do
+              if "$@"; then return 0; fi
+              echo "⚠️ Attempt $attempt/$max_attempts failed. Retrying in ${delay}s..."
+              sleep $delay
+              delay=$((delay * 2))
+              attempt=$((attempt + 1))
+            done
+            echo "❌ ERROR: Failed after $max_attempts attempts"
+            return 1
+          }
+
+          # Login to registry
+          echo "🔐 Logging into ghcr.io..."
+          retry helm registry login --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }} ghcr.io
+
+          # Convert JSON array to bash array
+          chart_list=$(echo "$charts" | jq -r '.[]')
+
+          # Initialize summary
+          echo "## 📦 Chart Upload Summary" >> $GITHUB_STEP_SUMMARY
+
+          for chart in $chart_list; do
+            echo "=========================================="
+            echo "Processing chart: $chart"
+            echo "=========================================="
+
+            CHART_NAME=$(basename "$chart")
+            CHART_VERSION=$(yq eval '.version' "$chart/Chart.yaml")
+
+            echo "Chart: $CHART_NAME"
+            echo "Version: $CHART_VERSION"
+
+            # Default to chart-releaser output location
+            PACKAGE_FILE=".cr-release-packages/${CHART_NAME}-${CHART_VERSION}.tgz"
+
+            # Verify package exists
+            if [ ! -f "$PACKAGE_FILE" ]; then
+              echo "ERROR: Package file not found at $PACKAGE_FILE"
+              echo "Attempting to package chart..."
+              mkdir -p .helm-packages
+              helm package "$chart" -d .helm-packages
+              PACKAGE_FILE=".helm-packages/${CHART_NAME}-${CHART_VERSION}.tgz"
+            fi
+
+            # Push chart to OCI registry
+            echo "📦 Uploading Helm chart $CHART_NAME-$CHART_VERSION.tgz to ghcr.io..."
+            if retry helm push "$PACKAGE_FILE" "oci://ghcr.io/${REPO_OWNER}/helm-charts" 2>&1 | tee push-output.log; then
+              DIGEST=$(grep -oP 'Digest:\s*\K(sha256:[a-f0-9]+)' push-output.log || echo "")
+              if [ -z "$DIGEST" ]; then
+                echo "ERROR: Failed to extract digest"
+                cat push-output.log
+                exit 1
+              fi
+              echo "✅ Successfully pushed $CHART_NAME:$CHART_VERSION"
+              echo "📍 Digest: $DIGEST"
+
+              # Sign chart with Cosign
+              echo "🔐 Signing chart $CHART_NAME:$CHART_VERSION with Cosign..."
+              if retry cosign sign -y --upload=true --key env://COSIGN_KEY "ghcr.io/${REPO_OWNER}/helm-charts/${CHART_NAME}:${CHART_VERSION}@$DIGEST"; then
+                echo "✅ Successfully signed $CHART_NAME:$CHART_VERSION"
+
+                # Add to summary
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "### $CHART_NAME" >> $GITHUB_STEP_SUMMARY
+                echo "- **Version**: $CHART_VERSION" >> $GITHUB_STEP_SUMMARY
+                echo "- **Registry**: \`ghcr.io/${REPO_OWNER}/helm-charts\`" >> $GITHUB_STEP_SUMMARY
+                echo "- **Digest**: \`$DIGEST\`" >> $GITHUB_STEP_SUMMARY
+                echo "- **Signing**: ✅ Enabled" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "⚠️ Failed to sign $CHART_NAME:$CHART_VERSION (chart uploaded but not signed)"
+                exit 1
+              fi
+            else
+              echo "❌ Failed to push chart $CHART_NAME:$CHART_VERSION"
+              exit 1
+            fi
+          done
+
+          echo "=========================================="
+          echo "✅ All charts processed successfully"
+          echo "=========================================="

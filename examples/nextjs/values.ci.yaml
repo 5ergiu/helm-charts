@@ -10,7 +10,7 @@
 
 # Use the demo image
 image:
-  repository: ghcr.io/5ergiu/nextjs
+  repository: ghcr.io/5ergiu/images/nextjs
   tag: latest
   pullPolicy: Always
 

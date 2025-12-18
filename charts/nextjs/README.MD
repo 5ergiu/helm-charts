@@ -759,7 +759,7 @@ extraVolumeMounts:
 ```bash
 # Use skaffold or tilt for automatic rebuilds
 # Or manually rebuild:
-docker build --target development -t ghcr.io/5ergiu/nextjs:dev .
+docker build --target development -t ghcr.io/5ergiu/images/nextjs:dev .
 kubectl rollout restart deployment/myapp-dev-nextjs-app -n development
 ```
 
@@ -875,7 +875,7 @@ global:
   environment: production
 
 image:
-  repository: ghcr.io/5ergiu/nextjs
+  repository: ghcr.io/5ergiu/images/nextjs
   tag: latest
 
 imagePullSecrets:

@@ -16,7 +16,7 @@
 # ============================================================================
 
 image:
-  repository: ghcr.io/5ergiu/nextjs  # TODO: Change to your production registry
+  repository: ghcr.io/5ergiu/images/nextjs  # TODO: Change to your production registry
   tag: latest  # TODO: Use specific version tags in production
   pullPolicy: Always
 

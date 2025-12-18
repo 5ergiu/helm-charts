@@ -6,16 +6,15 @@ on:
   pull_request:
     types: [opened, edited, synchronize]
 
-permissions:
-  issues: write
-  pull-requests: write
-  contents: read
-
 jobs:
   auto-label:
     name: Apply Labels
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
     steps:
       - name: Label based on issue form
         if: github.event_name == 'issues'

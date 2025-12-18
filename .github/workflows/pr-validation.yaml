@@ -13,14 +13,55 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-  pull-requests: write
-
 jobs:
+  detect-image-changes:
+    name: 🔍 Detect Image Changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      changed_images: ${{ steps.detect.outputs.changed_images }}
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: 🔍 Detect changed images
+        id: detect
+        run: |
+          # Get changed files in examples/ directory
+          changed_files=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep "^examples/" || echo "")
+
+          if [ -z "$changed_files" ]; then
+            echo "changed_images=" >> $GITHUB_OUTPUT
+            echo "No changes detected in examples/"
+          else
+            # Extract unique app names from changed paths
+            changed_apps=$(echo "$changed_files" | cut -d'/' -f2 | sort -u)
+
+            # Convert to comma-separated list
+            apps_list=$(echo "$changed_apps" | tr '\n' ',' | sed 's/,$//')
+
+            echo "changed_images=$apps_list" >> $GITHUB_OUTPUT
+            echo "Changed images detected: $apps_list"
+          fi
+
+  build-images:
+    name: 🏗️ Build Changed Images
+    needs: detect-image-changes
+    uses: ./.github/workflows/build-push-images.yaml
+    with:
+      apps: ${{ needs.detect-image-changes.outputs.changed_images }}
+    permissions:
+      contents: write
+      packages: write
+
   resolve-charts:
     name: 📋 Resolve Charts to Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       charts: ${{ steps.set-charts.outputs.charts }}
     steps:
@@ -48,9 +89,15 @@ jobs:
 
   test:
     name: 🧪 Test Charts
-    needs: resolve-charts
-    if: needs.resolve-charts.outputs.charts != '[]'
+    needs:
+      - build-images
+      - resolve-charts
+    if: |
+      needs.build-images.result != 'failure' &&
+      needs.resolve-charts.outputs.charts != '[]'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       CI: true
     steps:
