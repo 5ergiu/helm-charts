@@ -2,23 +2,24 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
-## [0.2.3](https://github.com/5ergiu/helm-charts/compare/nextjs-0.2.2..nextjs-0.2.3) - 2025-12-18
+## [0.2.3](https://github.com/5ergiu/helm-charts/compare/laravel-0.2.2..laravel-0.2.3) - 2025-12-18
 ### 🔧 Chores
 
+- update chart artifacts ([1c63468](https://github.com/5ergiu/helm-charts/commit/1c63468a355004242fac4d227d02da9004648fe1)) by @github-actions[bot]
 - update chart artifacts ([6b5b395](https://github.com/5ergiu/helm-charts/commit/6b5b395ebcdabd4c31b41677d9304c59dee4ee74)) by @github-actions[bot]
-## [0.2.2](https://github.com/5ergiu/helm-charts/compare/nextjs-0.2.1..nextjs-0.2.2) - 2025-12-18
+## [0.2.2](https://github.com/5ergiu/helm-charts/compare/laravel-0.2.1..laravel-0.2.2) - 2025-12-18
 ### 🐛 Fixes
 
 - fix chart signing ([289201c](https://github.com/5ergiu/helm-charts/commit/289201c26bc70d371073e4093145f6272b225ed0)) by @5ergiu
 ### 🔧 Chores
 
 - update chart artifacts ([f3bd917](https://github.com/5ergiu/helm-charts/commit/f3bd917f90ed3c27a575867dd366bbc5bb3a5c80)) by @github-actions[bot]
-## [0.2.1](https://github.com/5ergiu/helm-charts/compare/nextjs-0.2.0..nextjs-0.2.1) - 2025-12-17
+## [0.2.1](https://github.com/5ergiu/helm-charts/compare/laravel-0.2.0..laravel-0.2.1) - 2025-12-17
 ### 🔧 Chores
 
 - update chart artifacts ([5595b16](https://github.com/5ergiu/helm-charts/commit/5595b1689afe78f5a8aa6e338c8164e7bb4113cc)) by @github-actions[bot]
 - update chart artifacts ([aab5a92](https://github.com/5ergiu/helm-charts/commit/aab5a9218889f9b345a463246b5868c6737282c9)) by @github-actions[bot]
-## [0.2.0](https://github.com/5ergiu/helm-charts/compare/nextjs-0.1.0..nextjs-0.2.0) - 2025-12-17
+## [0.2.0](https://github.com/5ergiu/helm-charts/compare/laravel-0.1.0..laravel-0.2.0) - 2025-12-17
 ### ✨ Features
 
 - ff ([a900193](https://github.com/5ergiu/helm-charts/commit/a9001932f8359a57a4061133091db9408ba26862)) by @5ergiu
@@ -34,7 +35,7 @@ All notable changes to this project will be documented in this file. See [conven
 - update chart artifacts ([39d173c](https://github.com/5ergiu/helm-charts/commit/39d173ca804298e58acf02e01de8ed949844df94)) by @github-actions[bot]
 - update chart artifacts ([2783026](https://github.com/5ergiu/helm-charts/commit/27830268b5235b10e222ad7b08e9c8182cf3fed6)) by @github-actions[bot]
 - ff ([3bc9315](https://github.com/5ergiu/helm-charts/commit/3bc93151faa1a3c6e2fc2b85cdbce29a465978ea)) by @5ergiu
-## [0.1.0](https://github.com/5ergiu/helm-charts/compare/nextjs/v0.1.0..nextjs-0.1.0) - 2025-12-12
+## [0.1.0](https://github.com/5ergiu/helm-charts/compare/laravel/v0.1.0..laravel-0.1.0) - 2025-12-12
 ### 📚 Documentation
 
 - update chart documentation ([c4e38cf](https://github.com/5ergiu/helm-charts/commit/c4e38cfbfd6cb48858d856e30f1d0f5d20fc5833)) by @5ergiu
