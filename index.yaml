@@ -32,6 +32,59 @@ entries:
       licenses: Apache-2.0
     apiVersion: v2
     appVersion: 12.x
+    created: "2025-12-18T10:25:15.509503887Z"
+    description: A production-grade Helm chart for Laravel applications
+    digest: 2e78c46f1420b18b0e1afdf4861cfd138197bb5560be144f1332d169a51a6967
+    home: https://github.com/5ergiu/helm-charts
+    icon: https://cdn.brandfetch.io/ide68-31CH/w/346/h/346/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761211589926
+    keywords:
+    - laravel
+    - php
+    - web
+    - application
+    - framework
+    maintainers:
+    - name: 5ergiu
+      url: https://github.com/5ergiu
+    name: laravel
+    sources:
+    - https://github.com/5ergiu/helm-charts/tree/main/charts/laravel
+    - https://github.com/laravel/laravel
+    type: application
+    urls:
+    - https://github.com/5ergiu/helm-charts/releases/download/laravel-0.2.4/laravel-0.2.4.tgz
+    version: 0.2.4
+  - annotations:
+      artifacthub.io/changes: |-
+        [
+
+        { "kind": "changed", "description": "fixed workflows" },
+
+        { "kind": "changed", "description": "ff" },
+
+        { "kind": "changed", "description": "ff" },
+
+        { "kind": "changed", "description": "ff" }
+
+        ][
+
+        { "kind": "changed", "description": "Initial tagged release" },
+
+        { "kind": "changed", "description": "update chart documentation" },
+
+        { "kind": "changed", "description": "update Chart.yaml metadata and annotiatinos" },
+
+        { "kind": "changed", "description": "Update Charts annotations for artifactionhub.io/changes" }
+
+        ]
+      artifacthub.io/signKey: |
+        fingerprint: 7fa3b00701ad776b7d7f9cbb806c518b16320ae49ba814e6eee3c5ee4a6613c1
+        url: https://github.com/5ergiu/helm-charts/blob/main/cosign.pub
+      category: Web Applications
+      displayName: Laravel Helm Chart
+      licenses: Apache-2.0
+    apiVersion: v2
+    appVersion: 12.x
     created: "2025-12-18T08:19:43.666642106Z"
     description: A production-grade Helm chart for Laravel applications
     digest: 522b5eececb67eb07db4b3bd9bf36885000ee0b431ca2ed94ee89c36208d859f
@@ -493,4 +546,4 @@ entries:
     urls:
     - https://github.com/5ergiu/helm-charts/releases/download/nextjs-0.1.0/nextjs-0.1.0.tgz
     version: 0.1.0
-generated: "2025-12-18T08:19:43.860809122Z"
+generated: "2025-12-18T10:25:15.735115101Z"
