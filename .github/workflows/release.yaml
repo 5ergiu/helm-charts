@@ -130,7 +130,7 @@ jobs:
             # Check if version bump is needed
             echo "🔍 Checking if version bump is needed for $chart_name..."
             current_version=$(yq eval '.version' "$chart/Chart.yaml")
-            bumped=$(retry git cliff --config cliff.toml --bumped-version --unreleased --include-path "$chart/*" --tag-pattern "${chart_name}-*")
+            bumped=$(retry git cliff --config cliff.toml --bumped-version --include-path "$chart/*" --tag-pattern "${chart_name}-*")
             # Extract just the semantic version (remove chart name prefix and 'v' prefix)
             # Handles: chart_name-v0.2.0 -> 0.2.0, chart_name-0.2.0 -> 0.2.0, or just v0.2.0 -> 0.2.0
             new_version=$(echo "$bumped" | sed -e "s|^${chart_name}-v||" -e "s|^${chart_name}-||" -e "s|^v||")
@@ -143,7 +143,7 @@ jobs:
 
               # Generate changelog with new version
               echo "📝 Generating changelog for $chart_name..."
-              retry git-cliff --bump --config cliff.toml --prepend "$chart/CHANGELOG.md" --include-path "$chart/*" --tag-pattern "${chart_name}-*"
+              retry git-cliff --config cliff.toml --bump --unreleased --prepend "$chart/CHANGELOG.md" --include-path "$chart/*" --tag-pattern "${chart_name}-*"
 
               # Generate ArtifactHub annotations
               echo "📝 Generating ArtifactHub annotations for $chart_name..."
