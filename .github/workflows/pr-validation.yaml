@@ -31,15 +31,29 @@ jobs:
         id: detect
         run: |
           # Get changed files in examples/ directory
-          changed_files=$(git diff --name-only \
+          all_changed=$(git diff --name-only \
             "${{ github.event.pull_request.base.sha }}" \
             "${{ github.event.pull_request.head.sha }}" \
-            | grep "^examples/" || echo "")
+            -- examples/ || true)
+
+          # Exclude files that don't require image rebuilds:
+          # - Helm values files (values*.yaml)
+          # - Secrets files (secrets*.yaml, secrets*.yaml.example)
+          # - Documentation (README.md, *.md)
+          # Only build images if source files changed (Dockerfile, package.json, composer.json, etc.)
+          changed_files=$(echo "$all_changed" | grep -vE '(values.*\.yaml|secrets.*\.yaml.*|README\.md|.*\.md)$' || true)
 
           if [ -z "$changed_files" ]; then
             echo "changed_images=" >> $GITHUB_OUTPUT
-            echo "No changes detected in examples/"
+            echo "ℹ️  No image-related changes detected in examples/ directory"
+            if [ -n "$all_changed" ]; then
+              echo "   (Only Helm values/secrets files changed - no rebuild needed)"
+            fi
           else
+            echo "📝 Changed files requiring image rebuild:"
+            echo "$changed_files"
+            echo ""
+
             # Extract unique app names from changed paths
             changed_apps=$(echo "$changed_files" | cut -d'/' -f2 | sort -u)
 
@@ -47,7 +61,7 @@ jobs:
             apps_list=$(echo "$changed_apps" | tr '\n' ',' | sed 's/,$//')
 
             echo "changed_images=$apps_list" >> $GITHUB_OUTPUT
-            echo "Changed images detected: $apps_list"
+            echo "✅ Changed images detected: $apps_list"
           fi
 
   build-images:
@@ -123,7 +137,7 @@ jobs:
 
       - name: 🧪 Run tests
         env:
-          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-          REDIS_URL: ${{ secrets.REDIS_URL }}
+          LARAVEL_DATABASE_URL: ${{ secrets.LARAVEL_DATABASE_URL }}
+          LARAVEL_REDIS_URL: ${{ secrets.LARAVEL_REDIS_URL }}
         run: ./scripts/test.sh
 

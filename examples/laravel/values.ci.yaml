@@ -172,11 +172,13 @@ laravel:
     MAIL_FROM_NAME: "Laravel CI"
 
   # Secrets will be provided by CI environment variables via --set flags
-  # The test.sh script will inject POSTGRES_URL and REDIS_URL from environment
+  # The test.sh script automatically injects any secrets from environment that match
+  # keys in examples/laravel/secrets.yaml.example
+  # IMPORTANT: GitHub Secret names should be prefixed with chart name in uppercase
+  # Example: LARAVEL_DATABASE_URL in GitHub → DATABASE_URL in secrets.yaml.example
   secrets:
     APP_KEY: "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-    # Database - will be set via --set laravel.secrets.DATABASE_URL=$POSTGRES_URL
-    # Redis - will be set via --set laravel.secrets.REDIS_URL=$REDIS_URL
+    # DATABASE_URL and REDIS_URL will be injected from LARAVEL_DATABASE_URL and LARAVEL_REDIS_URL
 
 # PHP configuration for CI
 php:

@@ -395,12 +395,55 @@ run_template_tests() {
             print_info "Using CI values: examples/${chart_name}/values.ci.yaml"
             test_values_args="-f $ci_values"
 
-            # Override secrets from environment variables if provided
-            if [[ -n "${POSTGRES_URL:-}" ]]; then
-                test_values_args+=" --set laravel.secrets.DATABASE_URL=${POSTGRES_URL}"
-            fi
-            if [[ -n "${REDIS_URL:-}" ]]; then
-                test_values_args+=" --set laravel.secrets.REDIS_URL=${REDIS_URL}"
+            # Dynamically inject secrets from environment variables
+            # Parse secrets.yaml.example to find all possible secret keys
+            # IMPORTANT: GitHub Secret names should be prefixed with chart name in uppercase
+            # Example: LARAVEL_DATABASE_URL in GitHub → DATABASE_URL in secrets.yaml.example
+            local secrets_example="${SCRIPT_DIR}/examples/${chart_name}/secrets.yaml.example"
+            if [[ -f "$secrets_example" ]]; then
+                print_info "Checking for secrets from environment variables..."
+
+                # Extract secret keys from the example file (lines that end with: "")
+                # Format: "    SECRET_NAME: """
+                local secret_keys=$(grep -E '^\s+[A-Z_]+:\s*""' "$secrets_example" | sed 's/^[[:space:]]*\([A-Z_]*\):.*/\1/' || echo "")
+
+                local injected_count=0
+                local missing_secrets=()
+
+                # Create uppercase chart name for prefix
+                local chart_prefix=$(echo "${chart_name}" | tr '[:lower:]' '[:upper:]')
+
+                for key in $secret_keys; do
+                    # Try prefixed version first (e.g., LARAVEL_DATABASE_URL)
+                    local prefixed_key="${chart_prefix}_${key}"
+                    local value=""
+
+                    if [[ -n "${!prefixed_key:-}" ]]; then
+                        value="${!prefixed_key}"
+                        print_info "  ✅ Injecting $key from ${prefixed_key}"
+                    elif [[ -n "${!key:-}" ]]; then
+                        # Fallback to unprefixed version for backward compatibility
+                        value="${!key}"
+                        print_info "  ✅ Injecting $key from ${key}"
+                    fi
+
+                    if [[ -n "$value" ]]; then
+                        test_values_args+=" --set ${chart_name}.secrets.${key}=${value}"
+                        ((injected_count++))
+                    else
+                        missing_secrets+=("$key")
+                    fi
+                done
+
+                if [[ $injected_count -gt 0 ]]; then
+                    print_success "Injected $injected_count secret(s) from environment variables"
+                fi
+
+                if [[ ${#missing_secrets[@]} -gt 0 ]]; then
+                    print_warning "Missing optional secrets (may cause failures if required): ${missing_secrets[*]}"
+                fi
+            else
+                print_warning "No secrets.yaml.example found, skipping automatic secret injection"
             fi
         fi
     else
@@ -591,12 +634,55 @@ run_integration_tests() {
             print_info "Using CI values: examples/${chart_name}/values.ci.yaml"
             test_values_args="-f $ci_values"
 
-            # Override secrets from environment variables if provided
-            if [[ -n "${POSTGRES_URL:-}" ]]; then
-                test_values_args+=" --set laravel.secrets.DATABASE_URL=${POSTGRES_URL}"
-            fi
-            if [[ -n "${REDIS_URL:-}" ]]; then
-                test_values_args+=" --set laravel.secrets.REDIS_URL=${REDIS_URL}"
+            # Dynamically inject secrets from environment variables
+            # Parse secrets.yaml.example to find all possible secret keys
+            # IMPORTANT: GitHub Secret names should be prefixed with chart name in uppercase
+            # Example: LARAVEL_DATABASE_URL in GitHub → DATABASE_URL in secrets.yaml.example
+            local secrets_example="${SCRIPT_DIR}/examples/${chart_name}/secrets.yaml.example"
+            if [[ -f "$secrets_example" ]]; then
+                print_info "Checking for secrets from environment variables..."
+
+                # Extract secret keys from the example file (lines that end with: "")
+                # Format: "    SECRET_NAME: """
+                local secret_keys=$(grep -E '^\s+[A-Z_]+:\s*""' "$secrets_example" | sed 's/^[[:space:]]*\([A-Z_]*\):.*/\1/' || echo "")
+
+                local injected_count=0
+                local missing_secrets=()
+
+                # Create uppercase chart name for prefix
+                local chart_prefix=$(echo "${chart_name}" | tr '[:lower:]' '[:upper:]')
+
+                for key in $secret_keys; do
+                    # Try prefixed version first (e.g., LARAVEL_DATABASE_URL)
+                    local prefixed_key="${chart_prefix}_${key}"
+                    local value=""
+
+                    if [[ -n "${!prefixed_key:-}" ]]; then
+                        value="${!prefixed_key}"
+                        print_info "  ✅ Injecting $key from ${prefixed_key}"
+                    elif [[ -n "${!key:-}" ]]; then
+                        # Fallback to unprefixed version for backward compatibility
+                        value="${!key}"
+                        print_info "  ✅ Injecting $key from ${key}"
+                    fi
+
+                    if [[ -n "$value" ]]; then
+                        test_values_args+=" --set ${chart_name}.secrets.${key}=${value}"
+                        ((injected_count++))
+                    else
+                        missing_secrets+=("$key")
+                    fi
+                done
+
+                if [[ $injected_count -gt 0 ]]; then
+                    print_success "Injected $injected_count secret(s) from environment variables"
+                fi
+
+                if [[ ${#missing_secrets[@]} -gt 0 ]]; then
+                    print_warning "Missing optional secrets (may cause failures if required): ${missing_secrets[*]}"
+                fi
+            else
+                print_warning "No secrets.yaml.example found, skipping automatic secret injection"
             fi
         fi
     else
@@ -638,69 +724,179 @@ run_integration_tests() {
         echo ""
 
         print_step "🧱 Jobs Status & Conditions:"
-        kubectl get jobs -n "$namespace" -o wide || true
-        echo ""
+        local jobs_list=$(kubectl get jobs -n "$namespace" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
 
-        for job in $(kubectl get jobs -n "$namespace" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
-            echo "──────────────────────────────────────────────"
-            print_info "Job: $job"
-            kubectl describe job "$job" -n "$namespace" || true
+        if [[ -z "$jobs_list" ]]; then
+            print_info "No jobs found in namespace $namespace"
+        else
+            kubectl get jobs -n "$namespace" -o wide || true
             echo ""
-        done
+
+            for job in $jobs_list; do
+                echo "──────────────────────────────────────────────"
+                print_info "Job: $job"
+                kubectl describe job "$job" -n "$namespace" || true
+                echo ""
+            done
+        fi
 
         print_step "🔥 Failed / Terminated Pods (All Phases):"
-        kubectl get pods -n "$namespace" \
-        --sort-by='.status.startTime' \
-        -o wide || true
+        local pods_list=$(kubectl get pods -n "$namespace" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
+
+        if [[ -z "$pods_list" ]]; then
+            print_info "No pods found in namespace $namespace"
+        else
+            kubectl get pods -n "$namespace" \
+            --sort-by='.status.startTime' \
+            -o wide || true
+        fi
         echo ""
 
         print_step "🧬 Pod Descriptions:"
-        for pod in $(kubectl get pods -n "$namespace" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
-            echo "──────────────────────────────────────────────"
-            print_info "Pod: $pod"
-            kubectl describe pod "$pod" -n "$namespace" || true
-            echo ""
-        done
+        if [[ -z "$pods_list" ]]; then
+            print_info "No pods to describe"
+        else
+            for pod in $pods_list; do
+                echo "──────────────────────────────────────────────"
+                print_info "Pod: $pod"
+                kubectl describe pod "$pod" -n "$namespace" || true
+                echo ""
+            done
+        fi
 
         print_step "📄 Container Logs (Init + Previous + Current):"
 
-        for pod in $(kubectl get pods -n "$namespace" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
-            echo "──────────────────────────────────────────────"
-            print_info "Logs for Pod: $pod"
+        if [[ -z "$pods_list" ]]; then
+            print_info "No pods to fetch logs from"
+        else
+            for pod in $pods_list; do
+                echo "──────────────────────────────────────────────"
+                print_info "Logs for Pod: $pod"
 
-            init_containers=$(kubectl get pod "$pod" -n "$namespace" \
-                -o jsonpath='{.spec.initContainers[*].name}' 2>/dev/null || echo "")
+                init_containers=$(kubectl get pod "$pod" -n "$namespace" \
+                    -o jsonpath='{.spec.initContainers[*].name}' 2>/dev/null || echo "")
 
-            containers=$(kubectl get pod "$pod" -n "$namespace" \
-                -o jsonpath='{.spec.containers[*].name}' 2>/dev/null || echo "")
+                containers=$(kubectl get pod "$pod" -n "$namespace" \
+                    -o jsonpath='{.spec.containers[*].name}' 2>/dev/null || echo "")
 
-            # Init containers
-            for c in $init_containers; do
-                echo "  🔹 Init Container: $c"
-                kubectl logs "$pod" -n "$namespace" -c "$c" --tail=200 2>&1 || true
-                echo ""
+                # Init containers
+                if [[ -n "$init_containers" ]]; then
+                    for c in $init_containers; do
+                        echo "  🔹 Init Container: $c"
+                        kubectl logs "$pod" -n "$namespace" -c "$c" --tail=200 2>&1 || true
+                        echo ""
+                    done
+                else
+                    echo "  ℹ️  No init containers found"
+                fi
+
+                # Main containers
+                if [[ -n "$containers" ]]; then
+                    for c in $containers; do
+                        echo "  🔹 Container: $c (previous)"
+                        kubectl logs "$pod" -n "$namespace" -c "$c" --previous --tail=200 2>&1 || true
+                        echo ""
+
+                        echo "  🔹 Container: $c (current)"
+                        kubectl logs "$pod" -n "$namespace" -c "$c" --tail=200 2>&1 || true
+                        echo ""
+                    done
+                else
+                    echo "  ℹ️  No containers found"
+                fi
             done
-
-            # Main containers
-            for c in $containers; do
-                echo "  🔹 Container: $c (previous)"
-                kubectl logs "$pod" -n "$namespace" -c "$c" --previous --tail=200 2>&1 || true
-                echo ""
-
-                echo "  🔹 Container: $c (current)"
-                kubectl logs "$pod" -n "$namespace" -c "$c" --tail=200 2>&1 || true
-                echo ""
-            done
-        done
+        fi
 
         print_step "🧾 Events (Chronological):"
-        kubectl get events -n "$namespace" \
-        --sort-by='.lastTimestamp' || true
+        local events_count=$(kubectl get events -n "$namespace" --no-headers 2>/dev/null | wc -l | tr -d ' ')
+        if [[ "$events_count" -eq 0 ]]; then
+            print_info "No events found in namespace $namespace"
+        else
+            kubectl get events -n "$namespace" \
+            --sort-by='.lastTimestamp' || true
+        fi
         echo ""
 
-        print_step "📦 Helm Release Status:"
-        helm status "$release_name" -n "$namespace" || true
-        echo ""
+        # Special debugging for migration jobs
+        print_step "🔍 Job Environment Variables (Migration Jobs):"
+        local migration_jobs=$(kubectl get jobs -n "$namespace" -o jsonpath='{.items[?(@.metadata.labels.app\.kubernetes\.io/component=="migration")].metadata.name}' 2>/dev/null || echo "")
+
+        if [[ -z "$migration_jobs" ]]; then
+            print_info "No migration jobs found"
+        else
+            for job in $migration_jobs; do
+                echo "──────────────────────────────────────────────"
+                print_info "Migration Job: $job"
+
+                # Get the pod for this job
+                local job_pod=$(kubectl get pods -n "$namespace" -l "job-name=$job" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+
+                if [[ -n "$job_pod" ]]; then
+                    print_info "Pod: $job_pod"
+                    echo ""
+
+                    # Get the container name (usually the first one)
+                    local container_name=$(kubectl get pod "$job_pod" -n "$namespace" -o jsonpath='{.spec.containers[0].name}' 2>/dev/null || echo "")
+
+                    if [[ -n "$container_name" ]]; then
+                        echo "  🔑 Environment Variables (existence check only, values hidden):"
+
+                        # Check critical variables without exposing values
+                        local critical_vars=("APP_KEY" "APP_ENV" "DATABASE_URL" "DB_CONNECTION" "DB_DATABASE" "REDIS_URL" "CACHE_DRIVER" "QUEUE_CONNECTION" "SESSION_DRIVER")
+
+                        for var in "${critical_vars[@]}"; do
+                            local is_set=$(kubectl exec "$job_pod" -n "$namespace" -c "$container_name" -- sh -c "if [ -n \"\${${var}+x}\" ]; then echo 'SET'; else echo 'NOT_SET'; fi" 2>/dev/null || echo "CANNOT_CHECK")
+
+                            if [[ "$is_set" == "SET" ]]; then
+                                echo "    ✅ $var: SET"
+                            elif [[ "$is_set" == "NOT_SET" ]]; then
+                                echo "    ❌ $var: NOT SET"
+                            else
+                                echo "    ⚠️  $var: CANNOT CHECK (pod may not be running)"
+                            fi
+                        done
+                        echo ""
+
+                        # Show ConfigMap and Secret references
+                        echo "  📋 Environment sources (ConfigMaps/Secrets):"
+                        local env_from=$(kubectl get pod "$job_pod" -n "$namespace" -o json 2>/dev/null | \
+                            jq -r '.spec.containers[0].envFrom[]? | "    - \(.configMapRef.name // .secretRef.name // "unknown") (type: \(if .configMapRef then "ConfigMap" elif .secretRef then "Secret" else "unknown" end))"' 2>/dev/null || echo "")
+
+                        if [[ -n "$env_from" ]]; then
+                            echo "$env_from"
+                        else
+                            echo "    (no envFrom references found)"
+                        fi
+                        echo ""
+
+                        # List Secrets in namespace
+                        echo "  🔐 Secrets in namespace:"
+                        local secrets=$(kubectl get secrets -n "$namespace" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
+                        if [[ -n "$secrets" ]]; then
+                            for secret in $secrets; do
+                                # Skip default service account tokens
+                                if [[ ! "$secret" =~ ^default-token ]]; then
+                                    local keys=$(kubectl get secret "$secret" -n "$namespace" -o jsonpath='{.data}' 2>/dev/null | jq -r 'keys[]' 2>/dev/null || echo "")
+                                    if [[ -n "$keys" ]]; then
+                                        echo "    - $secret: $(echo "$keys" | tr '\n' ',' | sed 's/,$//')"
+                                    else
+                                        echo "    - $secret"
+                                    fi
+                                fi
+                            done
+                        else
+                            echo "    (no secrets found)"
+                        fi
+                        echo ""
+                    else
+                        print_warning "Could not find container name in pod $job_pod"
+                    fi
+                else
+                    print_warning "Could not find pod for job $job"
+                fi
+                echo ""
+            done
+        fi
 
         print_error "Installation failed — see diagnostics above"
 
