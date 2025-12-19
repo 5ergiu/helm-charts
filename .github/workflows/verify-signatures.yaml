@@ -19,46 +19,54 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
-
       - name: 🔍 Check commit signatures
         id: check-signatures
-        run: |
-          echo "Checking commit signatures for PR commits..."
-          
-          # Get the list of commits in this PR
-          COMMITS=$(git log --format="%H" origin/${{ github.event.pull_request.base.ref }}..${{ github.event.pull_request.head.sha }})
-          
-          UNSIGNED_COMMITS=""
-          TOTAL_COMMITS=0
-          SIGNED_COMMITS=0
-          
-          for commit in $COMMITS; do
-            TOTAL_COMMITS=$((TOTAL_COMMITS + 1))
-            
-            # Check if commit is signed (GPG or SSH)
-            if git verify-commit $commit 2>/dev/null; then
-              SIGNED_COMMITS=$((SIGNED_COMMITS + 1))
-              echo "✓ Signed: $commit"
-            else
-              echo "✗ Unsigned: $commit"
-              UNSIGNED_COMMITS="$UNSIGNED_COMMITS $commit"
-            fi
-          done
-          
-          echo "total_commits=$TOTAL_COMMITS" >> $GITHUB_OUTPUT
-          echo "signed_commits=$SIGNED_COMMITS" >> $GITHUB_OUTPUT
-          echo "unsigned_commits=$UNSIGNED_COMMITS" >> $GITHUB_OUTPUT
-          
-          if [ $SIGNED_COMMITS -lt $TOTAL_COMMITS ]; then
-            echo "status=warning" >> $GITHUB_OUTPUT
-          else
-            echo "status=success" >> $GITHUB_OUTPUT
-          fi
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const { data: commits } = await github.rest.pulls.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+
+            let totalCommits = 0;
+            let signedCommits = 0;
+            let unsignedCommits = [];
+
+            for (const commit of commits) {
+              totalCommits++;
+              const sha = commit.sha;
+
+              // Get commit details to check verification
+              const { data: commitData } = await github.rest.repos.getCommit({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: sha,
+              });
+
+              if (commitData.commit.verification && commitData.commit.verification.verified) {
+                signedCommits++;
+                console.log(`✓ Verified: ${sha.substring(0, 7)} - ${commit.commit.message.split('\n')[0]}`);
+              } else {
+                unsignedCommits.push(sha);
+                console.log(`✗ Unverified: ${sha.substring(0, 7)} - ${commit.commit.message.split('\n')[0]}`);
+              }
+            }
+
+            const status = signedCommits === totalCommits ? 'success' : 'warning';
+
+            core.setOutput('total_commits', totalCommits);
+            core.setOutput('signed_commits', signedCommits);
+            core.setOutput('unsigned_commits', unsignedCommits.join(' '));
+            core.setOutput('status', status);
+
+            return {
+              totalCommits,
+              signedCommits,
+              unsignedCommits,
+              status
+            };
 
       - name: Comment on PR
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0

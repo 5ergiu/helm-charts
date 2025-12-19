@@ -137,8 +137,7 @@ Common volumes
 {{- if .Values.tmpfsVolumes.enabled }}
 {{- range .Values.tmpfsVolumes.mounts }}
 - name: {{ .name }}
-  emptyDir:
-    medium: Memory
+  emptyDir: {}
 {{- end }}
 {{- end }}
 {{- if .Values.persistence.enabled }}

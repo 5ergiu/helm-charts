@@ -99,8 +99,7 @@ tests:
           path: spec.template.spec.volumes
           content:
             name: tmp
-            emptyDir:
-              medium: Memory
+            emptyDir: {}
 
   - it: should run as non-root user with default values
     set:

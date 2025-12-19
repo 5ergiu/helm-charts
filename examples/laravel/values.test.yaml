@@ -57,6 +57,17 @@ workers:
         cpu: 50m
         memory: 256Mi
 
+    # Liveness probe for default worker - fails if can't connect to Redis/DB
+    livenessProbe:
+      enabled: true
+      exec:
+        command: ["healthcheck-queue"]
+      initialDelaySeconds: 30
+      periodSeconds: 60
+      timeoutSeconds: 5
+      successThreshold: 1
+      failureThreshold: 3
+
     pdb:
       enabled: false
 
@@ -80,6 +91,17 @@ workers:
       requests:
         cpu: 100m
         memory: 256Mi
+
+    # Liveness probe for Horizon - fails if can't connect to Redis/DB
+    livenessProbe:
+      enabled: true
+      exec:
+        command: ["healthcheck-horizon"]
+      initialDelaySeconds: 30
+      periodSeconds: 60
+      timeoutSeconds: 5
+      successThreshold: 1
+      failureThreshold: 3
 
     pdb:
       enabled: false
@@ -119,8 +141,10 @@ laravel:
     LOG_CHANNEL: "stderr"
     LOG_LEVEL: "debug"
 
-    DB_CONNECTION: "sqlite"
-    DB_DATABASE: ":memory:"
+    # Use PostgreSQL for testing (shared database across all pods)
+    DB_CONNECTION: "pgsql"
+    DB_PORT: "5432"
+    DB_DATABASE: "neondb"
 
     BROADCAST_DRIVER: "log"
     CACHE_DRIVER: "redis"
@@ -130,15 +154,25 @@ laravel:
     SESSION_LIFETIME: "120"
 
     REDIS_CLIENT: "phpredis"
+    REDIS_PORT: "6379"
 
     MAIL_MAILER: "log"  # Log emails instead of sending
     MAIL_FROM_ADDRESS: "test@laravel.local"
     MAIL_FROM_NAME: "Laravel Test"
 
   # Secrets should be provided via secrets.yaml
+  # Supports both URL format and individual variables
   secrets:
     APP_KEY: ""  # Will be loaded from secrets.yaml
-    REDIS_URL: ""  # Will be loaded from secrets.yaml
+    # Database - supports both formats (URL takes precedence if set)
+    DATABASE_URL: ""
+    DB_HOST: ""  # Will be loaded from secrets.yaml
+    DB_USERNAME: ""  # Will be loaded from secrets.yaml
+    DB_PASSWORD: ""  # Will be loaded from secrets.yaml
+    # Redis - supports both formats (URL takes precedence if set)
+    REDIS_URL: ""
+    REDIS_HOST: ""  # Will be loaded from secrets.yaml
+    REDIS_PASSWORD: ""  # Will be loaded from secrets.yaml
     AWS_ACCESS_KEY_ID: ""
     AWS_SECRET_ACCESS_KEY: ""
     PUSHER_APP_ID: ""

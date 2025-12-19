@@ -59,8 +59,7 @@ tests:
           path: spec.template.spec.volumes
           content:
             name: cache
-            emptyDir:
-              medium: Memory
+            emptyDir: {}
 
   - it: should set resource limits
     set:

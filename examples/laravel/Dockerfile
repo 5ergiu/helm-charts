@@ -76,7 +76,7 @@ COPY --chmod=755 ./entrypoint.d/ /etc/entrypoint.d/
 
 WORKDIR /var/www/html
 
-# Copy fresh Laravel application
+# Copy Laravel application
 COPY --chown=www-data:www-data --from=laravel-builder /app ./
 
 ###############################
@@ -95,15 +95,15 @@ USER www-data
 
 WORKDIR /var/www/html
 
-# Copy fresh Laravel application
+# Copy Laravel application
 COPY --chown=www-data:www-data --from=deps-builder /var/www/html ./
 
 ###############################
 # Production Web Stage: Optimized runtime image with PHP-FPM
 ###############################
-FROM serversideup/php:8.5-fpm-alpine AS production
+FROM deps-builder AS production
 
 WORKDIR /var/www/html
 
-# Copy fresh Laravel application
+# Copy Laravel application
 COPY --chown=www-data:www-data --from=deps-builder /var/www/html ./

@@ -169,7 +169,7 @@ laravel:
 
     LOG_LEVEL: "warning"
 
-    # PostgreSQL recommended for production (or MySQL)
+    # Database configuration
     DB_CONNECTION: "pgsql"  # TODO: Or "mysql" if preferred
     DB_PORT: "5432"  # TODO: 3306 for MySQL
     DB_DATABASE: "laravel"  # TODO: Change to your database name
@@ -197,17 +197,18 @@ laravel:
 
   # Secrets should be provided via Kubernetes secrets or external secrets operator
   # DO NOT commit these values to version control
+  # Supports both URL format and individual variables
   secrets:
     APP_KEY: ""  # TODO: Generate with: php artisan key:generate --show
-    DB_HOST: ""  # TODO: Your production database host
-    DB_USERNAME: ""  # TODO: Your database username
-    DB_PASSWORD: ""  # TODO: Your database password
-    # Redis Configuration (choose one approach)
-    # Option 1: REDIS_URL for managed services like Upstash (includes auth and TLS)
-    REDIS_URL: ""  # TODO: e.g., rediss://default:password@host:6379
-    # Option 2: Individual Redis settings (if not using REDIS_URL)
-    REDIS_HOST: ""  # TODO: Your Redis host (managed service recommended)
-    REDIS_PASSWORD: ""  # TODO: Your Redis password
+    # Database - supports both formats (URL takes precedence if set)
+    DATABASE_URL: ""  # TODO: e.g., postgresql://user:pass@host:5432/dbname (for managed databases)
+    DB_HOST: ""  # TODO: Your production database host (if not using DATABASE_URL)
+    DB_USERNAME: ""  # TODO: Your database username (if not using DATABASE_URL)
+    DB_PASSWORD: ""  # TODO: Your database password (if not using DATABASE_URL)
+    # Redis - supports both formats (URL takes precedence if set)
+    REDIS_URL: ""  # TODO: e.g., rediss://default:pass@host:6379 (for managed Redis)
+    REDIS_HOST: ""  # TODO: Your Redis host (if not using REDIS_URL)
+    REDIS_PASSWORD: ""  # TODO: Your Redis password (if not using REDIS_URL)
     AWS_ACCESS_KEY_ID: ""  # TODO: If using S3
     AWS_SECRET_ACCESS_KEY: ""  # TODO: If using S3
     MAIL_USERNAME: ""  # TODO: Your SMTP username

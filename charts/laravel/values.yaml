@@ -57,10 +57,10 @@ web:
       # Nginx configuration settings for ConfigMap generation
       port: 8080
       root: /var/www/html/public
-      accessLog: off
+      accessLog: "off"
       errorLog: /dev/stderr
       errorLevel: warn
-      serverTokens: off
+      serverTokens: "off"
       # Note: clientMaxBodySize should match Traefik's buffering.maxRequestBodyBytes
       # Traefik enforces the limit, nginx just needs to not reject valid requests
       clientMaxBodySize: 100M
@@ -101,22 +101,15 @@ web:
           cpu: 50m
           memory: 64Mi
 
-      volumeMounts:
-        - name: nginx-config
-          mountPath: /etc/nginx/nginx.conf
-          subPath: nginx.conf
-          readOnly: true
-        - name: nginx-logs
-          mountPath: /var/log/nginx
+      # Volume mounts for reverse proxy
+      # Automatically added to web deployment when reverseProxy.enabled is true
+      # Volume mounts are defined in the deployment template (_helpers.tpl)
+      volumeMounts: []
 
     # Volumes for reverse proxy
-    # Automatically added to web deployment when enabled
-    volumes:
-      - name: nginx-config
-        configMap:
-          name: '{{ include "laravel.fullname" . }}-nginx'
-      - name: nginx-logs
-        emptyDir: {}
+    # Automatically added to web deployment when reverseProxy.enabled is true
+    # Volumes are defined in the deployment template (_helpers.tpl)
+    volumes: []
   
   strategy:
     type: RollingUpdate
@@ -717,6 +710,7 @@ laravel:
     LOG_CHANNEL: "stderr"
     LOG_LEVEL: "warning"
 
+    # Database configuration
     # PostgreSQL recommended for production (or use "mysql" if preferred)
     DB_CONNECTION: "pgsql"
     DB_PORT: "5432"  # Use 3306 for MySQL
@@ -731,7 +725,6 @@ laravel:
     SESSION_LIFETIME: "120"
 
     REDIS_CLIENT: "phpredis"
-    REDIS_SCHEME: "tls"  # Use TLS in production
     REDIS_PORT: "6379"
 
     MAIL_MAILER: "smtp"
@@ -749,9 +742,17 @@ laravel:
   # All secrets should be provided via secrets.yaml (gitignored) or external secrets
   secrets:
     APP_KEY: ""
+    # Database secrets - supports both formats:
+    # Option 1: Use DATABASE_URL (takes precedence if set)
+    DATABASE_URL: ""
+    # Option 2: Use individual variables (used if DATABASE_URL is empty)
     DB_HOST: ""
     DB_USERNAME: ""
     DB_PASSWORD: ""
+    # Redis secrets - supports both formats:
+    # Option 1: Use REDIS_URL (takes precedence if set)
+    REDIS_URL: ""
+    # Option 2: Use individual variables (used if REDIS_URL is empty)
     REDIS_HOST: ""
     REDIS_PASSWORD: ""
     AWS_ACCESS_KEY_ID: ""

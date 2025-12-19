@@ -60,6 +60,17 @@ workers:
         cpu: 50m
         memory: 128Mi
 
+    # Liveness probe for default worker - fails if can't connect to Redis/DB
+    livenessProbe:
+      enabled: true
+      exec:
+        command: ["healthcheck-queue"]
+      initialDelaySeconds: 30
+      periodSeconds: 60
+      timeoutSeconds: 5
+      successThreshold: 1
+      failureThreshold: 3
+
     pdb:
       enabled: false
 
@@ -83,6 +94,17 @@ workers:
       requests:
         cpu: 50m
         memory: 128Mi
+
+    # Liveness probe for Horizon - fails if can't connect to Redis/DB
+    livenessProbe:
+      enabled: true
+      exec:
+        command: ["healthcheck-horizon"]
+      initialDelaySeconds: 30
+      periodSeconds: 60
+      timeoutSeconds: 5
+      successThreshold: 1
+      failureThreshold: 3
 
     pdb:
       enabled: false
@@ -129,11 +151,19 @@ laravel:
     LOG_CHANNEL: "stderr"
     LOG_LEVEL: "debug"
 
+    # Database configuration (will use secrets from CI environment)
+    DB_CONNECTION: "pgsql"
+    DB_PORT: "5432"
+    DB_DATABASE: "postgres"
+
     BROADCAST_DRIVER: "log"
     CACHE_DRIVER: "redis"
     FILESYSTEM_DISK: "local"
     QUEUE_CONNECTION: "redis"
     SESSION_DRIVER: "redis"
+
+    REDIS_CLIENT: "phpredis"
+    REDIS_PORT: "6379"
 
     MAIL_MAILER: "log"
     MAIL_HOST: "localhost"
@@ -142,10 +172,18 @@ laravel:
     MAIL_FROM_NAME: "Laravel CI"
 
   # Secrets will be provided by CI environment variables
+  # CI can provide either URL format (simpler) or individual variables
   secrets:
     APP_KEY: "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-    DATABASE_URL: ""  # Will be set via POSTGRES_URL env var
-    REDIS_URL: ""     # Will be set via REDIS_URL env var
+    # Database - supports both formats (URL takes precedence)
+    DATABASE_URL: ""  # Can be set via POSTGRES_URL env var in CI
+    DB_HOST: ""
+    DB_USERNAME: ""
+    DB_PASSWORD: ""
+    # Redis - supports both formats (URL takes precedence)
+    REDIS_URL: ""  # Can be set via REDIS_URL env var in CI
+    REDIS_HOST: ""
+    REDIS_PASSWORD: ""
     AWS_ACCESS_KEY_ID: ""
     AWS_SECRET_ACCESS_KEY: ""
     MAIL_USERNAME: ""

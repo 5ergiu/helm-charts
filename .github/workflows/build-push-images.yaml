@@ -68,8 +68,12 @@ jobs:
               # Extract all targets from the Dockerfile (exact names)
               targets=$(grep -i "^FROM .* AS " "$dockerfile" | sed -n 's/.*AS \([^ ]*\).*/\1/p' || echo "")
 
-              # Process each target
+              # Process each target, skipping any with "builder" in the name
               for target in $targets; do
+                if [[ "$target" == *builder* ]]; then
+                  echo "Skipping builder target: $target"
+                  continue
+                fi
                 [ "$first" = false ] && matrix_include+=","
                 matrix_include+="{\"image\":\"$app\",\"target\":\"$target\"}"
                 first=false
