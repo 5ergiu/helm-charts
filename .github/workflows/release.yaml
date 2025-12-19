@@ -91,6 +91,8 @@ jobs:
           fi
 
       - name: 🛠️ Generate artifacts for all changed charts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           charts='${{ needs.resolve-charts.outputs.charts }}'
           echo "Processing charts: $charts"
