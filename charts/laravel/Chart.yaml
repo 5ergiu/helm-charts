@@ -2,7 +2,7 @@ apiVersion: v2
 name: laravel
 description: A production-grade Helm chart for Laravel applications
 type: application
-version: 0.2.4
+version: 0.2.5
 appVersion: "12.x"
 keywords:
   - laravel
@@ -26,6 +26,11 @@ annotations:
   artifacthub.io/changes: |-
     - kind: changed
       description: multiple fixes
+    - kind: changed
+      description: multiple fixes applied to charts and docker images and workflows (#5)
+      links:
+        - name: GitHub PR
+          url: https://github.com/5ergiu/helm-charts/pull/5
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/links: |
     - name: Laravel

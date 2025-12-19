@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.2.5](https://github.com/5ergiu/helm-charts/compare/laravel-0.2.4..laravel-0.2.5) - 2025-12-19
+### 🐛 Fixes
+
+- multiple fixes applied to charts and docker images and workflows (#5) ([aaa47f4](https://github.com/5ergiu/helm-charts/commit/aaa47f445582eeca1707dcaa95acac333ae42f04)) via [#5](https://github.com/5ergiu/helm-charts/pull/5)
+- multiple fixes ([f90894c](https://github.com/5ergiu/helm-charts/commit/f90894cd91b138441069a44474de4d8d3d7fa7be))
 ## [0.2.4](https://github.com/5ergiu/helm-charts/compare/laravel-0.2.3..laravel-0.2.4) - 2025-12-18
 ### 🐛 Fixes
 
