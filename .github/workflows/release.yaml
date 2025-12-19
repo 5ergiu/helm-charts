@@ -95,6 +95,22 @@ jobs:
           charts='${{ needs.resolve-charts.outputs.charts }}'
           echo "Processing charts: $charts"
 
+          # Retry function for git-cliff operations
+          retry() {
+            local max_attempts=3
+            local attempt=1
+            local delay=5
+            while [ $attempt -le $max_attempts ]; do
+              if "$@"; then return 0; fi
+              echo "⚠️ Attempt $attempt/$max_attempts failed. Retrying in ${delay}s..."
+              sleep $delay
+              delay=$((delay * 2))
+              attempt=$((attempt + 1))
+            done
+            echo "❌ ERROR: Failed after $max_attempts attempts"
+            return 1
+          }
+
           # Convert JSON array to bash array
           chart_list=$(echo "$charts" | jq -r '.[]')
 
@@ -112,7 +128,7 @@ jobs:
             # Check if version bump is needed
             echo "🔍 Checking if version bump is needed for $chart_name..."
             current_version=$(yq eval '.version' "$chart/Chart.yaml")
-            bumped=$(git cliff --config cliff.toml --bumped-version --include-path "$chart/*" --tag-pattern "${chart_name}-*")
+            bumped=$(retry git cliff --config cliff.toml --bumped-version --include-path "$chart/*" --tag-pattern "${chart_name}-*")
             # Extract just the semantic version (remove chart name prefix and 'v' prefix)
             # Handles: chart_name-v0.2.0 -> 0.2.0, chart_name-0.2.0 -> 0.2.0, or just v0.2.0 -> 0.2.0
             new_version=$(echo "$bumped" | sed -e "s|^${chart_name}-v||" -e "s|^${chart_name}-||" -e "s|^v||")
@@ -125,11 +141,11 @@ jobs:
 
               # Generate changelog with new version
               echo "📝 Generating changelog for $chart_name..."
-              git-cliff --bump --config cliff.toml --prepend "$chart/CHANGELOG.md" --include-path "$chart/*" --tag-pattern "${chart_name}-*"
+              retry git-cliff --bump --config cliff.toml --prepend "$chart/CHANGELOG.md" --include-path "$chart/*" --tag-pattern "${chart_name}-*"
 
               # Generate ArtifactHub annotations
               echo "📝 Generating ArtifactHub annotations for $chart_name..."
-              git-cliff --config cliff-artifacthub.toml --unreleased --strip all --output changes.yaml --include-path "$chart/*" --tag-pattern "${chart_name}-*" 2>/dev/null
+              retry git-cliff --config cliff-artifacthub.toml --unreleased --strip all --output changes.yaml --include-path "$chart/*" --tag-pattern "${chart_name}-*" 2>/dev/null
               # Remove leading empty line from changes.yaml
               tail -n +2 changes.yaml > changes-trimmed.yaml
               yq eval -i '.annotations."artifacthub.io/changes" = load_str("changes-trimmed.yaml")' "$chart/Chart.yaml"
