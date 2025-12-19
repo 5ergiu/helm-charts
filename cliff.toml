@@ -31,8 +31,13 @@ body = """
 ### {{ group | striptags | trim }}
 
 {% for commit in commits -%}
-- {{ commit.message | split(pat="\n") | first | trim }} \
-([{{ commit.id | truncate(length=7, end=\"\") }}](https://github.com/5ergiu/helm-charts/commit/{{ commit.id }})) by @{{ commit.author.name }}{% if commit.remote.pr_number %} in #{{ commit.remote.pr_number }}{% endif %}
+{%- set first_line = commit.message | split(pat="\n") | first | trim -%}
+{%- set has_issue = first_line is containing("[#") -%}
+- {{ first_line }} \
+([{{ commit.id | truncate(length=7, end=\"\") }}](https://github.com/5ergiu/helm-charts/commit/{{ commit.id }}))
+{%- if has_issue %}
+{%- set issue_num = first_line | split(pat="[#") | last | split(pat="]") | first %} in [#{{ issue_num }}](https://github.com/5ergiu/helm-charts/issues/{{ issue_num }}){% endif %}
+{%- if commit.remote.pr_number %} via [#{{ commit.remote.pr_number }}](https://github.com/5ergiu/helm-charts/pull/{{ commit.remote.pr_number }}){% endif %}
 {% endfor -%}
 
 {% endfor -%}
@@ -71,3 +76,9 @@ commit_parsers = [
 
 # Sort newest commits first
 sort_commits = "newest"
+
+# GitHub remote configuration for automatic PR detection
+[remote.github]
+owner = "5ergiu"
+repo = "helm-charts"
+token = "$GITHUB_TOKEN"

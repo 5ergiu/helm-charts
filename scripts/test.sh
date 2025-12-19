@@ -633,10 +633,58 @@ run_integration_tests() {
         print_success "Chart installed successfully"
     else
         print_error "Chart installation failed"
-        print_info "Showing cluster state for debugging..."
-        kubectl get all -n "$namespace" || true
+        print_section "🔍 Debugging Information"
+
+        print_step "📋 All Resources Status:"
+        kubectl get all -n "$namespace" -o wide || true
+        echo ""
+
+        print_step "⚠️  Failed/Pending Pods:"
+        kubectl get pods -n "$namespace" --field-selector=status.phase!=Running,status.phase!=Succeeded -o wide || true
+        echo ""
+
+        print_step "📊 Jobs Status:"
+        kubectl get jobs -n "$namespace" -o wide || true
+        echo ""
+
+        print_step "📝 All Events (Most Recent):"
+        kubectl get events -n "$namespace" --sort-by='.lastTimestamp' || true
+        echo ""
+
+        print_step "🔍 Detailed Pod Descriptions:"
         kubectl describe pods -n "$namespace" || true
-        kubectl get events -n "$namespace" --sort-by='.lastTimestamp' | tail -20 || true
+        echo ""
+
+        print_step "📋 Job Descriptions:"
+        kubectl describe jobs -n "$namespace" || true
+        echo ""
+
+        print_step "📄 Pod Logs (All Containers):"
+        for pod in $(kubectl get pods -n "$namespace" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo ""); do
+            if [[ -n "$pod" ]]; then
+                print_info "Logs for pod: $pod"
+
+                # Get all containers in the pod (init + regular)
+                local init_containers=$(kubectl get pod "$pod" -n "$namespace" -o jsonpath='{.spec.initContainers[*].name}' 2>/dev/null || echo "")
+                local containers=$(kubectl get pod "$pod" -n "$namespace" -o jsonpath='{.spec.containers[*].name}' 2>/dev/null || echo "")
+
+                # Show init container logs
+                for container in $init_containers; do
+                    echo "  ├── Init Container: $container"
+                    kubectl logs "$pod" -n "$namespace" -c "$container" --tail=100 2>&1 | sed 's/^/  │   /' || echo "  │   (no logs available)"
+                    echo ""
+                done
+
+                # Show regular container logs
+                for container in $containers; do
+                    echo "  ├── Container: $container"
+                    kubectl logs "$pod" -n "$namespace" -c "$container" --tail=100 --previous 2>/dev/null | sed 's/^/  │   /' && echo "  │   (previous instance)" || true
+                    kubectl logs "$pod" -n "$namespace" -c "$container" --tail=100 2>&1 | sed 's/^/  │   /' || echo "  │   (no logs available)"
+                    echo ""
+                done
+            fi
+        done
+
         return 1
     fi
 
@@ -669,11 +717,40 @@ run_integration_tests() {
         sleep $interval
         elapsed=$((elapsed + interval))
         print_info "Waiting... ($elapsed/${max_wait}s)"
+
+        # Show current pod status for debugging
+        if [[ $((elapsed % 30)) -eq 0 ]]; then
+            kubectl get pods -n "$namespace" -o wide
+        fi
     done
 
     if [[ $elapsed -ge $max_wait ]]; then
-        print_warning "Timeout waiting for pods to be ready"
-        kubectl get pods -n "$namespace" -o wide
+        print_error "Timeout waiting for pods to be ready"
+        print_section "🔍 Pod Status After Timeout"
+
+        print_step "📋 Pod Status:"
+        kubectl get pods -n "$namespace" -o wide || true
+        echo ""
+
+        print_step "⚠️  Failed/Pending Pods Details:"
+        kubectl describe pods -n "$namespace" --field-selector=status.phase!=Running,status.phase!=Succeeded || true
+        echo ""
+
+        print_step "📝 Recent Events:"
+        kubectl get events -n "$namespace" --sort-by='.lastTimestamp' | tail -30 || true
+        echo ""
+
+        print_step "📄 Logs from Failed Pods:"
+        for pod in $(kubectl get pods -n "$namespace" --field-selector=status.phase!=Running,status.phase!=Succeeded -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo ""); do
+            if [[ -n "$pod" ]]; then
+                print_info "Logs for pod: $pod"
+                local containers=$(kubectl get pod "$pod" -n "$namespace" -o jsonpath='{.spec.containers[*].name}' 2>/dev/null || echo "")
+                for container in $containers; do
+                    echo "  ├── Container: $container"
+                    kubectl logs "$pod" -n "$namespace" -c "$container" --tail=50 2>&1 | sed 's/^/  │   /' || echo "  │   (no logs available)"
+                done
+            fi
+        done
     fi
 
     # Run Helm tests if they exist

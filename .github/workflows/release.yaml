@@ -125,7 +125,7 @@ jobs:
 
               # Generate changelog with new version
               echo "📝 Generating changelog for $chart_name..."
-              git-cliff --bump --config cliff.toml --output "$chart/CHANGELOG.md" --include-path "$chart/*" --tag-pattern "${chart_name}-*"
+              git-cliff --bump --config cliff.toml --prepend "$chart/CHANGELOG.md" --include-path "$chart/*" --tag-pattern "${chart_name}-*"
 
               # Generate ArtifactHub annotations
               echo "📝 Generating ArtifactHub annotations for $chart_name..."
