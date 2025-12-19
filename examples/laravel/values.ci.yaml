@@ -151,10 +151,9 @@ laravel:
     LOG_CHANNEL: "stderr"
     LOG_LEVEL: "debug"
 
-    # Database configuration (will use secrets from CI environment)
-    DB_CONNECTION: "pgsql"
-    DB_PORT: "5432"
-    DB_DATABASE: "postgres"
+    # Database configuration is handled via DATABASE_URL from CI environment (secrets)
+    # DATABASE_URL takes precedence and includes: scheme, host, port, database, user, password
+    # No need to set individual DB_* variables when using DATABASE_URL
 
     BROADCAST_DRIVER: "log"
     CACHE_DRIVER: "redis"
@@ -162,8 +161,8 @@ laravel:
     QUEUE_CONNECTION: "redis"
     SESSION_DRIVER: "redis"
 
+    # Redis configuration is handled via REDIS_URL from CI environment
     REDIS_CLIENT: "phpredis"
-    REDIS_PORT: "6379"
 
     MAIL_MAILER: "log"
     MAIL_HOST: "localhost"
@@ -172,13 +171,13 @@ laravel:
     MAIL_FROM_NAME: "Laravel CI"
 
   # Secrets will be provided by CI environment variables via --set flags
-  # The test.sh script automatically injects any secrets from environment that match
-  # keys in examples/laravel/secrets.yaml.example
+  # The test.sh script automatically injects secrets from environment variables
   # IMPORTANT: GitHub Secret names should be prefixed with chart name in uppercase
   # Example: LARAVEL_DATABASE_URL in GitHub → DATABASE_URL in secrets.yaml.example
   secrets:
     APP_KEY: "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-    # DATABASE_URL and REDIS_URL will be injected from LARAVEL_DATABASE_URL and LARAVEL_REDIS_URL
+    DATABASE_URL: ""  # Injected from LARAVEL_DATABASE_URL
+    REDIS_URL: ""  # Injected from LARAVEL_REDIS_URL
 
 # PHP configuration for CI
 php:

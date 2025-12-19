@@ -169,10 +169,9 @@ laravel:
 
     LOG_LEVEL: "warning"
 
-    # Database configuration
-    DB_CONNECTION: "pgsql"  # TODO: Or "mysql" if preferred
-    DB_PORT: "5432"  # TODO: 3306 for MySQL
-    DB_DATABASE: "laravel"  # TODO: Change to your database name
+    # Database and Redis configuration is handled via DATABASE_URL and REDIS_URL in secrets
+    # This ensures compatibility with managed database services (AWS RDS, Neon, etc.)
+    # No need to set individual DB_* or REDIS_* connection variables
 
     # Redis for production caching and queues
     BROADCAST_DRIVER: "redis"
@@ -182,8 +181,6 @@ laravel:
     SESSION_DRIVER: "redis"
 
     REDIS_CLIENT: "phpredis"
-    REDIS_SCHEME: "tls"  # Use TLS for production Redis
-    REDIS_PORT: "6379"
 
     MAIL_MAILER: "smtp"  # TODO: Configure your mail service
     MAIL_HOST: "smtp.example.com"
@@ -197,23 +194,27 @@ laravel:
 
   # Secrets should be provided via Kubernetes secrets or external secrets operator
   # DO NOT commit these values to version control
-  # Supports both URL format and individual variables
   secrets:
     APP_KEY: ""  # TODO: Generate with: php artisan key:generate --show
-    # Database - supports both formats (URL takes precedence if set)
-    DATABASE_URL: ""  # TODO: e.g., postgresql://user:pass@host:5432/dbname (for managed databases)
-    DB_HOST: ""  # TODO: Your production database host (if not using DATABASE_URL)
-    DB_USERNAME: ""  # TODO: Your database username (if not using DATABASE_URL)
-    DB_PASSWORD: ""  # TODO: Your database password (if not using DATABASE_URL)
-    # Redis - supports both formats (URL takes precedence if set)
-    REDIS_URL: ""  # TODO: e.g., rediss://default:pass@host:6379 (for managed Redis)
-    REDIS_HOST: ""  # TODO: Your Redis host (if not using REDIS_URL)
-    REDIS_PASSWORD: ""  # TODO: Your Redis password (if not using REDIS_URL)
+
+    # Database connection URL (recommended for managed databases)
+    # Format: postgresql://user:pass@host:5432/dbname?sslmode=require
+    DATABASE_URL: ""  # TODO: Your production database URL
+
+    # Redis connection URL (recommended for managed Redis)
+    # Format: rediss://default:pass@host:6379
+    REDIS_URL: ""  # TODO: Your production Redis URL
+
+    # Cloud storage credentials
     AWS_ACCESS_KEY_ID: ""  # TODO: If using S3
     AWS_SECRET_ACCESS_KEY: ""  # TODO: If using S3
+
+    # Mail credentials
     MAIL_USERNAME: ""  # TODO: Your SMTP username
     MAIL_PASSWORD: ""  # TODO: Your SMTP password
-    PUSHER_APP_ID: ""  # TODO: If using Pusher
+
+    # Pusher credentials (if using broadcasting)
+    PUSHER_APP_ID: ""
     PUSHER_APP_KEY: ""
     PUSHER_APP_SECRET: ""
 

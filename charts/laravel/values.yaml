@@ -710,13 +710,13 @@ laravel:
     LOG_CHANNEL: "stderr"
     LOG_LEVEL: "warning"
 
-    # Database configuration
-    # PostgreSQL recommended for production (or use "mysql" if preferred)
-    DB_CONNECTION: "pgsql"
-    DB_PORT: "5432"  # Use 3306 for MySQL
-    DB_DATABASE: "laravel"
+    # Database and Redis connection are configured via DATABASE_URL and REDIS_URL in secrets
+    # If you need to use individual connection variables instead:
+    #   1. Set DATABASE_URL: "" (empty string) in secrets
+    #   2. Add DB_CONNECTION, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD here/in secrets
+    # Same applies for Redis: set REDIS_URL: "" and add REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 
-    # Redis recommended for production caching and queues
+    # Application drivers
     BROADCAST_DRIVER: "redis"
     CACHE_DRIVER: "redis"
     FILESYSTEM_DISK: "local"  # Or "s3" for cloud storage
@@ -725,7 +725,6 @@ laravel:
     SESSION_LIFETIME: "120"
 
     REDIS_CLIENT: "phpredis"
-    REDIS_PORT: "6379"
 
     MAIL_MAILER: "smtp"
     MAIL_HOST: "mailpit"
@@ -742,19 +741,19 @@ laravel:
   # All secrets should be provided via secrets.yaml (gitignored) or external secrets
   secrets:
     APP_KEY: ""
-    # Database secrets - supports both formats:
-    # Option 1: Use DATABASE_URL (takes precedence if set)
+
+    # Database connection URL (recommended)
+    # Format: postgresql://user:pass@host:port/database?sslmode=require
+    # For MySQL: mysql://user:pass@host:port/database
+    # To use individual DB_* variables instead, set this to "" and add them in laravel.env above
     DATABASE_URL: ""
-    # Option 2: Use individual variables (used if DATABASE_URL is empty)
-    DB_HOST: ""
-    DB_USERNAME: ""
-    DB_PASSWORD: ""
-    # Redis secrets - supports both formats:
-    # Option 1: Use REDIS_URL (takes precedence if set)
+
+    # Redis connection URL (recommended)
+    # Format: redis://default:password@host:port (or rediss:// for TLS)
+    # To use individual REDIS_* variables instead, set this to "" and add them in laravel.env above
     REDIS_URL: ""
-    # Option 2: Use individual variables (used if REDIS_URL is empty)
-    REDIS_HOST: ""
-    REDIS_PASSWORD: ""
+
+    # Cloud storage credentials
     AWS_ACCESS_KEY_ID: ""
     AWS_SECRET_ACCESS_KEY: ""
     MAIL_USERNAME: ""

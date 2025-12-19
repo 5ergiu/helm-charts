@@ -141,40 +141,29 @@ laravel:
     LOG_CHANNEL: "stderr"
     LOG_LEVEL: "debug"
 
-    # Use PostgreSQL for testing (shared database across all pods)
-    DB_CONNECTION: "pgsql"
-    DB_PORT: "5432"
-    DB_DATABASE: "neondb"
-
+    # Database and Redis configured via DATABASE_URL and REDIS_URL in secrets.yaml
     BROADCAST_DRIVER: "log"
     CACHE_DRIVER: "redis"
     FILESYSTEM_DISK: "local"
-    QUEUE_CONNECTION: "redis"  # Redis queue for testing
+    QUEUE_CONNECTION: "redis"
     SESSION_DRIVER: "redis"
     SESSION_LIFETIME: "120"
 
     REDIS_CLIENT: "phpredis"
-    REDIS_PORT: "6379"
 
-    MAIL_MAILER: "log"  # Log emails instead of sending
+    MAIL_MAILER: "log"
     MAIL_FROM_ADDRESS: "test@laravel.local"
     MAIL_FROM_NAME: "Laravel Test"
 
-  # Secrets should be provided via secrets.yaml
-  # Supports both URL format and individual variables
+  # Secrets should be provided via secrets.yaml (gitignored)
   secrets:
-    APP_KEY: ""  # Will be loaded from secrets.yaml
-    # Database - supports both formats (URL takes precedence if set)
+    APP_KEY: ""
     DATABASE_URL: ""
-    DB_HOST: ""  # Will be loaded from secrets.yaml
-    DB_USERNAME: ""  # Will be loaded from secrets.yaml
-    DB_PASSWORD: ""  # Will be loaded from secrets.yaml
-    # Redis - supports both formats (URL takes precedence if set)
     REDIS_URL: ""
-    REDIS_HOST: ""  # Will be loaded from secrets.yaml
-    REDIS_PASSWORD: ""  # Will be loaded from secrets.yaml
     AWS_ACCESS_KEY_ID: ""
     AWS_SECRET_ACCESS_KEY: ""
+    MAIL_USERNAME: ""
+    MAIL_PASSWORD: ""
     PUSHER_APP_ID: ""
     PUSHER_APP_KEY: ""
     PUSHER_APP_SECRET: ""
