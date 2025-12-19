@@ -79,10 +79,7 @@ jobs:
             
             let body = '## 🔐 Commit Signature Check\n\n';
             
-            if (status === 'success') {
-              body += `✅ All commits are signed (${signedCommits}/${totalCommits})\n\n`;
-              body += 'Great job maintaining security best practices!';
-            } else {
+            if (status !== 'success') {
               body += `⚠️  Some commits are not signed (${signedCommits}/${totalCommits} signed)\n\n`;
               body += '### Unsigned Commits\n';
               body += unsignedCommits.split(' ').filter(c => c).map(c => `- \`${c.substring(0, 7)}\``).join('\n');
@@ -105,34 +102,34 @@ jobs:
               body += 'git push --force-with-lease\n';
               body += '```\n\n';
               body += 'Learn more: [GitHub Docs on Commit Signing](https://docs.github.com/en/authentication/managing-commit-signature-verification)';
-            }
-            
-            // Find existing comment
-            const comments = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-            
-            const botComment = comments.data.find(comment => 
-              comment.user.type === 'Bot' && 
-              comment.body.includes('🔐 Commit Signature Check')
-            );
-            
-            if (botComment) {
-              // Update existing comment
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body: body
-              });
-            } else {
-              // Create new comment
-              await github.rest.issues.createComment({
+
+              // Find existing comment
+              const comments = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
-                body: body
               });
+              
+              const botComment = comments.data.find(comment => 
+                comment.user.type === 'Bot' && 
+                comment.body.includes('🔐 Commit Signature Check')
+              );
+              
+              if (botComment) {
+                // Update existing comment
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: botComment.id,
+                  body: body
+                });
+              } else {
+                // Create new comment
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: body
+                });
+              }
             }

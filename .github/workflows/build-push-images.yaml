@@ -30,6 +30,7 @@ jobs:
       contents: read
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      has-images: ${{ steps.set-matrix.outputs.has-images }}
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -86,17 +87,21 @@ jobs:
           matrix_include+="]"
 
           if [ "$matrix_include" = "[]" ]; then
-            echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
-            echo "No images to build"
+            # Provide a dummy matrix entry to prevent GitHub Actions error
+            # The build-push job will be skipped via the if condition
+            echo "matrix={\"include\":[{\"image\":\"none\",\"target\":\"none\"}]}" >> $GITHUB_OUTPUT
+            echo "has-images=false" >> $GITHUB_OUTPUT
+            echo "No images to build - providing dummy matrix"
           else
             echo "matrix={\"include\":$matrix_include}" >> $GITHUB_OUTPUT
+            echo "has-images=true" >> $GITHUB_OUTPUT
             echo "Build matrix: {\"include\":$matrix_include}"
           fi
 
   build-push:
     name: 🏗️ Build ${{ matrix.image }} (${{ matrix.target || 'default' }})
     needs: detect-images
-    if: needs.detect-images.outputs.matrix != '{\"include\":[]}'
+    if: needs.detect-images.outputs.has-images == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
