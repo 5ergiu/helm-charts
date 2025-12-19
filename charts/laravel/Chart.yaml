@@ -22,9 +22,21 @@ annotations:
   category: Web Applications
   displayName: Laravel Helm Chart
   licenses: Apache-2.0
-  artifacthub.io/signKey: |
-    fingerprint: 7fa3b00701ad776b7d7f9cbb806c518b16320ae49ba814e6eee3c5ee4a6613c1
-    url: https://github.com/5ergiu/helm-charts/blob/main/cosign.pub
+  artifacthub.io/category: networking
   artifacthub.io/changes: |-
     - kind: changed
       description: multiple fixes
+  artifacthub.io/containsSecurityUpdates: "false"
+  artifacthub.io/links: |
+    - name: Laravel
+      url: https://laravel.com/docs/12.x
+    - name: Helm Chart
+      url: https://github.com/5ergiu/helm-charts/tree/main/charts/laravel
+    - name: Application
+      url: https://github.com/laravel/laravel
+    - name: Maintainer 5ergiu
+      url: https://github.com/5ergiu
+  artifacthub.io/prerelease: "true"
+  artifacthub.io/signKey: |
+    fingerprint: 7fa3b00701ad776b7d7f9cbb806c518b16320ae49ba814e6eee3c5ee4a6613c1
+    url: https://github.com/5ergiu/helm-charts/blob/main/cosign.pub

@@ -31,7 +31,10 @@ jobs:
         id: detect
         run: |
           # Get changed files in examples/ directory
-          changed_files=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep "^examples/" || echo "")
+          changed_files=$(git diff --name-only \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}" \
+            | grep "^examples/" || echo "")
 
           if [ -z "$changed_files" ]; then
             echo "changed_images=" >> $GITHUB_OUTPUT
@@ -50,6 +53,7 @@ jobs:
   build-images:
     name: 🏗️ Build Changed Images
     needs: detect-image-changes
+    if: needs.detect-image-changes.outputs.changed_images != ''
     uses: ./.github/workflows/build-push-images.yaml
     with:
       apps: ${{ needs.detect-image-changes.outputs.changed_images }}
