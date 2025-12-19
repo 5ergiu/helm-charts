@@ -246,7 +246,7 @@ check_prerequisites() {
         if ! helm plugin list 2>/dev/null | grep -q unittest; then
             print_warning "helm-unittest plugin not found"
             print_info "Installing helm-unittest plugin..."
-            helm plugin install https://github.com/helm-unittest/helm-unittest
+            helm plugin install https://github.com/helm-unittest/helm-unittest --verify=false
         fi
     fi
 
