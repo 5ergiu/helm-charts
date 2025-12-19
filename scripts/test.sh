@@ -718,25 +718,18 @@ test_chart() {
         SKIP_INTEGRATION=true
     fi
 
-    # Run all test phases
-    local failed=0
-
-    run_lint "$chart_path" || ((failed++))
-    run_unit_tests "$chart_path" || ((failed++))
+    # Run all test phases with fail-fast behavior
+    run_lint "$chart_path" || return 1
+    run_unit_tests "$chart_path" || return 1
 
     if [[ $validation_result -ne 2 ]]; then
-        run_template_tests "$chart_path" || ((failed++))
-        run_integration_tests "$chart_path" || ((failed++))
+        run_template_tests "$chart_path" || return 1
+        run_integration_tests "$chart_path" || return 1
     fi
 
     # Summary
-    if [[ $failed -eq 0 ]]; then
-        print_success "All tests passed for $chart_name! 🎉"
-        return 0
-    else
-        print_error "$failed test phase(s) failed for $chart_name"
-        return 1
-    fi
+    print_success "All tests passed for $chart_name! 🎉"
+    return 0
 }
 
 # ============================================================================
@@ -836,21 +829,18 @@ main() {
     fi
 
     # Test each chart (fail fast - stop on first failure)
-    local total_passed=0
-
     for chart_path in "${charts_to_test[@]}"; do
         if ! test_chart "$chart_path"; then
             print_error "Tests failed for $(basename "$chart_path")"
             print_error "Stopping execution (fail-fast mode)"
             exit 1
         fi
-        ((total_passed++))
     done
 
     # All tests passed
     echo ""
     print_header "📊 Test Summary"
-    print_info "Total charts tested: ${BOLD}${total_passed}${NC}"
+    print_info "Total charts tested: ${BOLD}${#charts_to_test[@]}${NC}"
     print_success "All charts passed! 🎉"
 
     exit 0

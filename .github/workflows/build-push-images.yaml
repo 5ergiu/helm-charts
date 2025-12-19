@@ -52,10 +52,14 @@ jobs:
             # User specified apps
             all_apps=$(echo "${{ inputs.apps }}" | tr ',' ' ')
             echo "Building specified apps: $all_apps"
-          else
-            # Build all apps
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Manual dispatch with no apps specified - build all
             all_apps=$(find examples -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
             echo "Building all apps: $all_apps"
+          else
+            # Called from another workflow with empty apps - build nothing
+            all_apps=""
+            echo "No apps specified, skipping build"
           fi
 
           # Build matrix with image and target combinations

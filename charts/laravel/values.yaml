@@ -110,19 +110,19 @@ web:
     # Automatically added to web deployment when reverseProxy.enabled is true
     # Volumes are defined in the deployment template (_helpers.tpl)
     volumes: []
-  
+
   strategy:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 0
-  
+
   podAnnotations:
     prometheus.io/scrape: "true"
     prometheus.io/port: "9090"
-  
+
   podLabels: {}
-  
+
   podSecurityContext:
     runAsNonRoot: true
     # For local development with hostPath volumes, set to your host user IDs (run: id -u && id -g) to avoid permission issues
@@ -131,7 +131,7 @@ web:
     fsGroup: 82    # Alpine www-data group (change to match your image)
     seccompProfile:
       type: RuntimeDefault
-  
+
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:
@@ -149,7 +149,7 @@ web:
     port: 80
     targetPort: 8080
     annotations: {}
-  
+
   resources:
     limits:
       cpu: 1000m
@@ -157,7 +157,7 @@ web:
     requests:
       cpu: 100m
       memory: 256Mi
-  
+
   livenessProbe:
     enabled: true
     httpGet:
@@ -190,7 +190,7 @@ web:
     timeoutSeconds: 3
     successThreshold: 1
     failureThreshold: 30
-  
+
   # Autoscaling configuration
   autoscaling:
     enabled: true
@@ -215,12 +215,12 @@ web:
           value: 2
           periodSeconds: 15
         selectPolicy: Max
-  
+
   # Pod Disruption Budget
   pdb:
     enabled: true
     minAvailable: 1
-  
+
   # Reverse proxy sidecar is automatically added when web.reverseProxy.enabled: true
   # To disable the reverse proxy (e.g., using FrankenPHP), set web.reverseProxy.enabled: false
   # You can add additional sidecars here if needed
@@ -281,36 +281,36 @@ workers:
   default:
     enabled: true
     replicaCount: 2
-  
+
     # Use the CLI image for workers
     image:
       repository: ghcr.io/5ergiu/images/laravel
       tag: cli
       pullPolicy: Always
-  
+
     strategy:
       type: RollingUpdate
       rollingUpdate:
         maxSurge: 1
         maxUnavailable: 0
-  
+
     podAnnotations: {}
     podLabels: {}
-  
+
     podSecurityContext:
       runAsNonRoot: true
       runAsUser: 82  # Alpine www-data user (change to match your image)
       fsGroup: 82    # Alpine www-data group (change to match your image)
       seccompProfile:
         type: RuntimeDefault
-  
+
     securityContext:
       allowPrivilegeEscalation: false
       capabilities:
         drop:
         - ALL
       readOnlyRootFilesystem: true
-  
+
     # Worker command - Basic queue worker
     args:
       - "php"
@@ -321,7 +321,7 @@ workers:
       - "--max-time=3600"
       - "--sleep=3"
       - "--timeout=300"
-  
+
     resources:
       limits:
         cpu: 500m
@@ -329,7 +329,7 @@ workers:
       requests:
         cpu: 100m
         memory: 256Mi
-  
+
     # Liveness probe for basic queue worker
     livenessProbe:
       enabled: true
@@ -340,7 +340,7 @@ workers:
       timeoutSeconds: 5
       successThreshold: 1
       failureThreshold: 3
-  
+
     # Autoscaling configuration
     autoscaling:
       enabled: true
@@ -348,12 +348,12 @@ workers:
       maxReplicas: 10
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 80
-  
+
     # Pod Disruption Budget
     pdb:
       enabled: true
       minAvailable: 1
-  
+
     nodeSelector: {}
     tolerations: []
     affinity:
@@ -450,26 +450,26 @@ workers:
 scheduler:
   enabled: true
   schedule: "* * * * *"
-  
+
   podAnnotations: {}
   podLabels: {}
-  
+
   # Minimal security context for short-lived cron job
   # Set to your host user ID if needed (run: id -u)
   # Note: scheduler is a short-lived job, fsGroup not needed
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 82  # Alpine www-data user (change to match your image)
-  
+
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
       - ALL
     readOnlyRootFilesystem: true
-  
+
   command: ["php", "artisan", "schedule:run"]
-  
+
   resources:
     limits:
       cpu: 200m
@@ -477,12 +477,12 @@ scheduler:
     requests:
       cpu: 50m
       memory: 128Mi
-  
+
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
   concurrencyPolicy: Forbid
   restartPolicy: OnFailure
-  
+
   nodeSelector: {}
   tolerations: []
   affinity: {}
@@ -490,26 +490,26 @@ scheduler:
 # Migration Job - runs as a Helm hook before install/upgrade
 migration:
   enabled: true
-  
+
   podAnnotations: {}
   podLabels: {}
-  
+
   # Minimal security context for short-lived cron job
   # Set to your host user ID if needed (run: id -u)
   # Note: scheduler is a short-lived job, fsGroup not needed
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 82  # Alpine www-data user (change to match your image)
-  
+
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
       - ALL
     readOnlyRootFilesystem: true
-  
+
   command: ["php", "artisan", "migrate", "--force"]
-  
+
   resources:
     limits:
       cpu: 500m
@@ -517,11 +517,11 @@ migration:
     requests:
       cpu: 100m
       memory: 256Mi
-  
+
   # Retry configuration
   backoffLimit: 3
   ttlSecondsAfterFinished: 300
-  
+
   nodeSelector: {}
   tolerations: []
   affinity: {}
@@ -611,7 +611,7 @@ middleware:
     average: 100
     burst: 200
     period: 1s
-  
+
   # Security headers
   headers:
     enabled: true
@@ -625,18 +625,18 @@ middleware:
     customResponseHeaders:
       X-Powered-By: ""
       Server: ""
-  
+
   # Request compression
   compress:
     enabled: true
-  
+
   # IP whitelist (disabled by default)
   ipWhiteList:
     enabled: false
     sourceRange: []
     # - 10.0.0.0/8
     # - 172.16.0.0/12
-  
+
   # Redirect scheme (HTTP to HTTPS)
   redirectScheme:
     enabled: true
