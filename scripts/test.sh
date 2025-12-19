@@ -725,7 +725,6 @@ test_chart() {
     run_unit_tests "$chart_path" || ((failed++))
 
     if [[ $validation_result -ne 2 ]]; then
-        # Not a library chart
         run_template_tests "$chart_path" || ((failed++))
         run_integration_tests "$chart_path" || ((failed++))
     fi

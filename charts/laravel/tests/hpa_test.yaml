@@ -5,7 +5,7 @@ tests:
   - it: should not create HPA when all disabled
     set:
       web.autoscaling.enabled: false
-      workers: {}
+      workers.default.enabled: false
     asserts:
       - hasDocuments:
           count: 0
@@ -13,7 +13,7 @@ tests:
   - it: should create HPA for web when enabled
     set:
       web.autoscaling.enabled: true
-      workers: {}
+      workers.default.enabled: false
     asserts:
       - hasDocuments:
           count: 1
@@ -48,7 +48,7 @@ tests:
       web.autoscaling.enabled: true
       web.autoscaling.minReplicas: 3
       web.autoscaling.maxReplicas: 20
-      workers: {}
+      workers.default.enabled: false
     asserts:
       - equal:
           path: spec.minReplicas
@@ -61,7 +61,7 @@ tests:
     set:
       web.autoscaling.enabled: true
       web.autoscaling.targetCPUUtilizationPercentage: 70
-      workers: {}
+      workers.default.enabled: false
     asserts:
       - contains:
           path: spec.metrics
@@ -77,7 +77,7 @@ tests:
     set:
       web.autoscaling.enabled: true
       web.autoscaling.targetMemoryUtilizationPercentage: 80
-      workers: {}
+      workers.default.enabled: false
     asserts:
       - contains:
           path: spec.metrics
@@ -92,6 +92,7 @@ tests:
   - it: should create HPA for horizon worker when enabled
     set:
       web.autoscaling.enabled: false
+      workers.default.enabled: false
       workers.horizon.enabled: true
       workers.horizon.autoscaling.enabled: true
       workers.horizon.autoscaling.minReplicas: 2
@@ -157,6 +158,7 @@ tests:
   - it: should configure horizon HPA with custom settings
     set:
       web.autoscaling.enabled: false
+      workers.default.enabled: false
       workers.horizon.enabled: true
       workers.horizon.autoscaling.enabled: true
       workers.horizon.autoscaling.minReplicas: 3

@@ -7,10 +7,18 @@ on:
         description: 'Comma-separated list of apps to build (e.g., "nextjs,laravel"). Leave empty to build all.'
         required: false
         type: string
+      ref:
+        description: 'Git ref (branch, tag, or commit SHA) to build from. Defaults to the branch you selected in the UI.'
+        required: false
+        type: string
   workflow_call:
     inputs:
       apps:
         description: 'Comma-separated list of apps to build (e.g., "nextjs,laravel"). Leave empty to build all.'
+        required: false
+        type: string
+      ref:
+        description: 'Git ref (branch, tag, or commit SHA) to build from. Defaults to the calling workflow ref.'
         required: false
         type: string
 
@@ -26,7 +34,14 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
+          ref: ${{ inputs.ref || github.ref }}
           fetch-depth: 0
+
+      - name: 📋 Show build context
+        run: |
+          echo "Building from ref: ${{ inputs.ref || github.ref }}"
+          echo "Current commit: $(git rev-parse HEAD)"
+          echo "Current branch: $(git rev-parse --abbrev-ref HEAD)"
 
       - name: 🔍 Detect images and build targets
         id: set-matrix
@@ -50,27 +65,15 @@ jobs:
             dockerfile="examples/$app/Dockerfile"
 
             if [ -f "$dockerfile" ]; then
-              # Check for all possible build targets in Dockerfile
-              has_dev_web=$(grep -i "^FROM .* AS development-web" "$dockerfile" || echo "")
-              has_prod_web=$(grep -i "^FROM .* AS production-web" "$dockerfile" || echo "")
-              has_cli=$(grep -i "^FROM .* AS cli" "$dockerfile" || echo "")
+              # Extract all targets from the Dockerfile (exact names)
+              targets=$(grep -i "^FROM .* AS " "$dockerfile" | sed -n 's/.*AS \([^ ]*\).*/\1/p' || echo "")
 
-              # Build all variants that exist
-              if [ -n "$has_dev_web" ]; then
+              # Process each target
+              for target in $targets; do
                 [ "$first" = false ] && matrix_include+=","
-                matrix_include+="{\"image\":\"$app\",\"target\":\"development-web\"}"
+                matrix_include+="{\"image\":\"$app\",\"target\":\"$target\"}"
                 first=false
-              fi
-              if [ -n "$has_prod_web" ]; then
-                [ "$first" = false ] && matrix_include+=","
-                matrix_include+="{\"image\":\"$app\",\"target\":\"production-web\"}"
-                first=false
-              fi
-              if [ -n "$has_cli" ]; then
-                [ "$first" = false ] && matrix_include+=","
-                matrix_include+="{\"image\":\"$app\",\"target\":\"cli\"}"
-                first=false
-              fi
+              done
             else
               echo "Warning: No Dockerfile found for $app, skipping"
             fi
@@ -100,6 +103,7 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
+          ref: ${{ inputs.ref || github.ref }}
           fetch-depth: 0
 
       - name: 🐳 Set up Docker Buildx
@@ -116,25 +120,14 @@ jobs:
         id: version
         run: |
           IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/images/${{ matrix.image }}"
+          TARGET="${{ matrix.target }}"
 
-          # Determine build type and set tags
-          if [ "${{ matrix.target }}" = "development-web" ]; then
-            # Development web: use 'dev-web' tag
-            echo "VERSION=dev-web" >> $GITHUB_OUTPUT
-            echo "TAGS=${IMAGE_NAME}:dev-web" >> $GITHUB_OUTPUT
-            echo "Development web build - using 'dev-web' tag"
-          elif [ "${{ matrix.target }}" = "cli" ]; then
-            # CLI: use 'cli' tag (same for dev and prod)
-            echo "VERSION=cli" >> $GITHUB_OUTPUT
-            echo "TAGS=${IMAGE_NAME}:cli" >> $GITHUB_OUTPUT
-            echo "CLI build - using 'cli' tag"
-          elif [ "${{ matrix.target }}" = "production-web" ]; then
-            # Production web: use semantic versioning with -web suffix
-            VARIANT_SUFFIX="-web"
-            echo "Production web build"
+          # Production target gets semantic versioning + 'production' and 'latest' tags
+          if [ "$TARGET" = "production" ]; then
+            echo "Production build"
 
             # Try to get the latest version from GHCR
-            LATEST_TAG=$(docker manifest inspect ${IMAGE_NAME}:latest${VARIANT_SUFFIX} 2>/dev/null | \
+            LATEST_TAG=$(docker manifest inspect ${IMAGE_NAME}:latest 2>/dev/null | \
               jq -r '.manifests[0].annotations."org.opencontainers.image.version"' 2>/dev/null || echo "")
 
             if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
@@ -201,9 +194,14 @@ jobs:
               fi
             fi
 
-            echo "VERSION=${NEW_VERSION}${VARIANT_SUFFIX}" >> $GITHUB_OUTPUT
-            echo "TAGS=${IMAGE_NAME}:${NEW_VERSION}${VARIANT_SUFFIX},${IMAGE_NAME}:latest${VARIANT_SUFFIX}" >> $GITHUB_OUTPUT
-            echo "Production build - using version ${NEW_VERSION}${VARIANT_SUFFIX}"
+            echo "VERSION=${NEW_VERSION}" >> $GITHUB_OUTPUT
+            echo "TAGS=${IMAGE_NAME}:${NEW_VERSION},${IMAGE_NAME}:production,${IMAGE_NAME}:latest" >> $GITHUB_OUTPUT
+            echo "Production build - using version ${NEW_VERSION} with tags: production, latest"
+          else
+            # All other targets use their exact target name as the tag
+            echo "VERSION=${TARGET}" >> $GITHUB_OUTPUT
+            echo "TAGS=${IMAGE_NAME}:${TARGET}" >> $GITHUB_OUTPUT
+            echo "Build for target '${TARGET}' - using tag '${TARGET}'"
           fi
 
       - name: 🏗️ Build and push ${{ matrix.image }} (${{ matrix.target || 'default' }})

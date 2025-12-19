@@ -22,12 +22,12 @@ global:
   environment: production
 
 # Image configuration
-# For web deployments, use production-web or development-web tags
+# For web deployments, use latest or dev tags
 # For workers, use the cli tag
 image:
   repository: ghcr.io/5ergiu/images/laravel
   pullPolicy: Always
-  tag: production-web  # Options: production-web, development-web, cli
+  tag: latest  # Options: latest, dev, cli
 
 imagePullSecrets: []
 nameOverride: ""
@@ -56,10 +56,17 @@ web:
 
       # Nginx configuration settings for ConfigMap generation
       port: 8080
+      root: /var/www/html/public
+      accessLog: off
+      errorLog: /dev/stderr
+      errorLevel: warn
+      serverTokens: off
       # Note: clientMaxBodySize should match Traefik's buffering.maxRequestBodyBytes
       # Traefik enforces the limit, nginx just needs to not reject valid requests
       clientMaxBodySize: 100M
       keepaliveTimeout: 65
+      fastcgiBuffers: 8 8k
+      fastcgiBufferSize: 8k
       fastcgiReadTimeout: 120s
 
     # Container specification
@@ -276,103 +283,102 @@ web:
 #         repository: ghcr.io/5ergiu/images/laravel
 #         tag: cli
 #       args: ["php", "artisan", "horizon"]
-workers: {}
+workers:
   # Default queue worker (basic, no Redis required)
-  # Uncomment to enable a basic queue worker
-  # default:
-  #   enabled: true
-  #   replicaCount: 2
-  #
-  #   # Use the CLI image for workers
-  #   image:
-  #     repository: ghcr.io/5ergiu/images/laravel
-  #     tag: cli
-  #     pullPolicy: Always
-  #
-  #   strategy:
-  #     type: RollingUpdate
-  #     rollingUpdate:
-  #       maxSurge: 1
-  #       maxUnavailable: 0
-  #
-  #   podAnnotations: {}
-  #   podLabels: {}
-  #
-  #   podSecurityContext:
-  #     runAsNonRoot: true
-  #     runAsUser: 82  # Alpine www-data user (change to match your image)
-  #     fsGroup: 82    # Alpine www-data group (change to match your image)
-  #     seccompProfile:
-  #       type: RuntimeDefault
-  #
-  #   securityContext:
-  #     allowPrivilegeEscalation: false
-  #     capabilities:
-  #       drop:
-  #       - ALL
-  #     readOnlyRootFilesystem: true
-  #
-  #   # Worker command - Basic queue worker
-  #   args:
-  #     - "php"
-  #     - "artisan"
-  #     - "queue:work"
-  #     - "--verbose"
-  #     - "--tries=3"
-  #     - "--max-time=3600"
-  #     - "--sleep=3"
-  #     - "--timeout=300"
-  #
-  #   resources:
-  #     limits:
-  #       cpu: 500m
-  #       memory: 512Mi
-  #     requests:
-  #       cpu: 100m
-  #       memory: 256Mi
-  #
-  #   # Liveness probe for basic queue worker
-  #   livenessProbe:
-  #     enabled: true
-  #     exec:
-  #       command: ["healthcheck-queue"]
-  #     initialDelaySeconds: 30
-  #     periodSeconds: 60
-  #     timeoutSeconds: 5
-  #     successThreshold: 1
-  #     failureThreshold: 3
-  #
-  #   # Autoscaling configuration
-  #   autoscaling:
-  #     enabled: true
-  #     minReplicas: 2
-  #     maxReplicas: 10
-  #     targetCPUUtilizationPercentage: 70
-  #     targetMemoryUtilizationPercentage: 80
-  #
-  #   # Pod Disruption Budget
-  #   pdb:
-  #     enabled: true
-  #     minAvailable: 1
-  #
-  #   nodeSelector: {}
-  #   tolerations: []
-  #   affinity:
-  #     podAntiAffinity:
-  #       preferredDuringSchedulingIgnoredDuringExecution:
-  #       - weight: 100
-  #         podAffinityTerm:
-  #           labelSelector:
-  #             matchExpressions:
-  #             - key: app.kubernetes.io/name
-  #               operator: In
-  #               values:
-  #               - laravel
-  #             - key: app.kubernetes.io/component
-  #               operator: In
-  #               values:
-  #               - worker-default
-  #           topologyKey: kubernetes.io/hostname
+  default:
+    enabled: true
+    replicaCount: 2
+  
+    # Use the CLI image for workers
+    image:
+      repository: ghcr.io/5ergiu/images/laravel
+      tag: cli
+      pullPolicy: Always
+  
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+  
+    podAnnotations: {}
+    podLabels: {}
+  
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 82  # Alpine www-data user (change to match your image)
+      fsGroup: 82    # Alpine www-data group (change to match your image)
+      seccompProfile:
+        type: RuntimeDefault
+  
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: true
+  
+    # Worker command - Basic queue worker
+    args:
+      - "php"
+      - "artisan"
+      - "queue:work"
+      - "--verbose"
+      - "--tries=3"
+      - "--max-time=3600"
+      - "--sleep=3"
+      - "--timeout=300"
+  
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+  
+    # Liveness probe for basic queue worker
+    livenessProbe:
+      enabled: true
+      exec:
+        command: ["healthcheck-queue"]
+      initialDelaySeconds: 30
+      periodSeconds: 60
+      timeoutSeconds: 5
+      successThreshold: 1
+      failureThreshold: 3
+  
+    # Autoscaling configuration
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
+  
+    # Pod Disruption Budget
+    pdb:
+      enabled: true
+      minAvailable: 1
+  
+    nodeSelector: {}
+    tolerations: []
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                - laravel
+              - key: app.kubernetes.io/component
+                operator: In
+                values:
+                - worker-default
+            topologyKey: kubernetes.io/hostname
 
   # Laravel Horizon worker (requires Redis)
   # Uncomment to enable Horizon for advanced queue management

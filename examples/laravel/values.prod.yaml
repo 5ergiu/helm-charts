@@ -14,10 +14,9 @@
 #   6. Update all TODOs with your production values
 # ============================================================================
 
-# Use production-web image with specific version tags
 image:
   repository: ghcr.io/5ergiu/images/laravel  # TODO: Change to your production registry
-  tag: production-web  # TODO: Use specific version tags in production (e.g., v1.2.3-web)
+  tag: latest # TODO: Use specific version tags in production (e.g., v1.2.3-web)
   pullPolicy: Always
 
 imagePullSecrets: []  # TODO: Add pull secrets if using private registry

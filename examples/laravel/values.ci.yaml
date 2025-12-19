@@ -8,10 +8,9 @@
 # - SQLite for database
 # ============================================================================
 
-# Use the production-web image for CI testing
 image:
   repository: ghcr.io/5ergiu/images/laravel
-  tag: production-web
+  tag: latest
   pullPolicy: Always
 
 # Minimal replicas for CI

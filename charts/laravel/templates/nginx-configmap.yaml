@@ -5,10 +5,16 @@ metadata:
   name: {{ include "laravel.fullname" . }}-nginx
   labels:
     {{- include "laravel.labels" . | nindent 4 }}
+  {{- if .Values.migration.enabled }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  {{- end }}
 data:
   nginx.conf: |
     worker_processes auto;
-    error_log /dev/stderr warn;
+    error_log {{ .Values.web.reverseProxy.nginx.errorLog }} {{ .Values.web.reverseProxy.nginx.errorLevel }};
     pid /tmp/nginx.pid;
 
     events {
@@ -24,8 +30,8 @@ data:
                         '$status $body_bytes_sent "$http_referer" '
                         '"$http_user_agent" "$http_x_forwarded_for"';
 
-        # Disable access logs (use Traefik logs instead)
-        access_log off;
+        # Disable access logs
+        access_log {{ .Values.web.reverseProxy.nginx.accessLog }};
 
         # Temporary file paths for read-only filesystem
         client_body_temp_path /tmp/nginx 1 2;
@@ -46,11 +52,11 @@ data:
             listen {{ .Values.web.reverseProxy.nginx.port }};
             listen [::]:{{ .Values.web.reverseProxy.nginx.port }};
 
-            root /var/www/html/public;
+            root {{ .Values.web.reverseProxy.nginx.root }};
             index index.php index.html;
 
             server_name _;
-            server_tokens off;
+            server_tokens {{ .Values.web.reverseProxy.nginx.serverTokens }};
 
             # Disable absolute redirects
             absolute_redirect off;
@@ -75,8 +81,8 @@ data:
                 fastcgi_index index.php;
                 fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
                 include fastcgi_params;
-                fastcgi_buffers 8 8k;
-                fastcgi_buffer_size 8k;
+                fastcgi_buffers {{ .Values.web.reverseProxy.nginx.fastcgiBuffers }};
+                fastcgi_buffer_size {{ .Values.web.reverseProxy.nginx.fastcgiBufferSize }};
                 fastcgi_read_timeout {{ .Values.web.reverseProxy.nginx.fastcgiReadTimeout }};
             }
 

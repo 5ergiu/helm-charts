@@ -4,10 +4,7 @@
 # ====================================================================================
 
 [changelog]
-body = """
-[
-{% for commit in commits %}
-  { "kind": "{% if commit.message | starts_with(value=\"feat\") %}added{% elif commit.message | starts_with(value=\"fix\") %}fixed{% elif commit.message | starts_with(value=\"docs\") %}changed{% elif commit.message | starts_with(value=\"refactor\") %}changed{% elif commit.message | starts_with(value=\"perf\") %}changed{% elif commit.message | starts_with(value=\"test\") %}changed{% elif commit.message | starts_with(value=\"chore\") %}changed{% elif commit.message | starts_with(value=\"style\") %}changed{% elif commit.message | starts_with(value=\"ci\") %}changed{% elif commit.message | starts_with(value=\"build\") %}changed{% else %}changed{% endif %}", "description": "{{ commit.message | split(pat=\"\\n\") | first | trim }}" }{% if not loop.last %},{% endif %}
-{% endfor %}
-]
-"""
+body = """{%- for commit in commits %}
+- kind: {% if commit.message | starts_with(value="feat") %}added{% elif commit.message | starts_with(value="fix") %}fixed{% elif commit.message | starts_with(value="docs") %}changed{% elif commit.message | starts_with(value="refactor") %}changed{% elif commit.message | starts_with(value="perf") %}changed{% elif commit.message | starts_with(value="test") %}changed{% elif commit.message | starts_with(value="chore") %}changed{% elif commit.message | starts_with(value="style") %}changed{% elif commit.message | starts_with(value="ci") %}changed{% elif commit.message | starts_with(value="build") %}changed{% else %}changed{% endif %}{{ "\n" }}  description: {{ commit.message | split(pat="\n") | first | trim }}
+{%- endfor %}"""
+trim = true
