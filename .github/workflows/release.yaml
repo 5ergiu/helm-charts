@@ -25,6 +25,7 @@ jobs:
   resolve-charts:
     name: 📋 Resolve Charts to Release
     runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
     permissions:
       contents: read
     outputs:
@@ -124,13 +125,15 @@ jobs:
 
               # Generate changelog with new version
               echo "📝 Generating changelog for $chart_name..."
-              git-cliff --bump --config cliff.toml --output "$chart/CHANGELOG.md" --include-path "$chart/*" --tag-pattern "${chart_name}-*"
+              git-cliff --bump --config cliff.toml --prepend "$chart/CHANGELOG.md" --include-path "$chart/*" --tag-pattern "${chart_name}-*"
 
               # Generate ArtifactHub annotations
               echo "📝 Generating ArtifactHub annotations for $chart_name..."
-              git-cliff --config cliff-artifacthub.toml --output changes.json --include-path "$chart/*" --tag-pattern "${chart_name}-*"
-              yq eval -i ".annotations.\"artifacthub.io/changes\" style=\"literal\" = load_str(\"changes.json\")" "$chart/Chart.yaml"
-              rm -f changes.json
+              git-cliff --config cliff-artifacthub.toml --unreleased --strip all --output changes.yaml --include-path "$chart/*" --tag-pattern "${chart_name}-*" 2>/dev/null
+              # Remove leading empty line from changes.yaml
+              tail -n +2 changes.yaml > changes-trimmed.yaml
+              yq eval -i '.annotations."artifacthub.io/changes" = load_str("changes-trimmed.yaml")' "$chart/Chart.yaml"
+              rm -f changes.yaml changes-trimmed.yaml
 
               echo "✅ Chart $chart_name updated to version $new_version"
             fi

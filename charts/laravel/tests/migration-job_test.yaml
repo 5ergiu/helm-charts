@@ -58,5 +58,4 @@ tests:
           path: spec.template.spec.volumes
           content:
             name: tmp
-            emptyDir:
-              medium: Memory
+            emptyDir: {}

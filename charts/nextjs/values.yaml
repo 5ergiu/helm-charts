@@ -42,19 +42,19 @@ serviceAccount:
 app:
   enabled: true
   replicaCount: 2
-  
+
   strategy:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 0
-  
+
   podAnnotations:
     prometheus.io/scrape: "true"
     prometheus.io/port: "9090"
-  
+
   podLabels: {}
-  
+
   podSecurityContext:
     runAsNonRoot: true
     # For local development with hostPath volumes, set to your host user IDs (run: id -u && id -g) to avoid permission issues
@@ -63,20 +63,20 @@ app:
     fsGroup: 1000    # Bun group in oven/bun:alpine image
     seccompProfile:
       type: RuntimeDefault
-  
+
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
       - ALL
     readOnlyRootFilesystem: true
-  
+
   service:
     type: ClusterIP
     port: 80
     targetPort: 3000
     annotations: {}
-  
+
   resources:
     limits:
       cpu: 1000m
@@ -84,7 +84,7 @@ app:
     requests:
       cpu: 100m
       memory: 256Mi
-  
+
   livenessProbe:
     enabled: true
     httpGet:
@@ -95,7 +95,7 @@ app:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-  
+
   readinessProbe:
     enabled: true
     httpGet:
@@ -106,7 +106,7 @@ app:
     timeoutSeconds: 3
     successThreshold: 1
     failureThreshold: 3
-  
+
   startupProbe:
     enabled: true
     httpGet:
@@ -117,7 +117,7 @@ app:
     timeoutSeconds: 3
     successThreshold: 1
     failureThreshold: 30
-  
+
   # Autoscaling configuration
   autoscaling:
     enabled: true
@@ -142,12 +142,12 @@ app:
           value: 2
           periodSeconds: 15
         selectPolicy: Max
-  
+
   # Pod Disruption Budget
   pdb:
     enabled: true
     minAvailable: 1
-  
+
   nodeSelector: {}
   tolerations: []
   affinity:
@@ -251,7 +251,7 @@ middleware:
     average: 100
     burst: 200
     period: 1s
-  
+
   # Security headers
   headers:
     enabled: true
@@ -265,18 +265,18 @@ middleware:
     customResponseHeaders:
       X-Powered-By: ""
       Server: ""
-  
+
   # Request compression
   compress:
     enabled: true
-  
+
   # IP whitelist (disabled by default)
   ipWhiteList:
     enabled: false
     sourceRange: []
     # - 10.0.0.0/8
     # - 172.16.0.0/12
-  
+
   # Redirect scheme (HTTP to HTTPS)
   redirectScheme:
     enabled: true
@@ -332,17 +332,17 @@ nextjs:
     NEXT_PUBLIC_APP_NAME: "Next.js App"
     NEXT_PUBLIC_APP_URL: "https://app.example.com"
     NEXT_PUBLIC_API_URL: "https://api.example.com"
-  
+
   # Runtime environment variables (server-side only)
   # These are NOT exposed to the browser
   env:
     NODE_ENV: "production"
     PORT: "3000"
     HOSTNAME: "0.0.0.0"
-    
+
     # Next.js configuration
     NEXT_TELEMETRY_DISABLED: "1"
-    
+
     # Logging
     LOG_LEVEL: "info"
 
@@ -353,10 +353,10 @@ nextjs:
     # AWS/S3 (for image optimization or storage)
     AWS_REGION: "us-east-1"
     AWS_S3_BUCKET: ""
-    
+
     # Analytics
     NEXT_PUBLIC_GOOGLE_ANALYTICS: ""
-    
+
     # Feature flags
     NEXT_PUBLIC_ENABLE_ANALYTICS: "false"
 

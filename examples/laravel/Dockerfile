@@ -7,8 +7,8 @@
 #
 # This Dockerfile supports both development and production builds with web (FPM) and CLI variants:
 # - Build for CLI (workers): docker build --target cli -t app:cli .
-# - Build for development web (FPM): docker build --target development-web -t app:dev-web .
-# - Build for production web (FPM): docker build --target production-web -t app:prod-web .
+# - Build for development web (FPM): docker build --target dev -t app:dev .
+# - Build for production web (FPM): docker build --target production -t app:production .
 
 ###############################
 # Laravel App Builder: Create fresh Laravel application
@@ -76,13 +76,13 @@ COPY --chmod=755 ./entrypoint.d/ /etc/entrypoint.d/
 
 WORKDIR /var/www/html
 
-# Copy fresh Laravel application
+# Copy Laravel application
 COPY --chown=www-data:www-data --from=laravel-builder /app ./
 
 ###############################
 # Development Web Stage: For local development with PHP-FPM
 ###############################
-FROM deps-builder AS development-web
+FROM deps-builder AS dev
 
 # Switch to root to install extensions
 USER root
@@ -95,15 +95,15 @@ USER www-data
 
 WORKDIR /var/www/html
 
-# Copy fresh Laravel application
+# Copy Laravel application
 COPY --chown=www-data:www-data --from=deps-builder /var/www/html ./
 
 ###############################
 # Production Web Stage: Optimized runtime image with PHP-FPM
 ###############################
-FROM serversideup/php:8.5-fpm-alpine AS production-web
+FROM deps-builder AS production
 
 WORKDIR /var/www/html
 
-# Copy fresh Laravel application
+# Copy Laravel application
 COPY --chown=www-data:www-data --from=deps-builder /var/www/html ./

@@ -167,10 +167,40 @@ Key features:
 - 1️⃣ Single replica for fast testing
 - 🚫 Disabled autoscaling and health probes
 - 📦 Minimal resources for CI runners
-- ⚡ In-memory SQLite for speed
-- 🎯 Array cache/session drivers
-- 💨 Sync queue for instant processing
-- 📉 No external dependencies
+- ⚡ PostgreSQL database (from GitHub Secrets)
+- 🚀 Redis for cache/sessions/queues (from GitHub Secrets)
+- 🔑 Dynamic secret injection from environment variables
+
+**GitHub Secrets Setup:**
+
+The CI workflow automatically injects secrets from GitHub Secrets into the Helm chart. To configure secrets for CI:
+
+1. **Create GitHub Secrets** in your repository settings with names **prefixed** by the chart name in uppercase:
+   - `LARAVEL_DATABASE_URL` - PostgreSQL connection string
+   - `LARAVEL_REDIS_URL` - Redis connection string
+   - `LARAVEL_APP_KEY` - Application key (optional, has default in values.ci.yaml)
+   - Other optional secrets as needed (see [secrets.yaml.example](secrets.yaml.example))
+
+2. **How it works:**
+   - The test script reads [secrets.yaml.example](secrets.yaml.example) to discover all possible secret keys
+   - For each key, it checks if a prefixed environment variable exists (e.g., `LARAVEL_DATABASE_URL`)
+   - Falls back to unprefixed version for backward compatibility (e.g., `DATABASE_URL`)
+   - If found, they're automatically injected via `--set` flags to Helm
+
+3. **Naming convention:**
+   ```
+   GitHub Secret:    LARAVEL_DATABASE_URL
+   secrets.yaml.ex:  DATABASE_URL: ""
+   Injected as:      --set laravel.secrets.DATABASE_URL=<value>
+   ✅ Prefixed secrets keep things organized across multiple charts!
+   ```
+
+4. **Why prefixes?**
+   - Avoids conflicts when testing multiple charts (e.g., `LARAVEL_DATABASE_URL` vs `NEXTJS_DATABASE_URL`)
+   - Clear organization in GitHub Secrets settings
+   - Backward compatible (unprefixed names still work)
+
+See [.github/workflows/pr-validation.yaml](../../.github/workflows/pr-validation.yaml) for the workflow configuration.
 
 ### 🔬 Test Configuration ([values.test.yaml](values.test.yaml))
 

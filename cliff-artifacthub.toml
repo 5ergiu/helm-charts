@@ -1,13 +1,32 @@
 # ====================================================================================
-# 📜 GIT-CLIFF CONFIGURATION
-# Generates clean, structured changelogs based on Conventional Commits.
+# 📜 GIT-CLIFF CONFIGURATION FOR ARTIFACTHUB
+# Generates ArtifactHub-compatible change annotations with GitHub links.
+# Format matches ArtifactHub's specification: https://artifacthub.io/docs/topics/annotations/helm/
+#
+# Commit message conventions:
+# - Issue references: Include [#123] anywhere in the commit message
+# - PR references: Automatically detected from PR merge commits via commit.remote.pr_number
+#
+# Examples:
+#   feat: add dark mode [#45]           -> Links to issue #45
+#   fix: resolve login bug [#67]        -> Links to issue #67
+#   (PR merged via GitHub)              -> Links to the PR automatically
 # ====================================================================================
 
 [changelog]
-body = """
-[
-{% for commit in commits %}
-  { "kind": "{% if commit.message | starts_with(value=\"feat\") %}added{% elif commit.message | starts_with(value=\"fix\") %}fixed{% elif commit.message | starts_with(value=\"docs\") %}changed{% elif commit.message | starts_with(value=\"refactor\") %}changed{% elif commit.message | starts_with(value=\"perf\") %}changed{% elif commit.message | starts_with(value=\"test\") %}changed{% elif commit.message | starts_with(value=\"chore\") %}changed{% elif commit.message | starts_with(value=\"style\") %}changed{% elif commit.message | starts_with(value=\"ci\") %}changed{% elif commit.message | starts_with(value=\"build\") %}changed{% else %}changed{% endif %}", "description": "{{ commit.message | split(pat=\"\\n\") | first | trim }}" }{% if not loop.last %},{% endif %}
-{% endfor %}
-]
-"""
+body = """{%- for commit in commits %}
+{%- set first_line = commit.message | split(pat="\n") | first | trim %}
+- kind: {% if commit.message | starts_with(value="feat") %}added{% elif commit.message | starts_with(value="fix") %}fixed{% elif commit.message | starts_with(value="docs") %}changed{% elif commit.message | starts_with(value="refactor") %}changed{% elif commit.message | starts_with(value="perf") %}changed{% elif commit.message | starts_with(value="test") %}changed{% elif commit.message | starts_with(value="chore") %}changed{% elif commit.message | starts_with(value="style") %}changed{% elif commit.message | starts_with(value="ci") %}changed{% elif commit.message | starts_with(value="build") %}changed{% else %}changed{% endif %}{{ "\n" }}  description: {{ first_line }}
+{%- set has_issue = first_line is containing("[#") %}
+{%- if commit.remote.pr_number or has_issue %}{{ "\n" }}  links:{% endif %}
+{%- if has_issue %}
+{%- set issue_num = first_line | split(pat="[#") | last | split(pat="]") | first %}{{ "\n" }}    - name: GitHub Issue{{ "\n" }}      url: https://github.com/5ergiu/helm-charts/issues/{{ issue_num }}{% endif %}
+{%- if commit.remote.pr_number %}{{ "\n" }}    - name: GitHub PR{{ "\n" }}      url: https://github.com/5ergiu/helm-charts/pull/{{ commit.remote.pr_number }}{% endif %}
+{%- endfor %}"""
+trim = true
+
+# GitHub remote configuration for automatic PR detection
+[remote.github]
+owner = "5ergiu"
+repo = "helm-charts"
+token = "$GITHUB_TOKEN"

@@ -16,7 +16,7 @@ tests:
           value: 2
       - matchRegex:
           path: spec.template.spec.containers[0].image
-          pattern: "^ghcr.io/5ergiu/images/laravel:production-web"
+          pattern: "^ghcr.io/5ergiu/images/laravel:latest"
 
   - it: should set custom replica count when autoscaling disabled
     set:
@@ -91,8 +91,7 @@ tests:
           path: spec.template.spec.volumes
           content:
             name: tmp
-            emptyDir:
-              medium: Memory
+            emptyDir: {}
       - contains:
           path: spec.template.spec.containers[0].volumeMounts
           content:

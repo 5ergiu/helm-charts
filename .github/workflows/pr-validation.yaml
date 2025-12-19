@@ -14,48 +14,181 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  detect-image-changes:
-    name: 🔍 Detect Image Changes
+  prepare-images:
+    name: 🔍 Detect & Prepare Images
     runs-on: ubuntu-latest
     permissions:
       contents: read
     outputs:
-      changed_images: ${{ steps.detect.outputs.changed_images }}
+      matrix: ${{ steps.prepare.outputs.matrix }}
+      has-images: ${{ steps.prepare.outputs.has-images }}
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 0
 
-      - name: 🔍 Detect changed images
-        id: detect
+      - name: 🔍 Detect changes and prepare build matrix
+        id: prepare
         run: |
-          # Get changed files in examples/ directory
-          changed_files=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep "^examples/" || echo "")
+          # Get files changed in the latest commit
+          all_changed=$(git show --name-only --pretty=format: ${{ github.event.pull_request.head.sha }} -- examples/ | grep -v '^$' || true)
+
+          # Exclude files that don't require image rebuilds:
+          # - Helm values files (values*.yaml)
+          # - Secrets files (secrets*.yaml, secrets*.yaml.example)
+          # - Documentation (README.md, *.md)
+          changed_files=$(echo "$all_changed" | grep -vE '(values.*\.yaml|secrets.*\.yaml.*|README\.md|.*\.md)$' || true)
 
           if [ -z "$changed_files" ]; then
-            echo "changed_images=" >> $GITHUB_OUTPUT
-            echo "No changes detected in examples/"
+            echo "ℹ️  No image-related changes detected"
+            if [ -n "$all_changed" ]; then
+              echo "   (Only Helm values/secrets/docs changed - no rebuild needed)"
+            fi
+            echo 'matrix={"include":[]}' >> $GITHUB_OUTPUT
+            echo "has-images=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "📝 Changed files requiring image rebuild:"
+          echo "$changed_files"
+          echo ""
+
+          # Extract unique app names
+          apps=$(echo "$changed_files" | cut -d'/' -f2 | sort -u)
+          echo "Apps to build:"
+          echo "$apps" | sed 's/^/  - /'
+
+          # Build matrix
+          matrix_include=()
+
+          for app in $apps; do
+            dockerfile="examples/$app/Dockerfile"
+
+            if [ ! -f "$dockerfile" ]; then
+              echo "⚠️ No Dockerfile for $app, skipping"
+              continue
+            fi
+
+            # Extract named build targets (exclude *builder* targets)
+            targets=$(grep -i '^FROM .* AS ' "$dockerfile" | sed -n 's/.*AS \([^ ]*\).*/\1/p' | grep -v builder || true)
+
+            if [ -z "$targets" ]; then
+              # No named targets → default build
+              matrix_include+=("{\"image\":\"$app\",\"target\":\"\"}")
+            else
+              for target in $targets; do
+                matrix_include+=("{\"image\":\"$app\",\"target\":\"$target\"}")
+              done
+            fi
+          done
+
+          if [ "${#matrix_include[@]}" -eq 0 ]; then
+            echo "No valid images to build"
+            echo 'matrix={"include":[]}' >> $GITHUB_OUTPUT
+            echo "has-images=false" >> $GITHUB_OUTPUT
           else
-            # Extract unique app names from changed paths
-            changed_apps=$(echo "$changed_files" | cut -d'/' -f2 | sort -u)
-
-            # Convert to comma-separated list
-            apps_list=$(echo "$changed_apps" | tr '\n' ',' | sed 's/,$//')
-
-            echo "changed_images=$apps_list" >> $GITHUB_OUTPUT
-            echo "Changed images detected: $apps_list"
+            matrix=$(printf ',%s' "${matrix_include[@]}")
+            matrix="[${matrix:1}]"
+            echo "matrix={\"include\":$matrix}" >> $GITHUB_OUTPUT
+            echo "has-images=true" >> $GITHUB_OUTPUT
+            echo "✅ Build matrix: $matrix"
           fi
 
   build-images:
-    name: 🏗️ Build Changed Images
-    needs: detect-image-changes
-    uses: ./.github/workflows/build-push-images.yaml
-    with:
-      apps: ${{ needs.detect-image-changes.outputs.changed_images }}
+    name: 🏗️ Build ${{ matrix.image }} (${{ matrix.target || 'default' }})
+    needs: prepare-images
+    if: needs.prepare-images.outputs.has-images == 'true'
+    runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: write
+    strategy:
+      matrix: ${{ fromJSON(needs.prepare-images.outputs.matrix) }}
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: 🔐 Login to GHCR
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏷️ Determine version
+        id: version
+        run: |
+          IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/images/${{ matrix.image }}"
+          TARGET="${{ matrix.target }}"
+
+          if [ "$TARGET" = "production" ]; then
+            LATEST_TAG=$(docker manifest inspect ${IMAGE_NAME}:latest 2>/dev/null | \
+              jq -r '.manifests[0].annotations."org.opencontainers.image.version"' 2>/dev/null || echo "")
+
+            if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+              LATEST_TAG=$(git tag -l "${{ matrix.image }}/v*" --sort=-v:refname | head -n1 | sed 's|${{ matrix.image }}/||' || echo "")
+            fi
+
+            if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" = "null" ]; then
+              NEW_VERSION="v0.1.0"
+            else
+              LAST_TAG_COMMIT=$(git rev-list -n 1 "${{ matrix.image }}/${LATEST_TAG}" 2>/dev/null || echo "")
+              COMMITS=$(git log ${LAST_TAG_COMMIT}..HEAD -- examples/${{ matrix.image }}/ | wc -l)
+
+              if [ "$COMMITS" -eq 0 ]; then
+                NEW_VERSION="$LATEST_TAG"
+              else
+                if git log ${LAST_TAG_COMMIT}..HEAD -- examples/${{ matrix.image }}/ | grep -qiE "^(feat|feature)(\(.*\))?!:|BREAKING CHANGE:"; then
+                  BUMP="major"
+                elif git log ${LAST_TAG_COMMIT}..HEAD -- examples/${{ matrix.image }}/ | grep -qiE "^(feat|feature)(\(.*\))?:"; then
+                  BUMP="minor"
+                else
+                  BUMP="patch"
+                fi
+
+                CURRENT="${LATEST_TAG#v}"
+                IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+
+                case "$BUMP" in
+                  major) MAJOR=$((MAJOR+1)); MINOR=0; PATCH=0 ;;
+                  minor) MINOR=$((MINOR+1)); PATCH=0 ;;
+                  patch) PATCH=$((PATCH+1)) ;;
+                esac
+
+                NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+              fi
+            fi
+
+            echo "VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+            echo "TAGS=${IMAGE_NAME}:${NEW_VERSION},${IMAGE_NAME}:production,${IMAGE_NAME}:latest" >> $GITHUB_OUTPUT
+          else
+            TAG="${TARGET:-latest}"
+            echo "VERSION=$TAG" >> $GITHUB_OUTPUT
+            echo "TAGS=${IMAGE_NAME}:${TAG}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 🏗️ Build and push
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: examples/${{ matrix.image }}
+          target: ${{ matrix.target }}
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.version.outputs.TAGS }}
+          labels: |
+            org.opencontainers.image.title=${{ matrix.image }} Demo Application
+            org.opencontainers.image.description=${{ matrix.image }} demo - Production-ready Kubernetes deployment
+            org.opencontainers.image.version=${{ steps.version.outputs.VERSION }}
+            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}/tree/main/examples/${{ matrix.image }}
+            org.opencontainers.image.licenses=MIT
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   resolve-charts:
     name: 📋 Resolve Charts to Test
@@ -119,7 +252,7 @@ jobs:
 
       - name: 🧪 Run tests
         env:
-          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-          REDIS_URL: ${{ secrets.REDIS_URL }}
+          LARAVEL_DATABASE_URL: ${{ secrets.LARAVEL_DATABASE_URL }}
+          LARAVEL_REDIS_URL: ${{ secrets.LARAVEL_REDIS_URL }}
         run: ./scripts/test.sh
 

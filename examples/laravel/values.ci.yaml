@@ -8,10 +8,9 @@
 # - SQLite for database
 # ============================================================================
 
-# Use the production-web image for CI testing
 image:
   repository: ghcr.io/5ergiu/images/laravel
-  tag: production-web
+  tag: latest
   pullPolicy: Always
 
 # Minimal replicas for CI
@@ -61,6 +60,17 @@ workers:
         cpu: 50m
         memory: 128Mi
 
+    # Liveness probe for default worker - fails if can't connect to Redis/DB
+    livenessProbe:
+      enabled: true
+      exec:
+        command: ["healthcheck-queue"]
+      initialDelaySeconds: 30
+      periodSeconds: 60
+      timeoutSeconds: 5
+      successThreshold: 1
+      failureThreshold: 3
+
     pdb:
       enabled: false
 
@@ -85,6 +95,17 @@ workers:
         cpu: 50m
         memory: 128Mi
 
+    # Liveness probe for Horizon - fails if can't connect to Redis/DB
+    livenessProbe:
+      enabled: true
+      exec:
+        command: ["healthcheck-horizon"]
+      initialDelaySeconds: 30
+      periodSeconds: 60
+      timeoutSeconds: 5
+      successThreshold: 1
+      failureThreshold: 3
+
     pdb:
       enabled: false
 
@@ -100,7 +121,7 @@ scheduler:
 
 migration:
   enabled: true
-  backoffLimit: 0
+  backoffLimit: 3
   resources:
     limits:
       cpu: 250m
@@ -130,11 +151,18 @@ laravel:
     LOG_CHANNEL: "stderr"
     LOG_LEVEL: "debug"
 
+    # Database configuration is handled via DATABASE_URL from CI environment (secrets)
+    # DATABASE_URL takes precedence and includes: scheme, host, port, database, user, password
+    # No need to set individual DB_* variables when using DATABASE_URL
+
     BROADCAST_DRIVER: "log"
     CACHE_DRIVER: "redis"
     FILESYSTEM_DISK: "local"
     QUEUE_CONNECTION: "redis"
     SESSION_DRIVER: "redis"
+
+    # Redis configuration is handled via REDIS_URL from CI environment
+    REDIS_CLIENT: "phpredis"
 
     MAIL_MAILER: "log"
     MAIL_HOST: "localhost"
@@ -142,18 +170,14 @@ laravel:
     MAIL_FROM_ADDRESS: "ci@example.com"
     MAIL_FROM_NAME: "Laravel CI"
 
-  # Secrets will be provided by CI environment variables
+  # Secrets will be provided by CI environment variables via --set flags
+  # The test.sh script automatically injects secrets from environment variables
+  # IMPORTANT: GitHub Secret names should be prefixed with chart name in uppercase
+  # Example: LARAVEL_DATABASE_URL in GitHub → DATABASE_URL in secrets.yaml.example
   secrets:
     APP_KEY: "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-    DATABASE_URL: ""  # Will be set via POSTGRES_URL env var
-    REDIS_URL: ""     # Will be set via REDIS_URL env var
-    AWS_ACCESS_KEY_ID: ""
-    AWS_SECRET_ACCESS_KEY: ""
-    MAIL_USERNAME: ""
-    MAIL_PASSWORD: ""
-    PUSHER_APP_ID: ""
-    PUSHER_APP_KEY: ""
-    PUSHER_APP_SECRET: ""
+    DATABASE_URL: ""  # Injected from LARAVEL_DATABASE_URL
+    REDIS_URL: ""  # Injected from LARAVEL_REDIS_URL
 
 # PHP configuration for CI
 php:

@@ -22,12 +22,12 @@ global:
   environment: production
 
 # Image configuration
-# For web deployments, use production-web or development-web tags
+# For web deployments, use latest or dev tags
 # For workers, use the cli tag
 image:
   repository: ghcr.io/5ergiu/images/laravel
   pullPolicy: Always
-  tag: production-web  # Options: production-web, development-web, cli
+  tag: latest  # Options: latest, dev, cli
 
 imagePullSecrets: []
 nameOverride: ""
@@ -56,10 +56,17 @@ web:
 
       # Nginx configuration settings for ConfigMap generation
       port: 8080
+      root: /var/www/html/public
+      accessLog: "off"
+      errorLog: /dev/stderr
+      errorLevel: warn
+      serverTokens: "off"
       # Note: clientMaxBodySize should match Traefik's buffering.maxRequestBodyBytes
       # Traefik enforces the limit, nginx just needs to not reject valid requests
       clientMaxBodySize: 100M
       keepaliveTimeout: 65
+      fastcgiBuffers: 8 8k
+      fastcgiBufferSize: 8k
       fastcgiReadTimeout: 120s
 
     # Container specification
@@ -94,35 +101,28 @@ web:
           cpu: 50m
           memory: 64Mi
 
-      volumeMounts:
-        - name: nginx-config
-          mountPath: /etc/nginx/nginx.conf
-          subPath: nginx.conf
-          readOnly: true
-        - name: nginx-logs
-          mountPath: /var/log/nginx
+      # Volume mounts for reverse proxy
+      # Automatically added to web deployment when reverseProxy.enabled is true
+      # Volume mounts are defined in the deployment template (_helpers.tpl)
+      volumeMounts: []
 
     # Volumes for reverse proxy
-    # Automatically added to web deployment when enabled
-    volumes:
-      - name: nginx-config
-        configMap:
-          name: '{{ include "laravel.fullname" . }}-nginx'
-      - name: nginx-logs
-        emptyDir: {}
-  
+    # Automatically added to web deployment when reverseProxy.enabled is true
+    # Volumes are defined in the deployment template (_helpers.tpl)
+    volumes: []
+
   strategy:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 0
-  
+
   podAnnotations:
     prometheus.io/scrape: "true"
     prometheus.io/port: "9090"
-  
+
   podLabels: {}
-  
+
   podSecurityContext:
     runAsNonRoot: true
     # For local development with hostPath volumes, set to your host user IDs (run: id -u && id -g) to avoid permission issues
@@ -131,7 +131,7 @@ web:
     fsGroup: 82    # Alpine www-data group (change to match your image)
     seccompProfile:
       type: RuntimeDefault
-  
+
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:
@@ -149,7 +149,7 @@ web:
     port: 80
     targetPort: 8080
     annotations: {}
-  
+
   resources:
     limits:
       cpu: 1000m
@@ -157,7 +157,7 @@ web:
     requests:
       cpu: 100m
       memory: 256Mi
-  
+
   livenessProbe:
     enabled: true
     httpGet:
@@ -190,7 +190,7 @@ web:
     timeoutSeconds: 3
     successThreshold: 1
     failureThreshold: 30
-  
+
   # Autoscaling configuration
   autoscaling:
     enabled: true
@@ -215,12 +215,12 @@ web:
           value: 2
           periodSeconds: 15
         selectPolicy: Max
-  
+
   # Pod Disruption Budget
   pdb:
     enabled: true
     minAvailable: 1
-  
+
   # Reverse proxy sidecar is automatically added when web.reverseProxy.enabled: true
   # To disable the reverse proxy (e.g., using FrankenPHP), set web.reverseProxy.enabled: false
   # You can add additional sidecars here if needed
@@ -276,103 +276,102 @@ web:
 #         repository: ghcr.io/5ergiu/images/laravel
 #         tag: cli
 #       args: ["php", "artisan", "horizon"]
-workers: {}
+workers:
   # Default queue worker (basic, no Redis required)
-  # Uncomment to enable a basic queue worker
-  # default:
-  #   enabled: true
-  #   replicaCount: 2
-  #
-  #   # Use the CLI image for workers
-  #   image:
-  #     repository: ghcr.io/5ergiu/images/laravel
-  #     tag: cli
-  #     pullPolicy: Always
-  #
-  #   strategy:
-  #     type: RollingUpdate
-  #     rollingUpdate:
-  #       maxSurge: 1
-  #       maxUnavailable: 0
-  #
-  #   podAnnotations: {}
-  #   podLabels: {}
-  #
-  #   podSecurityContext:
-  #     runAsNonRoot: true
-  #     runAsUser: 82  # Alpine www-data user (change to match your image)
-  #     fsGroup: 82    # Alpine www-data group (change to match your image)
-  #     seccompProfile:
-  #       type: RuntimeDefault
-  #
-  #   securityContext:
-  #     allowPrivilegeEscalation: false
-  #     capabilities:
-  #       drop:
-  #       - ALL
-  #     readOnlyRootFilesystem: true
-  #
-  #   # Worker command - Basic queue worker
-  #   args:
-  #     - "php"
-  #     - "artisan"
-  #     - "queue:work"
-  #     - "--verbose"
-  #     - "--tries=3"
-  #     - "--max-time=3600"
-  #     - "--sleep=3"
-  #     - "--timeout=300"
-  #
-  #   resources:
-  #     limits:
-  #       cpu: 500m
-  #       memory: 512Mi
-  #     requests:
-  #       cpu: 100m
-  #       memory: 256Mi
-  #
-  #   # Liveness probe for basic queue worker
-  #   livenessProbe:
-  #     enabled: true
-  #     exec:
-  #       command: ["healthcheck-queue"]
-  #     initialDelaySeconds: 30
-  #     periodSeconds: 60
-  #     timeoutSeconds: 5
-  #     successThreshold: 1
-  #     failureThreshold: 3
-  #
-  #   # Autoscaling configuration
-  #   autoscaling:
-  #     enabled: true
-  #     minReplicas: 2
-  #     maxReplicas: 10
-  #     targetCPUUtilizationPercentage: 70
-  #     targetMemoryUtilizationPercentage: 80
-  #
-  #   # Pod Disruption Budget
-  #   pdb:
-  #     enabled: true
-  #     minAvailable: 1
-  #
-  #   nodeSelector: {}
-  #   tolerations: []
-  #   affinity:
-  #     podAntiAffinity:
-  #       preferredDuringSchedulingIgnoredDuringExecution:
-  #       - weight: 100
-  #         podAffinityTerm:
-  #           labelSelector:
-  #             matchExpressions:
-  #             - key: app.kubernetes.io/name
-  #               operator: In
-  #               values:
-  #               - laravel
-  #             - key: app.kubernetes.io/component
-  #               operator: In
-  #               values:
-  #               - worker-default
-  #           topologyKey: kubernetes.io/hostname
+  default:
+    enabled: true
+    replicaCount: 2
+
+    # Use the CLI image for workers
+    image:
+      repository: ghcr.io/5ergiu/images/laravel
+      tag: cli
+      pullPolicy: Always
+
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+
+    podAnnotations: {}
+    podLabels: {}
+
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 82  # Alpine www-data user (change to match your image)
+      fsGroup: 82    # Alpine www-data group (change to match your image)
+      seccompProfile:
+        type: RuntimeDefault
+
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: true
+
+    # Worker command - Basic queue worker
+    args:
+      - "php"
+      - "artisan"
+      - "queue:work"
+      - "--verbose"
+      - "--tries=3"
+      - "--max-time=3600"
+      - "--sleep=3"
+      - "--timeout=300"
+
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+    # Liveness probe for basic queue worker
+    livenessProbe:
+      enabled: true
+      exec:
+        command: ["healthcheck-queue"]
+      initialDelaySeconds: 30
+      periodSeconds: 60
+      timeoutSeconds: 5
+      successThreshold: 1
+      failureThreshold: 3
+
+    # Autoscaling configuration
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
+
+    # Pod Disruption Budget
+    pdb:
+      enabled: true
+      minAvailable: 1
+
+    nodeSelector: {}
+    tolerations: []
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                - laravel
+              - key: app.kubernetes.io/component
+                operator: In
+                values:
+                - worker-default
+            topologyKey: kubernetes.io/hostname
 
   # Laravel Horizon worker (requires Redis)
   # Uncomment to enable Horizon for advanced queue management
@@ -451,26 +450,26 @@ workers: {}
 scheduler:
   enabled: true
   schedule: "* * * * *"
-  
+
   podAnnotations: {}
   podLabels: {}
-  
+
   # Minimal security context for short-lived cron job
   # Set to your host user ID if needed (run: id -u)
   # Note: scheduler is a short-lived job, fsGroup not needed
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 82  # Alpine www-data user (change to match your image)
-  
+
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
       - ALL
     readOnlyRootFilesystem: true
-  
+
   command: ["php", "artisan", "schedule:run"]
-  
+
   resources:
     limits:
       cpu: 200m
@@ -478,12 +477,12 @@ scheduler:
     requests:
       cpu: 50m
       memory: 128Mi
-  
+
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
   concurrencyPolicy: Forbid
   restartPolicy: OnFailure
-  
+
   nodeSelector: {}
   tolerations: []
   affinity: {}
@@ -491,26 +490,26 @@ scheduler:
 # Migration Job - runs as a Helm hook before install/upgrade
 migration:
   enabled: true
-  
+
   podAnnotations: {}
   podLabels: {}
-  
+
   # Minimal security context for short-lived cron job
   # Set to your host user ID if needed (run: id -u)
   # Note: scheduler is a short-lived job, fsGroup not needed
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 82  # Alpine www-data user (change to match your image)
-  
+
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
       - ALL
     readOnlyRootFilesystem: true
-  
+
   command: ["php", "artisan", "migrate", "--force"]
-  
+
   resources:
     limits:
       cpu: 500m
@@ -518,11 +517,11 @@ migration:
     requests:
       cpu: 100m
       memory: 256Mi
-  
+
   # Retry configuration
   backoffLimit: 3
   ttlSecondsAfterFinished: 300
-  
+
   nodeSelector: {}
   tolerations: []
   affinity: {}
@@ -612,7 +611,7 @@ middleware:
     average: 100
     burst: 200
     period: 1s
-  
+
   # Security headers
   headers:
     enabled: true
@@ -626,18 +625,18 @@ middleware:
     customResponseHeaders:
       X-Powered-By: ""
       Server: ""
-  
+
   # Request compression
   compress:
     enabled: true
-  
+
   # IP whitelist (disabled by default)
   ipWhiteList:
     enabled: false
     sourceRange: []
     # - 10.0.0.0/8
     # - 172.16.0.0/12
-  
+
   # Redirect scheme (HTTP to HTTPS)
   redirectScheme:
     enabled: true
@@ -711,12 +710,13 @@ laravel:
     LOG_CHANNEL: "stderr"
     LOG_LEVEL: "warning"
 
-    # PostgreSQL recommended for production (or use "mysql" if preferred)
-    DB_CONNECTION: "pgsql"
-    DB_PORT: "5432"  # Use 3306 for MySQL
-    DB_DATABASE: "laravel"
+    # Database and Redis connection are configured via DATABASE_URL and REDIS_URL in secrets
+    # If you need to use individual connection variables instead:
+    #   1. Set DATABASE_URL: "" (empty string) in secrets
+    #   2. Add DB_CONNECTION, DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD here/in secrets
+    # Same applies for Redis: set REDIS_URL: "" and add REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 
-    # Redis recommended for production caching and queues
+    # Application drivers
     BROADCAST_DRIVER: "redis"
     CACHE_DRIVER: "redis"
     FILESYSTEM_DISK: "local"  # Or "s3" for cloud storage
@@ -725,8 +725,6 @@ laravel:
     SESSION_LIFETIME: "120"
 
     REDIS_CLIENT: "phpredis"
-    REDIS_SCHEME: "tls"  # Use TLS in production
-    REDIS_PORT: "6379"
 
     MAIL_MAILER: "smtp"
     MAIL_HOST: "mailpit"
@@ -743,11 +741,19 @@ laravel:
   # All secrets should be provided via secrets.yaml (gitignored) or external secrets
   secrets:
     APP_KEY: ""
-    DB_HOST: ""
-    DB_USERNAME: ""
-    DB_PASSWORD: ""
-    REDIS_HOST: ""
-    REDIS_PASSWORD: ""
+
+    # Database connection URL (recommended)
+    # Format: postgresql://user:pass@host:port/database?sslmode=require
+    # For MySQL: mysql://user:pass@host:port/database
+    # To use individual DB_* variables instead, set this to "" and add them in laravel.env above
+    DATABASE_URL: ""
+
+    # Redis connection URL (recommended)
+    # Format: redis://default:password@host:port (or rediss:// for TLS)
+    # To use individual REDIS_* variables instead, set this to "" and add them in laravel.env above
+    REDIS_URL: ""
+
+    # Cloud storage credentials
     AWS_ACCESS_KEY_ID: ""
     AWS_SECRET_ACCESS_KEY: ""
     MAIL_USERNAME: ""

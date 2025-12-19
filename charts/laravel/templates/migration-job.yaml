@@ -65,11 +65,9 @@ spec:
               mountPath: /tmp
       volumes:
         - name: bootstrap-cache
-          emptyDir:
-            medium: Memory
+          emptyDir: {}
         - name: tmp
-          emptyDir:
-            medium: Memory
+          emptyDir: {}
       {{- with .Values.migration.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

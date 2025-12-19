@@ -6,8 +6,8 @@
 # For your own projects, replace the nextjs-builder stage with your app code.
 #
 # This Dockerfile supports both development and production builds:
-# - Build for production: docker build --target production -t app:prod .
-# - Build for development: docker build --target development -t app:dev .
+# - Build for development: docker build --target dev -t app:dev .
+# - Build for production: docker build --target production -t app:production .
 
 ###############################
 # Next.js App Builder: Create fresh Next.js application
@@ -33,14 +33,14 @@ RUN bun run build
 ###############################
 # Development Stage: For local development with hot reload
 ###############################
-FROM nextjs-builder AS development
+FROM nextjs-builder AS dev
 
 WORKDIR /app
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=pdevelopment
+ENV NODE_ENV=development
 
 # Expose Next.js dev server port
 EXPOSE 3000

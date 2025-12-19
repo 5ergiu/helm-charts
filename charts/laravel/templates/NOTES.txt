@@ -1,5 +1,10 @@
 {{- $webEnabled := .Values.web.enabled -}}
-{{- $workerEnabled := .Values.worker.enabled -}}
+{{- $workersEnabled := false -}}
+{{- range $workerName, $workerConfig := .Values.workers -}}
+  {{- if $workerConfig.enabled -}}
+    {{- $workersEnabled = true -}}
+  {{- end -}}
+{{- end -}}
 {{- $schedulerEnabled := .Values.scheduler.enabled -}}
 {{- $fullName := include "laravel.fullname" . -}}
 {{- $ingressEnabled := or .Values.ingress.enabled .Values.ingressRoute.enabled -}}
@@ -40,17 +45,21 @@ Thank you for deploying {{ .Chart.Name }} version {{ .Chart.Version }}!
   {{- end }}
 {{- end }}
 
-{{- if $workerEnabled }}
+{{- if $workersEnabled }}
 ✓ Queue Workers
-  - Deployment:  {{ $fullName }}-worker
-  {{- if .Values.worker.autoscaling.enabled }}
-  - HPA:         {{ .Values.worker.autoscaling.minReplicas }}-{{ .Values.worker.autoscaling.maxReplicas }} replicas
+{{- range $workerName, $workerConfig := .Values.workers }}
+  {{- if $workerConfig.enabled }}
+  - Deployment:  {{ $fullName }}-worker-{{ $workerName }}
+  {{- if $workerConfig.autoscaling.enabled }}
+  - HPA:         {{ $workerConfig.autoscaling.minReplicas }}-{{ $workerConfig.autoscaling.maxReplicas }} replicas
   {{- else }}
-  - Replicas:    {{ .Values.worker.replicaCount }}
+  - Replicas:    {{ $workerConfig.replicaCount }}
   {{- end }}
-  {{- if .Values.worker.pdb.enabled }}
-  - PDB:         Enabled (minAvailable: {{ .Values.worker.pdb.minAvailable }})
+  {{- if $workerConfig.pdb.enabled }}
+  - PDB:         Enabled (minAvailable: {{ $workerConfig.pdb.minAvailable }})
   {{- end }}
+  {{- end }}
+{{- end }}
 {{- end }}
 
 {{- if $schedulerEnabled }}
@@ -146,9 +155,9 @@ kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .R
 # View logs for web pods
 kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/component=web -f
 
-{{- if $workerEnabled }}
+{{- if $workersEnabled }}
 # View logs for worker pods
-kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/component=worker -f
+kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} --selector='app.kubernetes.io/component in ({{- range $i, $workerName := keys .Values.workers }}{{- if $i }},{{- end }}worker-{{ $workerName }}{{- end }})' -f
 {{- end }}
 
 {{- if $schedulerEnabled }}

@@ -4,7 +4,12 @@ templates:
 tests:
   - it: should create a default worker deployment with default values
     set:
+      workers.default.enabled: true
+      workers.default.replicaCount: 2
       workers.default.autoscaling.enabled: false
+      workers.default.image.repository: ghcr.io/5ergiu/images/laravel
+      workers.default.image.tag: cli
+      workers.default.args: ["php", "artisan", "queue:work"]
     asserts:
       - isKind:
           of: Deployment
@@ -29,8 +34,12 @@ tests:
 
   - it: should scale default worker independently when autoscaling disabled
     set:
+      workers.default.enabled: true
       workers.default.autoscaling.enabled: false
       workers.default.replicaCount: 5
+      workers.default.image.repository: ghcr.io/5ergiu/images/laravel
+      workers.default.image.tag: cli
+      workers.default.args: ["php", "artisan", "queue:work"]
     asserts:
       - equal:
           path: spec.replicas
@@ -52,6 +61,12 @@ tests:
 
   - it: should mount storage volumes when enabled
     set:
+      workers.default.enabled: true
+      workers.default.autoscaling.enabled: false
+      workers.default.replicaCount: 2
+      workers.default.image.repository: ghcr.io/5ergiu/images/laravel
+      workers.default.image.tag: cli
+      workers.default.args: ["php", "artisan", "queue:work"]
       persistence.enabled: true
     asserts:
       - contains:
@@ -62,6 +77,20 @@ tests:
               claimName: RELEASE-NAME-laravel-storage
 
   - it: should have readOnlyRootFilesystem security
+    set:
+      workers.default.enabled: true
+      workers.default.autoscaling.enabled: false
+      workers.default.replicaCount: 2
+      workers.default.image.repository: ghcr.io/5ergiu/images/laravel
+      workers.default.image.tag: cli
+      workers.default.args: ["php", "artisan", "queue:work"]
+      workers.default.securityContext.readOnlyRootFilesystem: true
+      workers.default.securityContext.allowPrivilegeEscalation: false
+      workers.default.securityContext.capabilities.drop: ["ALL"]
+      tmpfsVolumes.enabled: true
+      tmpfsVolumes.mounts:
+        - name: tmp
+          mountPath: /tmp
     asserts:
       - equal:
           path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
@@ -70,10 +99,19 @@ tests:
           path: spec.template.spec.volumes
           content:
             name: tmp
-            emptyDir:
-              medium: Memory
+            emptyDir: {}
 
   - it: should run as non-root user with default values
+    set:
+      workers.default.enabled: true
+      workers.default.autoscaling.enabled: false
+      workers.default.replicaCount: 2
+      workers.default.image.repository: ghcr.io/5ergiu/images/laravel
+      workers.default.image.tag: cli
+      workers.default.args: ["php", "artisan", "queue:work"]
+      workers.default.podSecurityContext.runAsNonRoot: true
+      workers.default.podSecurityContext.runAsUser: 82
+      workers.default.podSecurityContext.fsGroup: 82
     asserts:
       - equal:
           path: spec.template.spec.securityContext.runAsNonRoot
@@ -87,6 +125,13 @@ tests:
 
   - it: should use custom user and group IDs when specified
     set:
+      workers.default.enabled: true
+      workers.default.autoscaling.enabled: false
+      workers.default.replicaCount: 2
+      workers.default.image.repository: ghcr.io/5ergiu/images/laravel
+      workers.default.image.tag: cli
+      workers.default.args: ["php", "artisan", "queue:work"]
+      workers.default.podSecurityContext.runAsNonRoot: true
       workers.default.podSecurityContext.runAsUser: 501
       workers.default.podSecurityContext.fsGroup: 20
     asserts:
@@ -101,12 +146,26 @@ tests:
           value: 20
 
   - it: should use cli image tag for workers
+    set:
+      workers.default.enabled: true
+      workers.default.autoscaling.enabled: false
+      workers.default.replicaCount: 2
+      workers.default.image.repository: ghcr.io/5ergiu/images/laravel
+      workers.default.image.tag: cli
+      workers.default.args: ["php", "artisan", "queue:work"]
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
           value: "ghcr.io/5ergiu/images/laravel:cli"
 
   - it: should have correct component label
+    set:
+      workers.default.enabled: true
+      workers.default.autoscaling.enabled: false
+      workers.default.replicaCount: 2
+      workers.default.image.repository: ghcr.io/5ergiu/images/laravel
+      workers.default.image.tag: cli
+      workers.default.args: ["php", "artisan", "queue:work"]
     asserts:
       - equal:
           path: metadata.labels["app.kubernetes.io/component"]

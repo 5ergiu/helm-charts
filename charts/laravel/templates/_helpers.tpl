@@ -185,8 +185,7 @@ Common volumes
 {{- if .Values.tmpfsVolumes.enabled }}
 {{- range .Values.tmpfsVolumes.mounts }}
 - name: {{ .name }}
-  emptyDir:
-    medium: Memory
+  emptyDir: {}
 {{- end }}
 {{- end }}
 {{- if .Values.persistence.enabled }}
@@ -332,10 +331,17 @@ spec:
             {{- toYaml $root.Values.web.reverseProxy.container.securityContext | nindent 12 }}
           resources:
             {{- toYaml $root.Values.web.reverseProxy.container.resources | nindent 12 }}
-          {{- with $root.Values.web.reverseProxy.container.volumeMounts }}
           volumeMounts:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+            - name: nginx-logs
+              mountPath: /var/log/nginx
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-tmp
+              mountPath: /tmp
         {{- end }}
       {{- if or $root.Values.tmpfsVolumes.enabled $root.Values.persistence.enabled $root.Values.extraVolumes $config.extraVolumes (and (eq $component "web") $root.Values.web.reverseProxy.enabled) }}
       volumes:
@@ -346,9 +352,15 @@ spec:
         {{- include "laravel.volumes" $root | nindent 8 }}
         {{- end }}
         {{- if and (eq $component "web") $root.Values.web.reverseProxy.enabled }}
-        {{- with $root.Values.web.reverseProxy.volumes }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+        - name: nginx-config
+          configMap:
+            name: {{ include "laravel.fullname" $root }}-nginx
+        - name: nginx-logs
+          emptyDir: {}
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-tmp
+          emptyDir: {}
         {{- end }}
       {{- end }}
       {{- with $config.nodeSelector }}
