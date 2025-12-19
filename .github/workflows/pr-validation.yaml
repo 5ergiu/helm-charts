@@ -96,7 +96,7 @@ jobs:
           fi
 
   build-images:
-    name: 🏗️ Build ${{ matrix.image }}${{ matrix.target && format(' ({0})', matrix.target) || '' }}
+    name: 🏗️ Build ${{ matrix.image }} (${{ matrix.target || 'default' }})
     needs: prepare-images
     if: needs.prepare-images.outputs.has-images == 'true'
     runs-on: ubuntu-latest
