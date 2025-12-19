@@ -31,9 +31,8 @@ jobs:
       - name: 🔍 Detect changes and prepare build matrix
         id: prepare
         run: |
-          # Get changed files in examples/ directory
-          # Use HEAD~1..HEAD to only check the latest commit, not the entire PR
-          all_changed=$(git diff --name-only HEAD~1..HEAD -- examples/ || true)
+          # Get files changed in the latest commit
+          all_changed=$(git show --name-only --pretty=format: ${{ github.event.pull_request.head.sha }} -- examples/ | grep -v '^$' || true)
 
           # Exclude files that don't require image rebuilds:
           # - Helm values files (values*.yaml)
@@ -57,7 +56,8 @@ jobs:
 
           # Extract unique app names
           apps=$(echo "$changed_files" | cut -d'/' -f2 | sort -u)
-          echo "Apps to build: $apps"
+          echo "Apps to build:"
+          echo "$apps" | sed 's/^/  - /'
 
           # Build matrix
           matrix_include=()
