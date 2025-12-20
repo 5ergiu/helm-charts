@@ -44,8 +44,8 @@ spec:
             - name: scheduler
               securityContext:
                 {{- toYaml .Values.scheduler.securityContext | nindent 16 }}
-              image: {{ include "laravel.image" . }}
-              imagePullPolicy: {{ include "laravel.imagePullPolicy" . }}
+              image: "{{ .Values.scheduler.image.repository }}:{{ .Values.scheduler.image.tag }}"
+              imagePullPolicy: {{ .Values.scheduler.image.pullPolicy }}
               command:
                 {{- toYaml .Values.scheduler.command | nindent 16 }}
               envFrom:

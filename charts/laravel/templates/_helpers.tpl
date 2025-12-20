@@ -124,21 +124,6 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
-Create the image pull policy
-*/}}
-{{- define "laravel.imagePullPolicy" -}}
-{{- .Values.image.pullPolicy | default "IfNotPresent" }}
-{{- end }}
-
-{{/*
-Create the full image name
-*/}}
-{{- define "laravel.image" -}}
-{{- $tag := .Values.image.tag | default .Chart.AppVersion }}
-{{- printf "%s:%s" .Values.image.repository $tag }}
-{{- end }}
-
-{{/*
 Environment variables from ConfigMap
 */}}
 {{- define "laravel.envConfigMap" -}}
@@ -254,13 +239,8 @@ spec:
         - name: {{ $component }}
           securityContext:
             {{- toYaml $config.securityContext | nindent 12 }}
-          {{- if $config.image }}
           image: "{{ $config.image.repository }}:{{ $config.image.tag }}"
           imagePullPolicy: {{ $config.image.pullPolicy | default "IfNotPresent" }}
-          {{- else }}
-          image: {{ include "laravel.image" $root }}
-          imagePullPolicy: {{ include "laravel.imagePullPolicy" $root }}
-          {{- end }}
           {{- with $config.command }}
           command:
             {{- toYaml . | nindent 12 }}

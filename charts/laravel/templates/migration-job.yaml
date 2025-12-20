@@ -42,8 +42,8 @@ spec:
         - name: migration
           securityContext:
             {{- toYaml .Values.migration.securityContext | nindent 12 }}
-          image: {{ include "laravel.image" . }}
-          imagePullPolicy: {{ include "laravel.imagePullPolicy" . }}
+          image: "{{ .Values.migration.image.repository }}:{{ .Values.migration.image.tag }}"
+          imagePullPolicy: {{ .Values.migration.image.pullPolicy }}
           command:
             {{- toYaml .Values.migration.command | nindent 12 }}
           envFrom:

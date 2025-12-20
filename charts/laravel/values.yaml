@@ -21,14 +21,6 @@
 global:
   environment: production
 
-# Image configuration
-# For web deployments, use latest or dev tags
-# For workers, use the cli tag
-image:
-  repository: ghcr.io/5ergiu/images/laravel
-  pullPolicy: Always
-  tag: latest  # Options: latest, dev, cli
-
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
@@ -43,6 +35,12 @@ serviceAccount:
 web:
   enabled: true
   replicaCount: 2
+
+  # Image configuration for web (php-fpm)
+  image:
+    repository: ghcr.io/5ergiu/images/laravel
+    tag: latest
+    pullPolicy: Always
 
   # Reverse proxy configuration for FastCGI forwarding
   # Set enabled: false if using an image with built-in server (like FrankenPHP)
@@ -451,6 +449,12 @@ scheduler:
   enabled: true
   schedule: "* * * * *"
 
+  # Image configuration for scheduler (CLI)
+  image:
+    repository: ghcr.io/5ergiu/images/laravel
+    tag: cli
+    pullPolicy: Always
+
   podAnnotations: {}
   podLabels: {}
 
@@ -490,6 +494,12 @@ scheduler:
 # Migration Job - runs as a Helm hook before install/upgrade
 migration:
   enabled: true
+
+  # Image configuration for migrations (CLI)
+  image:
+    repository: ghcr.io/5ergiu/images/laravel
+    tag: cli
+    pullPolicy: Always
 
   podAnnotations: {}
   podLabels: {}
