@@ -42,20 +42,6 @@
                 }
             }
         },
-        "image": {
-            "type": "object",
-            "properties": {
-                "pullPolicy": {
-                    "type": "string"
-                },
-                "repository": {
-                    "type": "string"
-                },
-                "tag": {
-                    "type": "string"
-                }
-            }
-        },
         "imagePullSecrets": {
             "type": "array"
         },
@@ -532,6 +518,20 @@
                 "enabled": {
                     "type": "boolean"
                 },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "pullPolicy": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "nodeSelector": {
                     "type": "object"
                 },
@@ -803,6 +803,20 @@
                 "failedJobsHistoryLimit": {
                     "type": "integer"
                 },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "pullPolicy": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "nodeSelector": {
                     "type": "object"
                 },
@@ -1062,6 +1076,20 @@
                 },
                 "extraVolumes": {
                     "type": "array"
+                },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "pullPolicy": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
                 },
                 "livenessProbe": {
                     "type": "object",

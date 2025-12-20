@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.2.6](https://github.com/5ergiu/helm-charts/compare/laravel-0.2.5..laravel-0.2.6) - 2025-12-20
+### 🐛 Fixes
+
+- updated all web unrelated deployments to use cli image ([9c50b94](https://github.com/5ergiu/helm-charts/commit/9c50b94fa1c6d09db2fa1de67d09db4ecff80312))
 ## [0.2.5](https://github.com/5ergiu/helm-charts/compare/laravel-0.2.4..laravel-0.2.5) - 2025-12-19
 ### 🐛 Fixes
 
