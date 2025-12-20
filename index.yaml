@@ -5,6 +5,52 @@ entries:
       artifacthub.io/category: networking
       artifacthub.io/changes: |-
         - kind: changed
+          description: updated all web unrelated deployments to use cli image
+      artifacthub.io/containsSecurityUpdates: "false"
+      artifacthub.io/links: |
+        - name: Laravel
+          url: https://laravel.com/docs/12.x
+        - name: Helm Chart
+          url: https://github.com/5ergiu/helm-charts/tree/main/charts/laravel
+        - name: Application
+          url: https://github.com/laravel/laravel
+        - name: Maintainer 5ergiu
+          url: https://github.com/5ergiu
+      artifacthub.io/prerelease: "true"
+      artifacthub.io/signKey: |
+        fingerprint: 7fa3b00701ad776b7d7f9cbb806c518b16320ae49ba814e6eee3c5ee4a6613c1
+        url: https://github.com/5ergiu/helm-charts/blob/main/cosign.pub
+      category: Web Applications
+      displayName: Laravel Helm Chart
+      licenses: Apache-2.0
+    apiVersion: v2
+    appVersion: 12.x
+    created: "2025-12-20T10:47:49.82963883Z"
+    description: A production-grade Helm chart for Laravel applications
+    digest: d67cf0d4a1af8012d550d6db56e723b1101fba43add6cee5936afbe05c563679
+    home: https://github.com/5ergiu/helm-charts
+    icon: https://cdn.brandfetch.io/ide68-31CH/w/346/h/346/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1761211589926
+    keywords:
+    - laravel
+    - php
+    - web
+    - application
+    - framework
+    maintainers:
+    - name: 5ergiu
+      url: https://github.com/5ergiu
+    name: laravel
+    sources:
+    - https://github.com/5ergiu/helm-charts/tree/main/charts/laravel
+    - https://github.com/laravel/laravel
+    type: application
+    urls:
+    - https://github.com/5ergiu/helm-charts/releases/download/laravel-0.2.6/laravel-0.2.6.tgz
+    version: 0.2.6
+  - annotations:
+      artifacthub.io/category: networking
+      artifacthub.io/changes: |-
+        - kind: changed
           description: multiple fixes
         - kind: changed
           description: multiple fixes applied to charts and docker images and workflows (#5)
@@ -597,4 +643,4 @@ entries:
     urls:
     - https://github.com/5ergiu/helm-charts/releases/download/nextjs-0.1.0/nextjs-0.1.0.tgz
     version: 0.1.0
-generated: "2025-12-19T14:49:45.015534915Z"
+generated: "2025-12-20T10:47:49.829681079Z"
