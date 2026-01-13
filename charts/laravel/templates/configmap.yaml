@@ -15,8 +15,3 @@ data:
   {{- range $key, $value := .Values.laravel.env }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}
-
-  # PHP Configuration (ServersideUp PHP Image)
-  {{- range $key, $value := .Values.php.env }}
-  {{ $key }}: {{ $value | quote }}
-  {{- end }}

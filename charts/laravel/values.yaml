@@ -1,12 +1,20 @@
 # ============================================================================
 # Default Values for Laravel Helm Chart
 # ============================================================================
-# Production-ready secure defaults for Laravel applications
+# Production-ready secure defaults for Laravel applications supporting multiple
+# runtime configurations:
+#   - PHP-FPM with Nginx/Apache/Caddy reverse proxy
+#   - FrankenPHP standalone server
+#   - Laravel Octane (RoadRunner/Swoole/FrankenPHP)
+#   - CLI-only workers and cron jobs
+#
+# Key Features:
 # - High availability with autoscaling
 # - PostgreSQL/MySQL database support
-# - Basic queue worker (no Redis required by default)
+# - Redis caching and queue support
 # - Security hardened (read-only filesystem, non-root user)
 # - Traefik ingress with TLS support
+# - Multiple deployment variants (ALL DISABLED by default)
 #
 # For different deployment scenarios, see the examples directory:
 #   - examples/laravel/values.ci.yaml    - CI/CD optimized (zero dependencies)
@@ -17,99 +25,584 @@
 # Chart Documentation: https://github.com/5ergiu/helm-charts/tree/main/charts/laravel
 # ============================================================================
 
-# Global settings
+# ============================================================================
+# Global Settings
+# ============================================================================
+
 global:
   environment: production
-
-# Image configuration
-# For web deployments, use latest or dev tags
-# For workers, use the cli tag
-image:
-  repository: ghcr.io/5ergiu/images/laravel
-  pullPolicy: Always
-  tag: latest  # Options: latest, dev, cli
 
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
-# ServiceAccount configuration
+# ============================================================================
+# ServiceAccount Configuration
+# ============================================================================
+
 serviceAccount:
   create: true
   annotations: {}
   name: ""
 
-# Web application configuration
-web:
-  enabled: true
-  replicaCount: 2
+# ============================================================================
+# Global PHP Configuration (ConfigMaps - used by all deployments)
+# ============================================================================
+# These configuration files are created as ConfigMaps and can be mounted
+# into any deployment that needs them. Individual deployments enable them
+# via their php.engine settings.
 
-  # Reverse proxy configuration for FastCGI forwarding
-  # Set enabled: false if using an image with built-in server (like FrankenPHP)
-  reverseProxy:
+php:
+  # ============================================================================
+  # PHP.ini Configuration (ALL engines)
+  # ============================================================================
+  # Standard PHP configuration using php.ini format
+  # Mounted as ConfigMap to /usr/local/etc/php/conf.d/zz-custom.ini
+  # Works with any PHP image (official, ServersideUp, custom, etc.)
+
+  ini:
     enabled: true
 
-    # Nginx ConfigMap generation
-    # Set enabled: false to use your own ConfigMap (e.g., for Caddy, custom nginx, etc.)
-    nginx:
-      enabled: true
+    # Mount path (customize for non-standard images)
+    mountPath: /usr/local/etc/php/conf.d/zz-custom.ini
 
-      # Nginx configuration settings for ConfigMap generation
-      port: 8080
-      root: /var/www/html/public
-      accessLog: "off"
-      errorLog: /dev/stderr
-      errorLevel: warn
-      serverTokens: "off"
-      # Note: clientMaxBodySize should match Traefik's buffering.maxRequestBodyBytes
-      # Traefik enforces the limit, nginx just needs to not reject valid requests
-      clientMaxBodySize: 100M
-      keepaliveTimeout: 65
-      fastcgiBuffers: 8 8k
-      fastcgiBufferSize: 8k
-      fastcgiReadTimeout: 120s
+    # php.ini settings (key-value pairs)
+    # These are converted to standard php.ini format: key = value
+    config:
+      # ========================================================================
+      # Core Settings
+      # ========================================================================
+      engine: "On"
+      short_open_tag: "Off"
+      precision: "14"
+      output_buffering: "4096"
+      expose_php: "Off"
 
-    # Container specification
-    # Customize this to use any reverse proxy (nginx, caddy, etc.)
-    container:
-      name: nginx
+      # ========================================================================
+      # Resource Limits
+      # ========================================================================
+      max_execution_time: "99"        # Maximum execution time (seconds)
+      max_input_time: "-1"            # Maximum input parsing time (-1 = unlimited)
+      max_input_vars: "1000"          # Maximum input variables
+      memory_limit: "256M"            # Memory limit per script
 
-      image:
-        repository: nginx
-        tag: 1.29.4-alpine
-        pullPolicy: IfNotPresent
+      # ========================================================================
+      # Error Handling (Production defaults)
+      # ========================================================================
+      # For development: set display_errors=On, error_reporting=E_ALL
+      display_errors: "Off"                  # Never show errors in production
+      display_startup_errors: "Off"          # Hide startup errors
+      error_reporting: "22527"               # E_ALL & ~E_DEPRECATED & ~E_STRICT
+      log_errors: "On"                       # Always log errors
+      error_log: "/dev/stderr"               # Send errors to container logs
 
-      command: ["nginx", "-g", "daemon off;"]
+      # ========================================================================
+      # Data Handling
+      # ========================================================================
+      variables_order: "GPCS"                # GET, POST, COOKIE, SERVER
+      request_order: "GP"                    # GET, POST (no COOKIE in request)
+      post_max_size: "100M"                  # Maximum POST data size
+      default_charset: "UTF-8"               # Default character encoding
 
-      ports:
-        - name: http
-          containerPort: 8080
-          protocol: TCP
+      # ========================================================================
+      # File Uploads
+      # ========================================================================
+      file_uploads: "On"                     # Enable file uploads
+      upload_max_filesize: "100M"            # Maximum upload file size
+      max_file_uploads: "20"                 # Maximum number of files per upload
 
-      securityContext:
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-          - ALL
-        readOnlyRootFilesystem: true
+      # ========================================================================
+      # Security
+      # ========================================================================
+      open_basedir: ""                       # Restrict file access (empty = no restriction)
+      allow_url_fopen: "On"                  # Allow opening URLs as files
+      allow_url_include: "Off"               # Disable including URLs (security)
 
-      resources:
-        limits:
-          cpu: 500m
-          memory: 128Mi
-        requests:
-          cpu: 50m
-          memory: 64Mi
+      # ========================================================================
+      # Performance
+      # ========================================================================
+      realpath_cache_size: "4096K"           # Realpath cache size
+      realpath_cache_ttl: "120"              # Realpath cache TTL (seconds)
 
-      # Volume mounts for reverse proxy
-      # Automatically added to web deployment when reverseProxy.enabled is true
-      # Volume mounts are defined in the deployment template (_helpers.tpl)
-      volumeMounts: []
+      # ========================================================================
+      # Date/Time
+      # ========================================================================
+      "date.timezone": "UTC"                 # Default timezone
 
-    # Volumes for reverse proxy
-    # Automatically added to web deployment when reverseProxy.enabled is true
-    # Volumes are defined in the deployment template (_helpers.tpl)
-    volumes: []
+      # ========================================================================
+      # Session
+      # ========================================================================
+      # For production with Redis sessions, these are often overridden by Laravel
+      "session.save_handler": "files"        # Session handler (files, redis, etc.)
+      "session.use_strict_mode": "1"         # Use strict session IDs
+      "session.cookie_secure": "1"           # Only send cookies over HTTPS
+      "session.cookie_httponly": "1"         # Prevent JavaScript access to cookies
+      "session.cookie_samesite": "Lax"       # CSRF protection
+
+      # ========================================================================
+      # OPcache (Critical for production performance)
+      # ========================================================================
+      # Production: enable=1, validate_timestamps=0 (no file checks)
+      # Development: enable=1, validate_timestamps=1 (detect file changes)
+      "opcache.enable": "1"                         # Enable OPcache
+      "opcache.enable_cli": "0"                     # Disable OPcache for CLI
+      "opcache.memory_consumption": "128"           # OPcache memory (MB)
+      "opcache.interned_strings_buffer": "8"        # Interned strings memory (MB)
+      "opcache.max_accelerated_files": "10000"      # Maximum cached files
+      "opcache.validate_timestamps": "0"            # 0=prod (no checks), 1=dev (check files)
+      "opcache.revalidate_freq": "2"                # Check frequency (seconds, if validate_timestamps=1)
+      "opcache.save_comments": "1"                  # Required for Laravel annotations
+      "opcache.jit": "off"                          # JIT compilation (off, function, tracing)
+      "opcache.jit_buffer_size": "0"                # JIT buffer size (MB, 0=disabled)
+
+  # ============================================================================
+  # PHP-FPM Configuration
+  # ============================================================================
+  # Only used when php.engine: fpm
+  # Mounted as ConfigMap to /usr/local/etc/php-fpm.d/zz-custom.conf
+
+  fpm:
+    enabled: false  # Auto-enabled when php.engine: fpm
+
+    # Mount path (customize for non-standard images)
+    mountPath: /usr/local/etc/php-fpm.d/zz-custom.conf
+
+    # php-fpm.conf pool settings (key-value pairs)
+    # These are converted to standard php-fpm.conf format: key = value
+    config:
+      # ========================================================================
+      # Pool Configuration
+      # ========================================================================
+      listen: "127.0.0.1:9000"                      # Listen on localhost:9000
+      pm: "dynamic"                                 # Process manager (static, dynamic, ondemand)
+
+      # Dynamic PM settings (when pm: dynamic)
+      "pm.max_children": "20"                       # Maximum child processes
+      "pm.start_servers": "2"                       # Initial child processes
+      "pm.min_spare_servers": "1"                   # Minimum idle processes
+      "pm.max_spare_servers": "3"                   # Maximum idle processes
+      "pm.max_requests": "0"                        # Requests before respawn (0=unlimited)
+      "pm.process_idle_timeout": "10s"              # Idle timeout before process termination
+
+      # ========================================================================
+      # Process Control
+      # ========================================================================
+      process_control_timeout: "10"                 # Graceful stop timeout (seconds)
+      request_terminate_timeout: "0"                # Request timeout (0=unlimited)
+
+      # ========================================================================
+      # Logging
+      # ========================================================================
+      "access.log": "/dev/null"                     # Disable access logs (use nginx logs)
+      catch_workers_output: "yes"                   # Capture worker stdout/stderr
+      decorate_workers_output: "no"                 # Don't add timestamps to output
+
+      # ========================================================================
+      # Security
+      # ========================================================================
+      "security.limit_extensions": ".php"           # Only allow .php files
+
+  # ============================================================================
+  # FrankenPHP Configuration
+  # ============================================================================
+  # Only used when php.engine: frankenphp
+  # Mounted as ConfigMap to /etc/caddy/Caddyfile
+
+  frankenphp:
+    enabled: false  # Auto-enabled when php.engine: frankenphp
+
+    # Mount path for Caddyfile
+    mountPath: /etc/caddy/Caddyfile
+
+    # Caddyfile content (standard Caddy format)
+    # This is the complete Caddyfile configuration for FrankenPHP
+    caddyfile: |
+      {
+          # Global options
+          auto_https off
+          admin off
+          frankenphp
+      }
+
+      :8080 {
+          # Root directory
+          root * /var/www/html/public
+
+          # Enable FrankenPHP
+          php_server
+
+          # Logging
+          log {
+              output stderr
+              format console
+              level warn
+          }
+
+          # Error handling
+          handle_errors {
+              respond "{err.status_code} {err.status_text}"
+          }
+
+          # Security headers
+          header {
+              X-Frame-Options "SAMEORIGIN"
+              X-Content-Type-Options "nosniff"
+              X-XSS-Protection "1; mode=block"
+              -Server
+              -X-Powered-By
+          }
+
+          # Compression
+          encode gzip zstd
+
+          # File server for static assets
+          file_server
+      }
+
+    # Server configuration
+    server:
+      port: 8080  # FrankenPHP listen port
+
+  # ============================================================================
+  # Laravel Octane Configuration
+  # ============================================================================
+  # Only used when php.engine: roadrunner or swoole
+  # Mounted as ConfigMap to /var/www/html/.octane.php
+
+  octane:
+    enabled: false  # Auto-enabled when php.engine: roadrunner or swoole
+
+    # Octane server type (roadrunner, swoole)
+    server: "roadrunner"
+
+    # Mount path for .octane.php config
+    mountPath: /var/www/html/.octane.php
+
+    # .octane.php configuration file content
+    # This is the complete Octane configuration
+    config: |
+      <?php
+
+      use Laravel\Octane\Events\RequestHandled;
+      use Laravel\Octane\Events\RequestReceived;
+      use Laravel\Octane\Events\RequestTerminated;
+      use Laravel\Octane\Events\TaskReceived;
+      use Laravel\Octane\Events\TaskTerminated;
+      use Laravel\Octane\Events\TickReceived;
+      use Laravel\Octane\Events\TickTerminated;
+      use Laravel\Octane\Events\OperationTerminated;
+      use Laravel\Octane\Events\WorkerErrorOccurred;
+      use Laravel\Octane\Events\WorkerStarting;
+      use Laravel\Octane\Events\WorkerStopping;
+      use Laravel\Octane\Listeners\EnsureUploadedFilesAreValid;
+      use Laravel\Octane\Listeners\EnsureUploadedFilesCanBeMoved;
+      use Laravel\Octane\Listeners\FlushTemporaryContainerInstances;
+      use Laravel\Octane\Listeners\FlushSessionState;
+      use Laravel\Octane\Listeners\ReportException;
+      use Laravel\Octane\Listeners\StopWorkerIfNecessary;
+
+      return [
+          /*
+          |--------------------------------------------------------------------------
+          | Octane Server
+          |--------------------------------------------------------------------------
+          |
+          | This value determines the default "server" that will be used by Octane
+          | when starting, reloading, or stopping your server via the CLI. You
+          | are free to change this to the supported server of your choice.
+          |
+          */
+
+          'server' => env('OCTANE_SERVER', 'roadrunner'),
+
+          /*
+          |--------------------------------------------------------------------------
+          | Force HTTPS
+          |--------------------------------------------------------------------------
+          |
+          | When this configuration value is set to "true", Octane will inform the
+          | framework that all absolute links should be generated using "https"
+          | protocol instead of "http". Typically this should be enabled for
+          | production deployments behind a load balancer with SSL termination.
+          |
+          */
+
+          'https' => env('OCTANE_HTTPS', false),
+
+          /*
+          |--------------------------------------------------------------------------
+          | Octane Listeners
+          |--------------------------------------------------------------------------
+          |
+          | All of the event listeners for Octane's events are defined below. These
+          | listeners can reset server state between requests, clear caches, etc.
+          |
+          */
+
+          'listeners' => [
+              WorkerStarting::class => [
+                  EnsureUploadedFilesAreValid::class,
+                  EnsureUploadedFilesCanBeMoved::class,
+              ],
+
+              RequestReceived::class => [
+                  ...Octane::prepareApplicationForNextOperation(),
+                  ...Octane::prepareApplicationForNextRequest(),
+              ],
+
+              RequestHandled::class => [],
+
+              RequestTerminated::class => [
+                  FlushTemporaryContainerInstances::class,
+              ],
+
+              TaskReceived::class => [
+                  ...Octane::prepareApplicationForNextOperation(),
+              ],
+
+              TaskTerminated::class => [
+                  FlushTemporaryContainerInstances::class,
+              ],
+
+              TickReceived::class => [
+                  ...Octane::prepareApplicationForNextOperation(),
+              ],
+
+              TickTerminated::class => [
+                  FlushTemporaryContainerInstances::class,
+              ],
+
+              OperationTerminated::class => [
+                  FlushSessionState::class,
+              ],
+
+              WorkerErrorOccurred::class => [
+                  ReportException::class,
+                  StopWorkerIfNecessary::class,
+              ],
+
+              WorkerStopping::class => [],
+          ],
+
+          /*
+          |--------------------------------------------------------------------------
+          | Warm / Flush Bindings
+          |--------------------------------------------------------------------------
+          |
+          | Here you can configure which bindings should be warmed / flushed.
+          |
+          */
+
+          'warm' => [
+              ...Octane::defaultServicesToWarm(),
+          ],
+
+          'flush' => [],
+
+          /*
+          |--------------------------------------------------------------------------
+          | Octane Cache Table
+          |--------------------------------------------------------------------------
+          |
+          | The cache table configuration for Octane's cache driver.
+          |
+          */
+
+          'cache' => [
+              'rows' => 1000,
+          ],
+
+          /*
+          |--------------------------------------------------------------------------
+          | Octane Swoole Tables
+          |--------------------------------------------------------------------------
+          |
+          | Tables for Swoole-specific features.
+          |
+          */
+
+          'tables' => [
+              'example:1000' => [
+                  'name' => 'string:1000',
+                  'votes' => 'int',
+              ],
+          ],
+      ];
+
+    # Server configuration (used by Octane startup command)
+    serverConfig:
+      port: 8000                    # Octane default port
+      host: "0.0.0.0"               # Listen on all interfaces
+      workers: 4                    # Number of worker processes
+      maxRequests: 500              # Requests before worker restart
+
+      # RoadRunner specific configuration
+      roadrunner:
+        http:
+          address: "0.0.0.0:8000"
+          maxRequestSize: 100       # MB
+          middleware: ["gzip"]
+          pool:
+            numWorkers: 4
+            maxJobs: 64
+            allocateTimeout: 60s
+            destroyTimeout: 60s
+
+      # Swoole specific configuration
+      swoole:
+        options:
+          logLevel: 2
+          packageMaxLength: 10485760  # 10MB
+
+# ============================================================================
+# HTTP Sidecar Configuration (ConfigMaps - used by web deployment when enabled)
+# ============================================================================
+# These configurations are used when the web deployment needs an HTTP sidecar
+# (nginx, apache, or caddy) to proxy requests to PHP-FPM
+
+http:
+  # Nginx configuration (when web.http.entrypoint: nginx)
+  nginx:
+    image:
+      repository: nginx
+      tag: 1.29.4-alpine
+      pullPolicy: IfNotPresent
+
+    # Server configuration
+    port: 8080
+    root: /var/www/html/public
+
+    # Logging
+    accessLog: "off"
+    errorLog: /dev/stderr
+    errorLevel: warn
+
+    # Security
+    serverTokens: "off"
+
+    # Performance & limits
+    clientMaxBodySize: 100M
+    keepaliveTimeout: 65
+
+    # FastCGI settings
+    fastcgiBuffers: 8 8k
+    fastcgiBufferSize: 8k
+    fastcgiReadTimeout: 120s
+
+    # Resources
+    resources:
+      limits:
+        cpu: 500m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+  # Apache configuration (when web.http.entrypoint: apache)
+  apache:
+    image:
+      repository: httpd
+      tag: 2.4-alpine
+      pullPolicy: IfNotPresent
+
+    # Server configuration
+    port: 8080
+    root: /var/www/html/public
+
+    # Logging
+    accessLog: /dev/stdout
+    errorLog: /dev/stderr
+    logLevel: warn
+
+    # Security
+    serverTokens: Prod
+    serverSignature: "Off"
+
+    # Performance & limits
+    maxRequestWorkers: 150
+    keepAliveTimeout: 5
+    maxKeepAliveRequests: 100
+    limitRequestBody: 104857600  # 100MB in bytes
+
+    # FastCGI settings
+    fcgiConnectTimeout: 120
+
+    # Resources
+    resources:
+      limits:
+        cpu: 500m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+  # Caddy configuration (when web.http.entrypoint: caddy)
+  caddy:
+    image:
+      repository: caddy
+      tag: 2-alpine
+      pullPolicy: IfNotPresent
+
+    # Server configuration
+    port: 8080
+    root: /var/www/html/public
+
+    # Logging
+    accessLog: false
+
+    # Performance & limits
+    maxBodySize: 100MB
+
+    # Resources
+    resources:
+      limits:
+        cpu: 500m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+# ============================================================================
+# Web Deployment Configuration
+# ============================================================================
+# Single web deployment - user chooses http entrypoint and php engine
+# DISABLED by default - users must explicitly enable and configure
+#
+# HTTP Entrypoint Options:
+#   - nginx: Nginx reverse proxy sidecar (for FPM, connects to port 9000)
+#   - apache: Apache reverse proxy sidecar (for FPM, connects to port 9000)
+#   - caddy: Caddy reverse proxy sidecar (for FPM, connects to port 9000)
+#   - frankenphp: FrankenPHP standalone server (built-in Caddy + PHP)
+#   - none: No HTTP server (for when Octane serves HTTP)
+#
+# PHP Engine Options:
+#   - fpm: PHP-FPM (requires HTTP entrypoint: nginx/apache/caddy)
+#   - frankenphp: FrankenPHP (requires entrypoint: frankenphp)
+#   - roadrunner: RoadRunner (requires entrypoint: none)
+#   - swoole: Swoole (requires entrypoint: none)
+#   - cli: PHP CLI only (requires entrypoint: none)
+
+web:
+  enabled: false  # Set to true to enable web deployment
+  replicaCount: 2
+
+  # HTTP entrypoint configuration
+  http:
+    entrypoint: ""  # nginx, apache, caddy, frankenphp, none
+
+  # PHP engine configuration
+  php:
+    engine: ""  # fpm, frankenphp, roadrunner, swoole, cli
+
+  # Container image
+  image:
+    repository: ""
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  # Init containers for web deployment
+  # Run before the main container starts (e.g., cache warmup, asset compilation)
+  initContainers: []
 
   strategy:
     type: RollingUpdate
@@ -125,10 +618,8 @@ web:
 
   podSecurityContext:
     runAsNonRoot: true
-    # For local development with hostPath volumes, set to your host user IDs (run: id -u && id -g) to avoid permission issues
-    # For production/testing, use 82:82 (Alpine's www-data) or your image's default non-root user
-    runAsUser: 82  # Alpine www-data user (change to match your image)
-    fsGroup: 82    # Alpine www-data group (change to match your image)
+    runAsUser: 82   # Alpine www-data user (change to match your image)
+    fsGroup: 82     # Alpine www-data group (change to match your image)
     seccompProfile:
       type: RuntimeDefault
 
@@ -139,9 +630,13 @@ web:
       - ALL
     readOnlyRootFilesystem: true
 
+  # Ports configuration - adjust based on your http.entrypoint and php.engine:
+  # - FPM: port 9000
+  # - FrankenPHP: port 8080
+  # - Octane (RoadRunner/Swoole): port 8000
   ports:
-    - name: php-fpm
-      containerPort: 9000
+    - name: http
+      containerPort: 8080
       protocol: TCP
 
   service:
@@ -221,14 +716,20 @@ web:
     enabled: true
     minAvailable: 1
 
-  # Reverse proxy sidecar is automatically added when web.reverseProxy.enabled: true
-  # To disable the reverse proxy (e.g., using FrankenPHP), set web.reverseProxy.enabled: false
-  # You can add additional sidecars here if needed
+  # Additional sidecars (HTTP sidecars are auto-injected based on http.entrypoint)
   sidecars: []
 
-  # Reverse proxy volumes are automatically added when web.reverseProxy.enabled: true
-  # You can add additional volumes here if needed
-  extraVolumes: []
+  # Per-deployment environment variables (in addition to global laravel.env)
+  env: []
+
+  # Per-deployment environment variables from ConfigMaps/Secrets
+  envFrom: []
+
+  # Per-deployment volumes (in addition to tmpfs and persistence volumes)
+  volumes: []
+
+  # Per-deployment volume mounts
+  volumeMounts: []
 
   nodeSelector: {}
   tolerations: []
@@ -249,44 +750,40 @@ web:
               - web
           topologyKey: kubernetes.io/hostname
 
-# Workers configuration
-# Define multiple workers with different commands/queues
-# Each worker gets its own deployment and can be scaled independently
-# Example:
-#   workers:
-#     default:
-#       enabled: true
-#       replicaCount: 2
-#       image:
-#         repository: ghcr.io/5ergiu/images/laravel
-#         tag: cli
-#         pullPolicy: Always
-#       args: ["php", "artisan", "queue:work", "--queue=default"]
-#     emails:
-#       enabled: true
-#       replicaCount: 3
-#       image:
-#         repository: ghcr.io/5ergiu/images/laravel
-#         tag: cli
-#       args: ["php", "artisan", "queue:work", "--queue=emails"]
-#     horizon:
-#       enabled: true
-#       replicaCount: 1
-#       image:
-#         repository: ghcr.io/5ergiu/images/laravel
-#         tag: cli
-#       args: ["php", "artisan", "horizon"]
+# ============================================================================
+# Workers Configuration
+# ============================================================================
+# Laravel queue workers - ALL DISABLED by default, enable as needed
+# Multiple worker variants supporting different runtime combinations
+#
+# Available variants:
+#   1. default                    - CLI worker (queue:work)
+#   2. horizon                    - CLI worker (Horizon)
+#   3. octane-roadrunner-worker   - Octane RoadRunner worker (high-performance)
+#   4. octane-swoole-worker       - Octane Swoole worker (high-performance)
+#   5. emails                     - CLI worker (dedicated email queue)
+
 workers:
-  # Default queue worker (basic, no Redis required)
+  # ============================================================================
+  # Example 1: Default Queue Worker (CLI)
+  # ============================================================================
+  # Runtime: http.entrypoint=none, php.engine=cli
+  # Image: Official PHP CLI image
+  # Command: php artisan queue:work
+
   default:
-    enabled: true
+    enabled: false
     replicaCount: 2
 
-    # Use the CLI image for workers
+    http:
+      entrypoint: "none"
+    php:
+      engine: "cli"
+
     image:
-      repository: ghcr.io/5ergiu/images/laravel
-      tag: cli
-      pullPolicy: Always
+      repository: php
+      tag: "8.3-cli"
+      pullPolicy: IfNotPresent
 
     strategy:
       type: RollingUpdate
@@ -299,8 +796,8 @@ workers:
 
     podSecurityContext:
       runAsNonRoot: true
-      runAsUser: 82  # Alpine www-data user (change to match your image)
-      fsGroup: 82    # Alpine www-data group (change to match your image)
+      runAsUser: 82
+      fsGroup: 82
       seccompProfile:
         type: RuntimeDefault
 
@@ -354,6 +851,13 @@ workers:
       enabled: true
       minAvailable: 1
 
+    sidecars: []
+    env: []
+    envFrom: []
+    volumes: []
+    volumeMounts: []
+    initContainers: []
+
     nodeSelector: {}
     tolerations: []
     affinity:
@@ -373,93 +877,386 @@ workers:
                 - worker-default
             topologyKey: kubernetes.io/hostname
 
-  # Laravel Horizon worker (requires Redis)
-  # Uncomment to enable Horizon for advanced queue management
-  # horizon:
-  #   enabled: false
-  #   replicaCount: 1
-  #
-  #   strategy:
-  #     type: RollingUpdate
-  #     rollingUpdate:
-  #       maxSurge: 1
-  #       maxUnavailable: 0
-  #
-  #   podAnnotations: {}
-  #   podLabels: {}
-  #
-  #   podSecurityContext:
-  #     runAsNonRoot: true
-  #     runAsUser: 82
-  #     fsGroup: 82
-  #     seccompProfile:
-  #       type: RuntimeDefault
-  #
-  #   securityContext:
-  #     allowPrivilegeEscalation: false
-  #     capabilities:
-  #       drop:
-  #       - ALL
-  #     readOnlyRootFilesystem: true
-  #
-  #   # Use the CLI image for workers
-  #   image:
-  #     repository: ghcr.io/5ergiu/images/laravel
-  #     tag: cli
-  #     pullPolicy: Always
-  #
-  #   # Horizon command
-  #   args: ["php", "artisan", "horizon"]
-  #
-  #   resources:
-  #     limits:
-  #       cpu: 1000m
-  #       memory: 1Gi
-  #     requests:
-  #       cpu: 250m
-  #       memory: 512Mi
-  #
-  #   # Horizon health check
-  #   livenessProbe:
-  #     enabled: true
-  #     exec:
-  #       command: ["healthcheck-horizon"]
-  #     initialDelaySeconds: 30
-  #     periodSeconds: 60
-  #     timeoutSeconds: 5
-  #     successThreshold: 1
-  #     failureThreshold: 3
-  #
-  #   # Autoscaling (typically Horizon runs as 1 instance)
-  #   autoscaling:
-  #     enabled: false
-  #     minReplicas: 1
-  #     maxReplicas: 3
-  #     targetCPUUtilizationPercentage: 70
-  #     targetMemoryUtilizationPercentage: 80
-  #
-  #   pdb:
-  #     enabled: true
-  #     minAvailable: 1
-  #
-  #   nodeSelector: {}
-  #   tolerations: []
-  #   affinity: {}
+  # ============================================================================
+  # Example 2: Laravel Horizon Worker (CLI)
+  # ============================================================================
+  # Runtime: http.entrypoint=none, php.engine=cli
+  # Image: Official PHP CLI image
+  # Command: php artisan horizon
+
+  horizon:
+    enabled: false
+    replicaCount: 1
+
+    http:
+      entrypoint: "none"
+    php:
+      engine: "cli"
+
+    image:
+      repository: php
+      tag: "8.3-cli"
+      pullPolicy: IfNotPresent
+
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+
+    podAnnotations: {}
+    podLabels: {}
+
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 82
+      fsGroup: 82
+      seccompProfile:
+        type: RuntimeDefault
+
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: true
+
+    # Horizon command
+    args: ["php", "artisan", "horizon"]
+
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+
+    # Horizon health check
+    livenessProbe:
+      enabled: true
+      exec:
+        command: ["healthcheck-horizon"]
+      initialDelaySeconds: 30
+      periodSeconds: 60
+      timeoutSeconds: 5
+      successThreshold: 1
+      failureThreshold: 3
+
+    # Autoscaling (typically Horizon runs as 1 instance)
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
+
+    pdb:
+      enabled: true
+      minAvailable: 1
+
+    sidecars: []
+    env: []
+    envFrom: []
+    volumes: []
+    volumeMounts: []
+    initContainers: []
+
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  # ============================================================================
+  # Example 3: Octane RoadRunner Worker (High-Performance)
+  # ============================================================================
+  # Runtime: http.entrypoint=none, php.engine=roadrunner
+  # Image: Custom Laravel Octane image with RoadRunner
+  # Command: php artisan queue:work
+  # Use case: CPU-intensive background tasks that benefit from persistent memory
+
+  octane-roadrunner-worker:
+    enabled: false
+    replicaCount: 1
+
+    http:
+      entrypoint: "none"
+    php:
+      engine: "roadrunner"
+
+    image:
+      repository: your-custom/laravel-octane
+      tag: "roadrunner-latest"
+      pullPolicy: IfNotPresent
+
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+
+    podAnnotations: {}
+    podLabels: {}
+
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 82
+      fsGroup: 82
+      seccompProfile:
+        type: RuntimeDefault
+
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: true
+
+    args:
+      - "php"
+      - "artisan"
+      - "queue:work"
+
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+
+    livenessProbe:
+      enabled: true
+      exec:
+        command: ["healthcheck-queue"]
+      initialDelaySeconds: 30
+      periodSeconds: 60
+      timeoutSeconds: 5
+      failureThreshold: 3
+
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 5
+      targetCPUUtilizationPercentage: 70
+
+    pdb:
+      enabled: false
+
+    sidecars: []
+    env: []
+    envFrom: []
+    volumes: []
+    volumeMounts: []
+    initContainers: []
+
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  # ============================================================================
+  # Example 4: Octane Swoole Worker (High-Performance)
+  # ============================================================================
+  # Runtime: http.entrypoint=none, php.engine=swoole
+  # Image: Custom Laravel Octane image with Swoole
+  # Command: php artisan queue:work
+  # Use case: CPU-intensive background tasks that benefit from persistent memory
+
+  octane-swoole-worker:
+    enabled: false
+    replicaCount: 1
+
+    http:
+      entrypoint: "none"
+    php:
+      engine: "swoole"
+
+    image:
+      repository: your-custom/laravel-octane
+      tag: "swoole-latest"
+      pullPolicy: IfNotPresent
+
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+
+    podAnnotations: {}
+    podLabels: {}
+
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 82
+      fsGroup: 82
+      seccompProfile:
+        type: RuntimeDefault
+
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: true
+
+    args:
+      - "php"
+      - "artisan"
+      - "queue:work"
+
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+
+    livenessProbe:
+      enabled: true
+      exec:
+        command: ["healthcheck-queue"]
+      initialDelaySeconds: 30
+      periodSeconds: 60
+      timeoutSeconds: 5
+      failureThreshold: 3
+
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 5
+      targetCPUUtilizationPercentage: 70
+
+    pdb:
+      enabled: false
+
+    sidecars: []
+    env: []
+    envFrom: []
+    volumes: []
+    volumeMounts: []
+    initContainers: []
+
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  # ============================================================================
+  # Example 5: Email Queue Worker (CLI)
+  # ============================================================================
+  # Runtime: http.entrypoint=none, php.engine=cli
+  # Image: Official PHP CLI image
+  # Command: php artisan queue:work --queue=emails
+  # Use case: Dedicated worker for email queue
+
+  emails:
+    enabled: false
+    replicaCount: 1
+
+    http:
+      entrypoint: "none"
+    php:
+      engine: "cli"
+
+    image:
+      repository: php
+      tag: "8.3-cli"
+      pullPolicy: IfNotPresent
+
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+
+    podAnnotations: {}
+    podLabels: {}
+
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 82
+      fsGroup: 82
+      seccompProfile:
+        type: RuntimeDefault
+
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: true
+
+    # Email queue worker command
+    args:
+      - "php"
+      - "artisan"
+      - "queue:work"
+      - "--queue=emails"
+      - "--tries=3"
+      - "--timeout=120"
+
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+    livenessProbe:
+      enabled: true
+      exec:
+        command: ["healthcheck-queue"]
+      initialDelaySeconds: 30
+      periodSeconds: 60
+      timeoutSeconds: 5
+      failureThreshold: 3
+
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 5
+      targetCPUUtilizationPercentage: 70
+
+    pdb:
+      enabled: false
+
+    sidecars: []
+    env: []
+    envFrom: []
+    volumes: []
+    volumeMounts: []
+    initContainers: []
+
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+# ============================================================================
+# Jobs Configuration
+# ============================================================================
 
 # Scheduler (Laravel Cron)
 scheduler:
   enabled: true
   schedule: "* * * * *"
 
+  # Scheduler uses CLI runtime
+  http:
+    entrypoint: "none"
+  php:
+    engine: "cli"
+
+  image:
+    repository: php
+    tag: "8.3-cli"
+    pullPolicy: IfNotPresent
+
   podAnnotations: {}
   podLabels: {}
 
-  # Minimal security context for short-lived cron job
-  # Set to your host user ID if needed (run: id -u)
-  # Note: scheduler is a short-lived job, fsGroup not needed
   podSecurityContext:
     runAsNonRoot: true
-    runAsUser: 82  # Alpine www-data user (change to match your image)
+    runAsUser: 82
 
   securityContext:
     allowPrivilegeEscalation: false
@@ -491,15 +1288,23 @@ scheduler:
 migration:
   enabled: true
 
+  # Migration uses CLI runtime
+  http:
+    entrypoint: "none"
+  php:
+    engine: "cli"
+
+  image:
+    repository: php
+    tag: "8.3-cli"
+    pullPolicy: IfNotPresent
+
   podAnnotations: {}
   podLabels: {}
 
-  # Minimal security context for short-lived cron job
-  # Set to your host user ID if needed (run: id -u)
-  # Note: scheduler is a short-lived job, fsGroup not needed
   podSecurityContext:
     runAsNonRoot: true
-    runAsUser: 82  # Alpine www-data user (change to match your image)
+    runAsUser: 82
 
   securityContext:
     allowPrivilegeEscalation: false
@@ -525,6 +1330,10 @@ migration:
   nodeSelector: {}
   tolerations: []
   affinity: {}
+
+# ============================================================================
+# Ingress Configuration
+# ============================================================================
 
 # Ingress configuration (legacy Kubernetes Ingress)
 # Note: Use either ingress OR ingressRoute, not both
@@ -602,9 +1411,13 @@ ingressRoute:
     #   name: tls-options
     #   namespace: default
 
-# Traefik Middleware configuration
+# ============================================================================
+# Traefik Middleware Configuration
+# ============================================================================
+
 middleware:
   enabled: true
+
   # Rate limiting
   rateLimit:
     enabled: true
@@ -698,6 +1511,15 @@ middleware:
     # Retry expression for failed requests
     # retryExpression: "IsNetworkError() && Attempts() < 2"
 
+# ============================================================================
+# Laravel & PHP Configuration
+# ============================================================================
+# Global environment variables shared across ALL deployments (web, workers, scheduler, migration)
+# These are merged into a ConfigMap and Secret and injected into every deployment
+#
+# For deployment-specific environment overrides, use the 'env' field in the
+# respective deployment configuration (e.g., web.env, workers.default.env)
+
 # Laravel application configuration
 laravel:
   # Environment variables from ConfigMap
@@ -762,67 +1584,12 @@ laravel:
     PUSHER_APP_KEY: ""
     PUSHER_APP_SECRET: ""
 
-# PHP Configuration (ServersideUp PHP Image)
-# All settings are passed as environment variables
-# See: https://github.com/serversideup/docker-php/blob/main/docs/content/docs/8.reference/1.environment-variable-specification.md
-php:
-  # Environment variables for PHP configuration
-  # These are passed directly to the container using their exact names
-  env:
-    # General Settings
-    DISABLE_DEFAULT_CONFIG: "true"
-    APP_BASE_DIR: "/var/www/html"
-    HEALTHCHECK_PATH: "/healthcheck"
+# ============================================================================
+# Temporary Filesystem Volumes
+# ============================================================================
+# Required when readOnlyRootFilesystem is enabled
+# These tmpfs volumes provide writable directories for Laravel
 
-    # PHP Runtime Settings
-    PHP_DATE_TIMEZONE: "UTC"
-    PHP_DISPLAY_ERRORS: "Off"  # Set to "On" for development
-    PHP_DISPLAY_STARTUP_ERRORS: "Off"
-    PHP_ERROR_LOG: "/dev/stderr"
-    PHP_ERROR_REPORTING: "22527"  # E_ALL & ~E_DEPRECATED & ~E_STRICT
-    PHP_MAX_EXECUTION_TIME: "99"  # seconds
-    PHP_MAX_INPUT_TIME: "-1"  # seconds (-1 = unlimited)
-    PHP_MAX_INPUT_VARS: "1000"
-    PHP_MEMORY_LIMIT: "256M"
-    PHP_OPEN_BASEDIR: ""  # Leave empty or set paths: "/var/www/html:/tmp"
-    PHP_POST_MAX_SIZE: "100M"
-    PHP_REALPATH_CACHE_TTL: "120"  # seconds
-    PHP_SESSION_COOKIE_SECURE: "1"  # 1 = true, 0 = false
-    PHP_UPLOAD_MAX_FILE_SIZE: "100M"
-    PHP_ZEND_MULTIBYTE: "Off"
-    PHP_ZEND_DETECT_UNICODE: ""
-
-    # OPcache Settings (Production: enable opcache for performance)
-    PHP_OPCACHE_ENABLE: "1"  # 1 = enabled, 0 = disabled
-    PHP_OPCACHE_ENABLE_FILE_OVERRIDE: "0"
-    PHP_OPCACHE_FORCE_RESTART_TIMEOUT: "180"  # seconds
-    PHP_OPCACHE_INTERNED_STRINGS_BUFFER: "8"  # MB
-    PHP_OPCACHE_JIT: "off"  # Options: off, function, tracing
-    PHP_OPCACHE_JIT_BUFFER_SIZE: "0"  # MB
-    PHP_OPCACHE_MAX_ACCELERATED_FILES: "10000"
-    PHP_OPCACHE_MEMORY_CONSUMPTION: "128"  # MB
-    PHP_OPCACHE_REVALIDATE_FREQ: "2"  # seconds
-    PHP_OPCACHE_SAVE_COMMENTS: "1"
-    PHP_OPCACHE_VALIDATE_TIMESTAMPS: "0"  # 0 for production (no file checks), 1 for development
-
-    # PHP-FPM Settings
-    PHP_FPM_POOL_NAME: "www"
-    PHP_FPM_PM_CONTROL: "dynamic"  # Options: static, dynamic, ondemand
-    PHP_FPM_PM_MAX_CHILDREN: "20"
-    PHP_FPM_PM_START_SERVERS: "2"
-    PHP_FPM_PM_MIN_SPARE_SERVERS: "1"
-    PHP_FPM_PM_MAX_SPARE_SERVERS: "3"
-    PHP_FPM_PM_MAX_REQUESTS: "0"  # 0 = unlimited
-    PHP_FPM_PM_STATUS_PATH: ""  # e.g., "/fpm-status"
-    PHP_FPM_PROCESS_CONTROL_TIMEOUT: "10"  # seconds
-
-    # Composer Settings
-    COMPOSER_ALLOW_SUPERUSER: "1"
-    COMPOSER_HOME: "/composer"
-    COMPOSER_MAX_PARALLEL_HTTP: "24"
-
-# Temporary filesystem volumes for Laravel writable directories
-# These are required when readOnlyRootFilesystem is enabled
 tmpfsVolumes:
   enabled: true
   mounts:
@@ -837,7 +1604,10 @@ tmpfsVolumes:
     - name: tmp
       mountPath: /tmp
 
-# Persistence configuration
+# ============================================================================
+# Persistence Configuration
+# ============================================================================
+
 persistence:
   enabled: true
   storageClass: ""
@@ -852,24 +1622,13 @@ persistence:
       mountPath: /var/www/html/storage/logs
       subPath: logs
 
-# External secrets (if using external secrets operator)
+# ============================================================================
+# External Secrets Configuration
+# ============================================================================
+# If using external secrets operator
+
 externalSecrets:
   enabled: false
   backendType: secretsManager
   region: us-east-1
   data: []
-
-# Init containers
-initContainers: []
-
-# Extra volumes
-extraVolumes: []
-
-# Extra volume mounts
-extraVolumeMounts: []
-
-# Extra environment variables
-extraEnv: []
-
-# Extra environment variables from ConfigMaps/Secrets
-extraEnvFrom: []

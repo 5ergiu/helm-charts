@@ -1,10 +1,11 @@
 {{- if and .Values.web.enabled .Values.web.pdb.enabled }}
+---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: {{ include "laravel.fullname" . }}-web
   labels:
-    {{- include "laravel.web.labels" . | nindent 4 }}
+    {{- include "laravel.deployment.labels" (dict "root" . "component" "web") | nindent 4 }}
 spec:
   {{- if .Values.web.pdb.minAvailable }}
   minAvailable: {{ .Values.web.pdb.minAvailable }}
@@ -14,18 +15,18 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      {{- include "laravel.web.selectorLabels" . | nindent 6 }}
+      {{- include "laravel.deployment.selectorLabels" (dict "root" . "component" "web") | nindent 6 }}
 {{- end }}
----
+
 {{- range $workerName, $workerConfig := .Values.workers }}
 {{- if and $workerConfig.enabled $workerConfig.pdb.enabled }}
+---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: {{ include "laravel.fullname" $ }}-worker-{{ $workerName }}
   labels:
-    {{- include "laravel.labels" $ | nindent 4 }}
-    app.kubernetes.io/component: worker-{{ $workerName }}
+    {{- include "laravel.deployment.labels" (dict "root" $ "component" (printf "worker-%s" $workerName)) | nindent 4 }}
 spec:
   {{- if $workerConfig.pdb.minAvailable }}
   minAvailable: {{ $workerConfig.pdb.minAvailable }}
@@ -35,8 +36,6 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      {{- include "laravel.selectorLabels" $ | nindent 6 }}
-      app.kubernetes.io/component: worker-{{ $workerName }}
----
+      {{- include "laravel.deployment.selectorLabels" (dict "root" $ "component" (printf "worker-%s" $workerName)) | nindent 6 }}
 {{- end }}
 {{- end }}

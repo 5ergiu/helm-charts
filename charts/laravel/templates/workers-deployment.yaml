@@ -1,6 +1,0 @@
-{{- range $workerName, $workerConfig := .Values.workers }}
-{{- if $workerConfig.enabled }}
----
-{{ include "laravel.deployment" (dict "root" $ "component" (printf "worker-%s" $workerName) "config" $workerConfig) }}
-{{- end }}
-{{- end }}

@@ -1,8 +1,8 @@
 apiVersion: v2
 name: laravel
-description: A production-grade Helm chart for Laravel applications
+description: A production-grade Helm chart for Laravel applications with flexible per-deployment runtime configuration
 type: application
-version: 0.2.5
+version: 3.1.0
 appVersion: "12.x"
 keywords:
   - laravel
@@ -23,14 +23,6 @@ annotations:
   displayName: Laravel Helm Chart
   licenses: Apache-2.0
   artifacthub.io/category: networking
-  artifacthub.io/changes: |-
-    - kind: changed
-      description: multiple fixes
-    - kind: changed
-      description: multiple fixes applied to charts and docker images and workflows (#5)
-      links:
-        - name: GitHub PR
-          url: https://github.com/5ergiu/helm-charts/pull/5
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/links: |
     - name: Laravel
@@ -41,7 +33,31 @@ annotations:
       url: https://github.com/laravel/laravel
     - name: Maintainer 5ergiu
       url: https://github.com/5ergiu
-  artifacthub.io/prerelease: "true"
   artifacthub.io/signKey: |
     fingerprint: 7fa3b00701ad776b7d7f9cbb806c518b16320ae49ba814e6eee3c5ee4a6613c1
     url: https://github.com/5ergiu/helm-charts/blob/main/cosign.pub
+  artifacthub.io/changes: |
+    - kind: added
+      description: "Per-deployment http.entrypoint and php.engine configuration - users choose runtime per deployment"
+    - kind: added
+      description: "Support for ALL Laravel runtime modes: FPM+Nginx/Apache/Caddy, FrankenPHP, Octane (RoadRunner/Swoole), CLI"
+    - kind: added
+      description: "Multiple worker variants: default (CLI), horizon (CLI), octane-roadrunner-worker, octane-swoole-worker, emails"
+    - kind: added
+      description: "Global ConfigMap-based PHP configuration (php.ini, php-fpm.conf, Caddyfile, .octane.php) shared across deployments"
+    - kind: added
+      description: "Automatic HTTP sidecar injection (nginx/apache/caddy) based on http.entrypoint setting"
+    - kind: added
+      description: "Automatic PHP config volume mounts based on php.engine setting"
+    - kind: changed
+      description: "BREAKING: Simplified to single web deployment with http/php configured in web.http and web.php"
+    - kind: changed
+      description: "BREAKING: Removed global images - each deployment specifies its own image"
+    - kind: changed
+      description: "BREAKING: Replaced php.env with php.ini ConfigMap for image-agnostic configuration"
+    - kind: changed
+      description: "BREAKING: Web deployment disabled by default - must explicitly enable and configure"
+    - kind: changed
+      description: "BREAKING: Removed app.mode - Octane inferred from php.engine (roadrunner/swoole/frankenphp)"
+    - kind: changed
+      description: "BREAKING: Removed validation - users responsible for valid http/php combinations"

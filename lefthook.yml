@@ -1,56 +1,51 @@
-# ============================================================
-#  🔥 Lefthook — Modern Git Hooks for Any Language Project
-# ============================================================
+# ===================================================================
+#  🔥 Lefthook — Modern Git Hooks
+# ===================================================================
+# Fast, parallelized, and language-agnostic Git hook manager.
+# This configuration enforces code quality, formatting, and 
+# Conventional Commits standards before code leaves the
+# local dev environment.
+#
+# Links:
+# - Docs: https://lefthook.dev/
+# - Conventional Commits: https://conventionalcommits.org
+# ===================================================================
+
 
 # ===================================================================
-# 🧹 Pre-commit checks optimized for a HELM CHARTS repo
+# 🧹 Pre-commit checks
 # ===================================================================
 pre-commit:
   parallel: true
   commands:
 
-    # --- Syntax & chart validation ---
-    helm_lint:
+    # --- 🧪 Helm Lint: Validate Chart syntax ---
+    helm-lint:
+      glob: "**/Chart.yaml"
       run: |
-        if command -v helm > /dev/null; then
-          for chart in $(ls -d */ | sed 's#/##'); do
-            if [ -f "$chart/Chart.yaml" ]; then
-              echo "🧪 Helm lint: $chart"
-              helm lint "$chart" || exit 1
-            fi
-          done
-        fi
+        for chart in $(echo "{staged_files}" | xargs -n1 dirname | sort -u); do
+          echo "✨ Linting Chart: $chart"
+          helm lint "$chart"
+        done
 
-    # --- Render templates to catch errors ---
-    helm_template:
+    # --- 🏗️ Helm Template: Catch rendering errors ---
+    helm-template:
+      glob: "**/Chart.yaml"
       run: |
-        if command -v helm > /dev/null; then
-          for chart in $(ls -d */ | sed 's#/##'); do
-            if [ -f "$chart/Chart.yaml" ]; then
-              echo "📦 Helm template: $chart"
-              helm template "$chart" > /dev/null || exit 1
-            fi
-          done
-        fi
+        for chart in $(echo "{staged_files}" | xargs -n1 dirname | sort -u); do
+          echo "📦 Rendering Template: $chart"
+          helm template "$chart" > /dev/null
+        done
 
-    # --- Prevent secrets from being committed ---
+    # --- 🔐 Gitleaks: Prevent secret leaks ---
     gitleaks:
-      run: |
-        if command -v gitleaks > /dev/null; then
-          gitleaks protect --staged --verbose || exit 1
-        fi
+      run: gitleaks protect --staged --verbose
+      # Optional: custom message if the command fails for any reason
+      fail_text: "🔐 Gitleaks failed! Make sure it is installed and no secrets are staged."
 
-# -------------------------------------------------------------------
-# 🧪 Validate Conventional Commits format
-# -------------------------------------------------------------------
-commit-msg:
-  commands:
-    validate_commit:
-      run: ./.lefthook/validate-commit-msg.sh {1}
-
-# -------------------------------------------------------------------
+# ===================================================================
 # 📝 Enforce czg for ALL commits
-# -------------------------------------------------------------------
+# ===================================================================
 prepare-commit-msg:
   commands:
     czg:
@@ -59,3 +54,14 @@ prepare-commit-msg:
       skip:
         - merge
         - rebase
+        - cherry-pick
+        - revert
+        - squash
+
+# ===================================================================
+# 🧪 Validate Conventional Commits format
+# ===================================================================
+commit-msg:
+  commands:
+    validate-commit:
+      run: ./.lefthook/validate-commit.sh {1}

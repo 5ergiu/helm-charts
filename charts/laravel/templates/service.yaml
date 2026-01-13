@@ -4,7 +4,7 @@ kind: Service
 metadata:
   name: {{ include "laravel.fullname" . }}-web
   labels:
-    {{- include "laravel.web.labels" . | nindent 4 }}
+    {{- include "laravel.deployment.labels" (dict "root" . "component" "web") | nindent 4 }}
   {{- with .Values.web.service.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -17,5 +17,5 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "laravel.web.selectorLabels" . | nindent 4 }}
+    {{- include "laravel.deployment.selectorLabels" (dict "root" . "component" "web") | nindent 4 }}
 {{- end }}

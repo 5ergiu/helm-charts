@@ -1,0 +1,136 @@
+{{- if .Values.http }}
+{{- if .Values.http.apache }}
+{{- if .Values.http.apache.enabled }}
+{{- $apacheConfig := .Values.http.apache }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "laravel.fullname" . }}-apache
+  labels:
+    {{- include "laravel.labels" . | nindent 4 }}
+data:
+  httpd.conf: |
+    ServerRoot "/usr/local/apache2"
+    Listen {{ $apacheConfig.port | default 8080 }}
+
+    # Load required modules
+    LoadModule mpm_event_module modules/mod_mpm_event.so
+    LoadModule authn_core_module modules/mod_authn_core.so
+    LoadModule authz_core_module modules/mod_authz_core.so
+    LoadModule mime_module modules/mod_mime.so
+    LoadModule log_config_module modules/mod_log_config.so
+    LoadModule env_module modules/mod_env.so
+    LoadModule headers_module modules/mod_headers.so
+    LoadModule setenvif_module modules/mod_setenvif.so
+    LoadModule version_module modules/mod_version.so
+    LoadModule unixd_module modules/mod_unixd.so
+    LoadModule dir_module modules/mod_dir.so
+    LoadModule alias_module modules/mod_alias.so
+    LoadModule rewrite_module modules/mod_rewrite.so
+    LoadModule proxy_module modules/mod_proxy.so
+    LoadModule proxy_fcgi_module modules/mod_proxy_fcgi.so
+
+    # Security
+    ServerTokens {{ $apacheConfig.serverTokens | default "Prod" }}
+    ServerSignature {{ $apacheConfig.serverSignature | default "Off" }}
+    TraceEnable Off
+
+    # User/Group (for Alpine)
+    User apache
+    Group apache
+
+    # Logging
+    ErrorLog {{ $apacheConfig.errorLog | default "/dev/stderr" }}
+    LogLevel {{ $apacheConfig.logLevel | default "warn" }}
+    LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" combined
+    {{- if ne ($apacheConfig.accessLog | default "/dev/stdout") "off" }}
+    CustomLog {{ $apacheConfig.accessLog | default "/dev/stdout" }} combined
+    {{- end }}
+
+    # Performance & Limits
+    Timeout 300
+    KeepAlive On
+    MaxKeepAliveRequests {{ $apacheConfig.maxKeepAliveRequests | default 100 }}
+    KeepAliveTimeout {{ $apacheConfig.keepAliveTimeout | default 5 }}
+    LimitRequestBody {{ $apacheConfig.limitRequestBody | default 104857600 }}
+
+    # MPM Event configuration
+    <IfModule mpm_event_module>
+        ServerLimit 16
+        StartServers 2
+        MinSpareThreads 25
+        MaxSpareThreads 75
+        ThreadLimit 64
+        ThreadsPerChild 25
+        MaxRequestWorkers {{ $apacheConfig.maxRequestWorkers | default 150 }}
+        MaxConnectionsPerChild 0
+    </IfModule>
+
+    # MIME types
+    TypesConfig /usr/local/apache2/conf/mime.types
+
+    # DocumentRoot
+    DocumentRoot "{{ $apacheConfig.root | default "/var/www/html/public" }}"
+
+    <Directory "{{ $apacheConfig.root | default "/var/www/html/public" }}">
+        Options -Indexes +FollowSymLinks
+        AllowOverride None
+        Require all granted
+
+        # Laravel routing
+        RewriteEngine On
+
+        # Handle Authorization Header
+        RewriteCond %{HTTP:Authorization} .
+        RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+        # Redirect to index.php if not a file/directory
+        RewriteCond %{REQUEST_FILENAME} !-f
+        RewriteCond %{REQUEST_FILENAME} !-d
+        RewriteRule ^ index.php [L]
+
+        # PHP-FPM via FastCGI
+        <FilesMatch \.php$>
+            SetHandler "proxy:fcgi://127.0.0.1:9000"
+        </FilesMatch>
+
+        # Deny access to hidden files
+        <FilesMatch "^\.">
+            Require all denied
+        </FilesMatch>
+
+        # Allow .well-known for Let's Encrypt
+        <Directory ~ "\.well-known">
+            Require all granted
+        </Directory>
+    </Directory>
+
+    # Healthcheck endpoint
+    <Location /healthcheck>
+        SetHandler "proxy:fcgi://127.0.0.1:9000"
+    </Location>
+
+    # Disable access to .git and other sensitive files
+    <DirectoryMatch "^/.*/\.(git|svn|hg)">
+        Require all denied
+    </DirectoryMatch>
+
+    # FastCGI timeout
+    ProxyTimeout {{ $apacheConfig.fcgiConnectTimeout | default 120 }}
+
+    # Static asset caching
+    <FilesMatch "\.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+
+    # Favicon - don't log
+    <Files "favicon.ico">
+        SetEnvIf Request_URI "^/favicon\.ico$" dontlog
+    </Files>
+
+    # Robots.txt - don't log
+    <Files "robots.txt">
+        SetEnvIf Request_URI "^/robots\.txt$" dontlog
+    </Files>
+{{- end }}

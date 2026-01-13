@@ -37,15 +37,6 @@ FROM serversideup/php:8.5-cli-alpine AS cli
 # Copy custom entrypoint scripts
 COPY --chmod=755 ./entrypoint.d/ /etc/entrypoint.d/
 
-# Switch to root to install extensions
-USER root
-
-# Install required PHP extensions
-RUN install-php-extensions pcntl
-
-# Switch back to www-data
-USER www-data
-
 WORKDIR /var/www/html
 
 # Copy fresh Laravel application

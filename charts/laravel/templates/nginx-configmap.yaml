@@ -1,20 +1,18 @@
-{{- if .Values.web.reverseProxy.nginx.enabled }}
+{{- if .Values.http }}
+{{- if .Values.http.nginx }}
+{{- if .Values.http.nginx.enabled }}
+{{- $nginxConfig := .Values.http.nginx }}
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ include "laravel.fullname" . }}-nginx
   labels:
     {{- include "laravel.labels" . | nindent 4 }}
-  {{- if .Values.migration.enabled }}
-  annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
-    "helm.sh/hook-weight": "-10"
-    "helm.sh/hook-delete-policy": before-hook-creation
-  {{- end }}
 data:
   nginx.conf: |
     worker_processes auto;
-    error_log {{ .Values.web.reverseProxy.nginx.errorLog }} {{ .Values.web.reverseProxy.nginx.errorLevel }};
+    error_log {{ $nginxConfig.errorLog | default "/dev/stderr" }} {{ $nginxConfig.errorLevel | default "warn" }};
     pid /tmp/nginx.pid;
 
     events {
@@ -30,8 +28,7 @@ data:
                         '$status $body_bytes_sent "$http_referer" '
                         '"$http_user_agent" "$http_x_forwarded_for"';
 
-        # Disable access logs
-        access_log {{ .Values.web.reverseProxy.nginx.accessLog }};
+        access_log {{ $nginxConfig.accessLog | default "off" }};
 
         # Temporary file paths for read-only filesystem
         client_body_temp_path /tmp/nginx 1 2;
@@ -41,22 +38,21 @@ data:
         scgi_temp_path /tmp/nginx-scgi;
 
         # Client body size - should match or exceed Traefik's buffering.maxRequestBodyBytes
-        # This prevents nginx from rejecting requests that Traefik would allow
-        client_max_body_size {{ .Values.web.reverseProxy.nginx.clientMaxBodySize }};
+        client_max_body_size {{ $nginxConfig.clientMaxBodySize | default "100M" }};
 
         # Performance
         sendfile on;
-        keepalive_timeout {{ .Values.web.reverseProxy.nginx.keepaliveTimeout }};
+        keepalive_timeout {{ $nginxConfig.keepaliveTimeout | default 65 }};
 
         server {
-            listen {{ .Values.web.reverseProxy.nginx.port }};
-            listen [::]:{{ .Values.web.reverseProxy.nginx.port }};
+            listen {{ $nginxConfig.port | default 8080 }};
+            listen [::]:{{ $nginxConfig.port | default 8080 }};
 
-            root {{ .Values.web.reverseProxy.nginx.root }};
+            root {{ $nginxConfig.root | default "/var/www/html/public" }};
             index index.php index.html;
 
             server_name _;
-            server_tokens {{ .Values.web.reverseProxy.nginx.serverTokens }};
+            server_tokens {{ $nginxConfig.serverTokens | default "off" }};
 
             # Disable absolute redirects
             absolute_redirect off;
@@ -81,9 +77,9 @@ data:
                 fastcgi_index index.php;
                 fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
                 include fastcgi_params;
-                fastcgi_buffers {{ .Values.web.reverseProxy.nginx.fastcgiBuffers }};
-                fastcgi_buffer_size {{ .Values.web.reverseProxy.nginx.fastcgiBufferSize }};
-                fastcgi_read_timeout {{ .Values.web.reverseProxy.nginx.fastcgiReadTimeout }};
+                fastcgi_buffers {{ $nginxConfig.fastcgiBuffers | default "8 8k" }};
+                fastcgi_buffer_size {{ $nginxConfig.fastcgiBufferSize | default "8k" }};
+                fastcgi_read_timeout {{ $nginxConfig.fastcgiReadTimeout | default "120s" }};
             }
 
             # Favicon

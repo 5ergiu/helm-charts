@@ -157,7 +157,7 @@ kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Relea
 
 {{- if $workersEnabled }}
 # View logs for worker pods
-kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} --selector='app.kubernetes.io/component in ({{- range $i, $workerName := keys .Values.workers }}{{- if $i }},{{- end }}worker-{{ $workerName }}{{- end }})' -f
+kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/component~=worker- -f
 {{- end }}
 
 {{- if $schedulerEnabled }}

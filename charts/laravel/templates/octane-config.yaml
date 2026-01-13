@@ -1,0 +1,16 @@
+{{- if .Values.php }}
+{{- if .Values.php.octane }}
+{{- if .Values.php.octane.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "laravel.fullname" . }}-octane
+  labels:
+    {{- include "laravel.labels" . | nindent 4 }}
+data:
+  .octane.php: |
+{{ .Values.php.octane.config | indent 4 }}
+{{- end }}
+{{- end }}
+{{- end }}

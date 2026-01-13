@@ -44,27 +44,20 @@ spec:
             - name: scheduler
               securityContext:
                 {{- toYaml .Values.scheduler.securityContext | nindent 16 }}
-              image: {{ include "laravel.image" . }}
-              imagePullPolicy: {{ include "laravel.imagePullPolicy" . }}
+              image: {{ include "laravel.scheduler.image" . }}
+              imagePullPolicy: {{ include "laravel.scheduler.imagePullPolicy" . }}
               command:
                 {{- toYaml .Values.scheduler.command | nindent 16 }}
               envFrom:
                 {{- include "laravel.envConfigMap" . | nindent 16 }}
                 {{- include "laravel.envSecret" . | nindent 16 }}
-              {{- with .Values.extraEnvFrom }}
-                {{- toYaml . | nindent 16 }}
-              {{- end }}
-              {{- with .Values.extraEnv }}
-              env:
-                {{- toYaml . | nindent 16 }}
-              {{- end }}
               resources:
                 {{- toYaml .Values.scheduler.resources | nindent 16 }}
-              {{- if or .Values.tmpfsVolumes.enabled .Values.persistence.enabled .Values.extraVolumeMounts }}
+              {{- if or .Values.tmpfsVolumes.enabled .Values.persistence.enabled }}
               volumeMounts:
                 {{- include "laravel.volumeMounts" . | nindent 16 }}
               {{- end }}
-          {{- if or .Values.tmpfsVolumes.enabled .Values.persistence.enabled .Values.extraVolumes }}
+          {{- if or .Values.tmpfsVolumes.enabled .Values.persistence.enabled }}
           volumes:
             {{- include "laravel.volumes" . | nindent 12 }}
           {{- end }}

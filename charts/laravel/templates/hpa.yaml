@@ -1,10 +1,11 @@
 {{- if and .Values.web.enabled .Values.web.autoscaling.enabled }}
+---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ include "laravel.fullname" . }}-web
   labels:
-    {{- include "laravel.web.labels" . | nindent 4 }}
+    {{- include "laravel.deployment.labels" (dict "root" . "component" "web") | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -34,16 +35,16 @@ spec:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 {{- end }}
----
+
 {{- range $workerName, $workerConfig := .Values.workers }}
 {{- if and $workerConfig.enabled $workerConfig.autoscaling.enabled }}
+---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ include "laravel.fullname" $ }}-worker-{{ $workerName }}
   labels:
-    {{- include "laravel.labels" $ | nindent 4 }}
-    app.kubernetes.io/component: worker-{{ $workerName }}
+    {{- include "laravel.deployment.labels" (dict "root" $ "component" (printf "worker-%s" $workerName)) | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -72,6 +73,5 @@ spec:
   behavior:
     {{- toYaml . | nindent 4 }}
   {{- end }}
----
 {{- end }}
 {{- end }}

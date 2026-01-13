@@ -42,20 +42,13 @@ spec:
         - name: migration
           securityContext:
             {{- toYaml .Values.migration.securityContext | nindent 12 }}
-          image: {{ include "laravel.image" . }}
-          imagePullPolicy: {{ include "laravel.imagePullPolicy" . }}
+          image: {{ include "laravel.migration.image" . }}
+          imagePullPolicy: {{ include "laravel.migration.imagePullPolicy" . }}
           command:
             {{- toYaml .Values.migration.command | nindent 12 }}
           envFrom:
             {{- include "laravel.envConfigMap" . | nindent 12 }}
             {{- include "laravel.envSecret" . | nindent 12 }}
-          {{- with .Values.extraEnvFrom }}
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.extraEnv }}
-          env:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
           resources:
             {{- toYaml .Values.migration.resources | nindent 12 }}
           volumeMounts:

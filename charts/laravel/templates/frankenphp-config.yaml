@@ -1,0 +1,16 @@
+{{- if .Values.php }}
+{{- if .Values.php.frankenphp }}
+{{- if .Values.php.frankenphp.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "laravel.fullname" . }}-frankenphp
+  labels:
+    {{- include "laravel.labels" . | nindent 4 }}
+data:
+  Caddyfile: |
+{{ .Values.php.frankenphp.caddyfile | indent 4 }}
+{{- end }}
+{{- end }}
+{{- end }}

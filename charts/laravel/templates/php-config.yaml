@@ -1,0 +1,36 @@
+{{- if .Values.php }}
+{{- if .Values.php.ini }}
+{{- if .Values.php.ini.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "laravel.fullname" . }}-php-ini
+  labels:
+    {{- include "laravel.labels" . | nindent 4 }}
+data:
+  zz-custom.ini: |
+    {{- range $key, $value := .Values.php.ini.config }}
+    {{ $key }} = {{ $value }}
+    {{- end }}
+{{- end }}
+{{- end }}
+
+{{- if .Values.php.fpm }}
+{{- if .Values.php.fpm.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "laravel.fullname" . }}-php-fpm
+  labels:
+    {{- include "laravel.labels" . | nindent 4 }}
+data:
+  zz-custom.conf: |
+    [www]
+    {{- range $key, $value := .Values.php.fpm.config }}
+    {{ $key }} = {{ $value }}
+    {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
