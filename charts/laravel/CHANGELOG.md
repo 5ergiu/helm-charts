@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
+## [0.3.0](https://github.com/5ergiu/helm-charts/compare/laravel-0.2.6..laravel-0.3.0) - 2026-01-18
+### ♻️ Refactoring
+
+- ♻️ refactored laravel chart ([afb696e](https://github.com/5ergiu/helm-charts/commit/afb696eb7b15e5d72feb5813b07c26df2aa98412))
+### ✨ Features
+
+- :sparkles: fff ([e1af9b3](https://github.com/5ergiu/helm-charts/commit/e1af9b3ae39b2c5f64bbf4c389641ba769ab16ae))
 ## [0.2.5](https://github.com/5ergiu/helm-charts/compare/laravel-0.2.4..laravel-0.2.5) - 2025-12-19
 ### 🐛 Fixes
 
