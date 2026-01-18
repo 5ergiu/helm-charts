@@ -38,7 +38,7 @@
     {
       "value": "refactor",
       "name": "♻️  refactor: A code change that neither fixes a bug nor adds a feature",
-      "emoji": "♻️"
+      "emoji": "♻️ "
     },
     {
       "value": "perf",
